@@ -193,8 +193,5 @@ hand with the dump flags set.
   does.
 - Stage ids 0x15 (Akaneia) and 0x1A (Icetop) are not playable VS stages;
   `sweep.py` skips them.
-- The VS character select header ("2-Minute ...") is drawn garbled in every
-  aspect and without packs: the number and the appended SisLib strings
-  overlap (`mnCharSel_8025BD30`). Inherited from melee-pc.
 - Not interpolated: SisLib text and other immediate-mode drawing that moves
   per tick. In matches that is nothing visible found so far.

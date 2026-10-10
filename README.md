@@ -23,11 +23,11 @@ this repository.
 | Widescreen | 16:9 is the default for new installs, in every scene except the pre-rendered movies; 4:3 ("Original") is in settings. A screen-by-screen polish pass is still to come. |
 | Smooth motion | On 100 Hz+ displays, frames are presented at the display's refresh rate and blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails). The simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. Settings: Auto / On / Off. |
 | HD textures | Community packs (HD Remix base plus gap-fills) merged and BC7-encoded with mipmaps; every texture they miss is AI-upscaled (Real-ESRGAN). The character select icons and hover portraits use the **original art, AI-upscaled**. Selectable stock-icon styles. |
+| Text | Glyph spacing in all in-game text (menus, names, headers) reads the right metrics; it was garbled in melee-pc. |
 | Stability | A soak test plays every stage with every costume, plus every 1P mode and menu, with heap canaries and render audits on: 52/52 pass, steady 60 ticks/s. Fixes so far: Big Blue, Pichu's Thunder, star KOs, Kirby's copy hat, a heap race between disc loading and the game. |
 | Settings (F1) | Aspect, HUD layout, resolution, smooth motion, HD textures, stock icon style, plus everything melee-pc already had. |
 
-Known issues: the VS character select header text is garbled (inherited
-from melee-pc, being fixed); see [docs/melee-4k.md](docs/melee-4k.md#known-issues).
+Known issues: see [docs/melee-4k.md](docs/melee-4k.md#known-issues).
 
 ## Building and running (current, developer setup)
 
@@ -81,7 +81,8 @@ Setup will download a prebuilt pack instead.
 - [x] Smooth motion at 120/144 Hz
 - [x] Soak test across every stage, character and mode; crashes found so far fixed
 - [x] Offline texture extractor (99.9% coverage, bit-exact decoding) and original character select art
-- [ ] Widescreen polish, screen by screen (including the CSS header text)
+- [x] In-game text spacing fixed (was garbled on every SisLib string)
+- [ ] Widescreen polish, screen by screen
 - [ ] Determinism check: smooth motion on/off replays identically
 - [ ] Menu walker covering every screen; texture review pass
 - [ ] Controllers: DualSense and Switch Pro, checked on macOS and Windows

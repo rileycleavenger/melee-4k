@@ -48,6 +48,10 @@ Bug classes that keep coming back when bringing up a new scene:
   real with `-Wreturn-type` (it is not emitted under `-fsyntax-only`).
 - Walking an object as `void**` and indexing by GameCube word number scales by 8,
   so `p[0x14]` for byte 0x50 lands at byte 160. Index by name.
+- The reverse: an asm byte offset reused as a typed index. `(idx * 2) & 0x1FFFE`
+  into the 2-byte SisLib glyph metrics table (`hsd_3A76.c`) read glyph 2*idx,
+  so every string was spaced with another glyph's metrics and glyphs past 0x8F
+  read off the table (the CSS "2-minute KO fest!" header came out scrambled).
 - Japanese string literals are Shift-JIS at runtime; the build passes
   `-fexec-charset=CP932`.
 - Plain `char` is signed on GameCube (mwcc defaults to `-char signed`) and on
