@@ -432,13 +432,19 @@ void ftCo_800D41C4(Fighter_GObj* gobj)
 void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    s32 x504 = p_ftCommonData->x504;
-    s32* data = &x504;
+    /* PORT: the retail code walks p_ftCommonData from x504 as an array
+     * (data[1] = x508, data[2] = x50C, data+3 = x510, data+4 = x514,
+     * data+6 = x51C). A copy of x504 alone was taken here and indexed past,
+     * reading the stack: when x508 came back 0 the self_vel divisions below
+     * made the star-KO'd fighter's position inf/NaN, which then tripped
+     * lbVector_WorldToScreen's range assert on the next draw. Read the
+     * fields by name instead. */
+    ftCommonData* cd = p_ftCommonData;
 
     switch (fp->mv.co.unk_deadup.x44) {
     case 1:
         if (fp->mv.co.unk_deadup.x68 != 0) {
-            f32 rot_speed = *(f32*) (data + 6);
+            f32 rot_speed = cd->x51C_radians;
             HSD_JObj* jobj =
                 fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint;
             HSD_JObjAddRotationX(jobj, rot_speed);
@@ -454,11 +460,10 @@ void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
         switch (fp->mv.co.unk_deadup.x44) {
         case 0:
             fp->self_vel.y =
-                (*(f32*) (data + 4) * Stage_GetCamBoundsTopOffset() -
-                 fp->cur_pos.y) /
-                (f32) data[1];
-            fp->self_vel.z = *(f32*) (data + 3) / (f32) data[1];
-            fp->mv.co.unk_deadup.x40 = data[1];
+                (cd->x514 * Stage_GetCamBoundsTopOffset() - fp->cur_pos.y) /
+                (f32) cd->x508;
+            fp->self_vel.z = cd->x510 / (f32) cd->x508;
+            fp->mv.co.unk_deadup.x40 = cd->x508;
             fp->mv.co.unk_deadup.x44 = 1;
             return;
         case 1:
@@ -477,7 +482,7 @@ void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
             ft_PlaySFX(fp, 0x83, 0x7F, 0x40);
             ft_8008805C(fp, 0x83);
             ftCo_800D34E0(gobj);
-            fp->mv.co.unk_deadup.x40 = data[2];
+            fp->mv.co.unk_deadup.x40 = cd->x50C;
             fp->mv.co.unk_deadup.x44 = 2;
             return;
         case 2:

@@ -350,12 +350,57 @@ void pc_net_render_audit(bool after) {
         return;
     }
     static const PADStatus none[4];
+    /* Per-fighter copies of what the checksum folds, so a hit can name the
+     * fighter and the field the render wrote. */
+    typedef struct {
+        bool live;
+        int kind, motion;
+        Vec3 pos, self_vel, kb_vel;
+        float facing, percent;
+    } Snap;
+    static Snap snap[4];
+    static u32 seed_before;
     uint32_t ck = frame_checksum(none);
+    Snap now[4] = {0};
+    for (int slot = 0; in_fight() && slot < 4; slot++) {
+        HSD_GObj* gobj = Player_GetEntity(slot);
+        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
+            continue;
+        }
+        const Fighter* fp = GET_FIGHTER(gobj);
+        now[slot] = (Snap){true, fp->kind, fp->motion_id, fp->cur_pos, fp->self_vel,
+            fp->x8c_kb_vel, fp->facing_dir, fp->dmg.x1830_percent};
+    }
     if (!after) {
         before = ck;
+        memcpy(snap, now, sizeof snap);
+        seed_before = *HSD_RandSeedPtr;
     } else if (ck != before && (hits++ % 60) == 0) {
         pc_log_line("net: render audit: sim state changed during render at frame %d (%u so far)",
             pc_net_frame(), hits);
+        if (*HSD_RandSeedPtr != seed_before) {
+            pc_log_line("net: render audit:   RNG seed %08x -> %08x", seed_before, *HSD_RandSeedPtr);
+        }
+        for (int i = 0; i < 4; i++) {
+            const Snap* a = &snap[i];
+            const Snap* b = &now[i];
+            if (!a->live || !b->live) {
+                continue;
+            }
+#define AUDIT_V3(f)                                                                                \
+    if (memcmp(&a->f, &b->f, sizeof a->f) != 0)                                                    \
+    pc_log_line("net: render audit:   slot %d kind %d motion %d " #f " (%g,%g,%g) -> (%g,%g,%g)", i,  \
+        b->kind, b->motion, a->f.x, a->f.y, a->f.z, b->f.x, b->f.y, b->f.z)
+            AUDIT_V3(pos);
+            AUDIT_V3(self_vel);
+            AUDIT_V3(kb_vel);
+#undef AUDIT_V3
+            if (a->facing != b->facing || a->percent != b->percent || a->motion != b->motion) {
+                pc_log_line("net: render audit:   slot %d kind %d facing %g->%g percent %g->%g "
+                            "motion %d->%d", i, b->kind, a->facing, b->facing, a->percent,
+                    b->percent, a->motion, b->motion);
+            }
+        }
     }
 }
 

@@ -196,11 +196,13 @@ void gm_801A4B88(struct GameSceneInfo* info)
 {
     gm_804D6720 = info;
 #ifdef TARGET_PC
-    /* Every mode fights in a VS scene: Classic, Adventure, All-Star, Event,
-     * Stadium and Special Smash all arrive here with GS_VS. Menus, results and
-     * cutscenes keep the original aspect. */
-    pc_widescreen_set_scene(info && (info->scene_kind == GS_VS ||
-        info->scene_kind == GS_SUDDEN_DEATH || info->scene_kind == GS_TRAINING));
+    /* Every scene is widened except the pre-rendered movies, which are
+     * pillarboxed at their authored aspect. Menus and HUD cameras are
+     * orthographic: widening them keeps their art at its proportions and
+     * shows more to the sides (cobj.c setupNormalCamera). */
+    pc_widescreen_set_scene(info && info->scene_kind != GS_MOVIE_OPENING &&
+        info->scene_kind != GS_MOVIE_END && info->scene_kind != GS_MOVIE_HOWTO &&
+        info->scene_kind != GS_MOVIE_OMAKE15);
 #endif
 }
 

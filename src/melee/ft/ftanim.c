@@ -1063,6 +1063,14 @@ void ftAnim_80070458(Fighter* fp, CostumeTObjList* tobj_list, u32 tobj_idx,
     if (tobj_idx >= tobj_list->n_costume_tobjs) {
         HSD_ASSERTREPORT(1264, 0, "texture no exist! %d %d\n", fp->player_idx,
                          tobj_idx);
+#ifdef TARGET_PC
+        /* PORT: retail carries on and animates the empty slot. Kirby wearing
+         * a copied hat whose texture list is shorter than his face index
+         * gets here (Kirby vs. Game & Watch, about one match in three); on
+         * the GameCube the NULL TObj reads low memory and does nothing, here
+         * it is a segfault in tobjAnim. Skip the animation instead. */
+        return;
+#endif
     }
     tobjAnim(&tobj_list->costume_tobjs[tobj_idx], frame);
 }
