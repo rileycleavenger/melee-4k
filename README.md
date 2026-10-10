@@ -1,4 +1,109 @@
-# melee-pc
+# Melee 4K
+
+Super Smash Bros. Melee running natively on macOS and Windows at 4K, with HD
+textures and smooth motion on high-refresh displays. A fork of
+[melee-pc](https://github.com/999sian/melee-pc), following the approach of
+dusklight for Twilight Princess.
+
+> **Status: in development, not a release yet.** V1 targets a finished
+> macOS + Windows build that installs by dropping your ROM in a folder and
+> running Setup. That installer doesn't exist yet: today the game builds from
+> source, and HD textures are set up by hand with the tools below. A PS5 port
+> is planned for V2.
+
+You need your own disc image: **Melee USA revision 2 (NTSC-U 1.02, GALE01)**,
+as `.iso`, `.gcm`, `.ciso` or `.rvz`. No game data or texture packs ship in
+this repository.
+
+## What works today
+
+| Area | State |
+|---|---|
+| 4K rendering | Internal resolution up to 10x native; Auto picks the window size (4K on a 4K display). |
+| Widescreen | 16:9 is the default for new installs, in every scene except the pre-rendered movies; 4:3 ("Original") is in settings. A screen-by-screen polish pass is still to come. |
+| Smooth motion | On 100 Hz+ displays, frames are presented at the display's refresh rate and blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails). The simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. Settings: Auto / On / Off. |
+| HD textures | Community packs (HD Remix base plus gap-fills) merged and BC7-encoded with mipmaps; every texture they miss is AI-upscaled (Real-ESRGAN). The character select icons and hover portraits use the **original art, AI-upscaled**. Selectable stock-icon styles. |
+| Stability | A soak test plays every stage with every costume, plus every 1P mode and menu, with heap canaries and render audits on: 52/52 pass, steady 60 ticks/s. Fixes so far: Big Blue, Pichu's Thunder, star KOs, Kirby's copy hat, a heap race between disc loading and the game. |
+| Settings (F1) | Aspect, HUD layout, resolution, smooth motion, HD textures, stock icon style, plus everything melee-pc already had. |
+
+Known issues: the VS character select header text is garbled (inherited
+from melee-pc, being fixed); see [docs/melee-4k.md](docs/melee-4k.md#known-issues).
+
+## Building and running (current, developer setup)
+
+macOS (Apple Silicon tested), with Homebrew:
+
+```sh
+brew install gcc cmake ninja sdl3 zstd libpng freetype
+cmake --preset macos-default
+ninja -C build/macos
+build/macos/melee "/path/to/Super Smash Bros. Melee (USA) (Rev 2).iso"
+```
+
+Windows and Linux builds follow [docs/building.md](docs/building.md); the
+Windows build is being tested for V1.
+
+## HD textures (current, manual setup)
+
+Textures load from the `textures` folder in the settings directory
+(`~/Library/Application Support/melee-pc/textures` on macOS,
+`%APPDATA%\melee-pc\textures` on Windows), or from `MELEE_TEXTURE_DIR`:
+
+```
+textures/
+  packs/05-css-original/   original character select art, AI-upscaled
+  packs/10-community/      merged community packs + AI gap-fill (BC7)
+  stocks/<style>/          optional stock-icon styles (picked in settings)
+```
+
+Each `packs/` subfolder is a pack; a lower number wins when two packs replace
+the same texture. A plain Dolphin-style pack placed directly in `textures/`
+also loads, below all of them.
+
+The tools in `tools/textures/` build these folders (they need
+`python3 -m venv .venv && .venv/bin/pip install Pillow numpy etcpak xxhash`,
+and Real-ESRGAN in `.deps/realesrgan` for upscaling):
+
+```sh
+# original character select art -> textures/packs/05-css-original
+.venv/bin/python tools/textures/original_pack.py DISC ~/Library/Application\ Support/melee-pc/textures/packs
+# list every texture on the disc and check a pack's coverage
+.venv/bin/python tools/textures/extract.py DISC OUT --keys-only --compare PACK_DIR
+```
+
+The community pipeline (merge, AI gap-fill, encode) is described in
+[docs/melee-4k.md](docs/melee-4k.md#texture-pipeline-toolstextures). V1's
+Setup will download a prebuilt pack instead.
+
+## Road to V1
+
+- [x] Settings and defaults (16:9, smooth motion, stock styles, pack layout)
+- [x] Smooth motion at 120/144 Hz
+- [x] Soak test across every stage, character and mode; crashes found so far fixed
+- [x] Offline texture extractor (99.9% coverage, bit-exact decoding) and original character select art
+- [ ] Widescreen polish, screen by screen (including the CSS header text)
+- [ ] Determinism check: smooth motion on/off replays identically
+- [ ] Menu walker covering every screen; texture review pass
+- [ ] Controllers: DualSense and Switch Pro, checked on macOS and Windows
+- [ ] Prebuilt HD texture download, one-step Setup (`PUT-YOUR-ROM-HERE` + Setup.command / Setup.exe), packaging and CI
+- [ ] Install-and-play README, release
+
+## Testing tools
+
+| Tool | What it does |
+|---|---|
+| `tools/soak.py DISC WORK` | Every stage x costume, every 1P mode and menu, with heap checks and render audits; resumable, writes `summary.md`. |
+| `tools/interp_determinism.py DISC WORK` | Records CPU matches, then replays them with smooth motion off and on; any divergence fails. |
+| `MELEE_BOOT_SCENE=<mode>` | Boot straight into a mode (`vs`, `classic`, `training`, `adventure`, `allstar`, `target`, `homerun`, `multiman10`, `vs-css`, `trophies`, ..., or `mode:N`). |
+| `MELEE_KEY_FIFO=<fifo>` | Scripted keyboard input (`"Up 300"`, `"X 150"`), no window focus needed. |
+| `AURORA_SCREENSHOT_FRAMES=<n,...>` | Full-resolution screenshots (TGA) at those frames. |
+
+---
+
+## Upstream: melee-pc
+
+The sections below describe melee-pc, which this fork builds on. Most of it
+applies here too; the download and community links point at upstream.
 
 **Beta, for testing only.** "melee-pc" is a working name. Online play with
 rollback netcode is in development. This branch includes LAN, internet friend

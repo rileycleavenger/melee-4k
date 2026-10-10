@@ -1,9 +1,9 @@
 # melee-4k
 
-This fork of melee-pc targets 4K at 60 fps with HD textures, on macOS first and
-then on a jailbroken PS5, following the approach of
-[dusklight-ps5](https://github.com/mshivam019/dusklight-ps5). A 120 Hz
-interpolated mode comes after 60 fps is solid.
+This fork of melee-pc targets 4K with HD textures and smooth motion on
+high-refresh displays, following the approach of
+[dusklight-ps5](https://github.com/mshivam019/dusklight-ps5). V1 is macOS and
+Windows with a one-step installer; the PS5 port is V2.
 
 No game data and no texture packs are in this repository. You supply your own
 disc and download the community packs yourself. The tools here only process
@@ -47,7 +47,30 @@ unpacked in `.deps/realesrgan`.
    everything else through the general model.
 
 Then merge the upscaled output as the lowest-priority source, encode, and
-point `MELEE_TEXTURE_DIR` at the result.
+install the result as `textures/packs/10-community` (or point
+`MELEE_TEXTURE_DIR` at a folder laid out the same way).
+
+6. **`extract.py DISC OUT`**: finds every texture on the disc without running
+   the game (HSD image/palette descriptors, TObj and TexAnim pairings,
+   particle texture banks, stage animation tables) and names it with the same
+   key aurora computes at runtime: 11,344 textures, 99.9% of the VS sweep's
+   runtime keys and every FD key. `--keys-only` lists them (3.5 s),
+   `--compare DIR` reports a pack's coverage, `--validate DUMPS` decodes and
+   compares against runtime dumps (bit-exact in all ten formats), `--match
+   REGEX` writes PNGs of selected textures.
+7. **`original_pack.py DISC PACKS`**: builds `packs/05-css-original`, the
+   character select icons and hover portraits decoded from the disc,
+   upscaled and encoded, which outranks the community pack.
+
+Colour stored under zero alpha is kept by both `encode.py` and `upscale.py`:
+Melee draws some textures with an alpha test (the character select slot wipe
+animates an alpha threshold over art held under alpha 0), so blacking it out
+showed up as speckle.
+
+Pack layout, read by `src/pc/textures.cpp`: each `textures/packs/<NN-name>/`
+loads at a priority from its order (lower NN wins), `textures/stocks/<style>/`
+overrides them when that stock style is picked in settings, and a loose
+Dolphin pack directly in `textures/` loads below all of them.
 
 ### Packs used so far
 
@@ -170,5 +193,8 @@ hand with the dump flags set.
   does.
 - Stage ids 0x15 (Akaneia) and 0x1A (Icetop) are not playable VS stages;
   `sweep.py` skips them.
+- The VS character select header ("2-Minute ...") is drawn garbled in every
+  aspect and without packs: the number and the appended SisLib strings
+  overlap (`mnCharSel_8025BD30`). Inherited from melee-pc.
 - Not interpolated: SisLib text and other immediate-mode drawing that moves
   per tick. In matches that is nothing visible found so far.
