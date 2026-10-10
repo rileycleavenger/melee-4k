@@ -25,6 +25,7 @@ extraction found, which is the coverage check for this scanner.
 """
 import argparse
 import os
+import re
 import struct
 import sys
 
@@ -197,11 +198,17 @@ def scan_archive(data):
         if tl_table is not None and 1 <= n_tlut <= 512:
             tls = [slots.get(tl_table + 4 * i) for i in range(n_tlut)]
             tls = [t for t in tls if t in tluts]
-        for i in imgs:
+        # Frame k shows image k with palette k when the tables line up (the
+        # character select portraits: one image and palette per costume);
+        # otherwise any image can meet any palette.
+        if len(tls) == len(imgs):
+            combos = zip(imgs, tls)
+        else:
+            combos = ((i, t) for i in imgs for t in tls)
+        for i, t in combos:
             if images[i][4] in PALETTE:
-                for t in tls:
-                    pairs.add((i, t))
-                    paired_images.add(i)
+                pairs.add((i, t))
+                paired_images.add(i)
 
     out = []
     for target, im in images.items():
@@ -448,6 +455,7 @@ def main():
     ap.add_argument("disc")
     ap.add_argument("out")
     ap.add_argument("--keys-only", action="store_true")
+    ap.add_argument("--match", help="write only textures whose \"KEY<TAB>FILE\" matches this regex")
     ap.add_argument("--compare", nargs="*", default=[])
     ap.add_argument("--validate", help="runtime dump dir (MELEE_TEXTURE_DUMP): decode every "
                     "texture it holds and compare the pixels")
@@ -478,7 +486,7 @@ def main():
             keys[key] = path
             if key in validate:
                 check_decode(key, decode(body, im, tl), validate[key], worst)
-            if not args.keys_only:
+            if not args.keys_only and (not args.match or re.search(args.match, f"{key}\t{path}")):
                 from PIL import Image
                 Image.fromarray(decode(body, im, tl), "RGBA").save(os.path.join(args.out, key + ".png"))
     with open(os.path.join(args.out, "KEYS.txt"), "w") as f:

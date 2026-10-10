@@ -196,6 +196,10 @@ void gm_801A4B88(struct GameSceneInfo* info)
 {
     gm_804D6720 = info;
 #ifdef TARGET_PC
+    /* One line per scene: tools/soak.py checks each case reached gameplay. */
+    if (info != NULL) {
+        OSReport("[scene] kind 0x%02x\n", info->scene_kind);
+    }
     /* Every scene is widened except the pre-rendered movies, which are
      * pillarboxed at their authored aspect. Menus and HUD cameras are
      * orthographic: widening them keeps their art at its proportions and

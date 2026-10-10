@@ -15,7 +15,11 @@ the GameCube size and --max-dim on the long side, rounded to a multiple of 4
 (block-compressed levels must be block aligned), coarser for big textures
 so the mip aurora streams in first as a placeholder is aligned too. Mips are built down to
 1x1 from premultiplied alpha, so transparent texels do not darken the edges
-around them, and every level is BC7-encoded (levels under 4x4 are padded by
+around them. The colour under (near-)zero alpha is kept from a straight-alpha
+resize instead of the premultiplied one, which would make it black: Melee
+draws some textures with an alpha test or ignores their alpha (the character
+select slot wipe animates an alpha threshold over art stored under alpha 0),
+so that colour is visible. Every level is BC7-encoded (levels under 4x4 are padded by
 edge replication). Mip sidecars in the input are ignored; the chain is
 regenerated. OUT_DIR must not exist.
 """
@@ -56,6 +60,9 @@ def target_size(w, h, gc_w, gc_h, max_scale, max_dim):
     return tw, th
 
 
+ALPHA_FADE = 16.0  # below this alpha, colour comes from the straight resize
+
+
 def premultiply(rgba):
     a = rgba[..., 3:4].astype(np.float32) / 255.0
     out = rgba.astype(np.float32)
@@ -71,10 +78,19 @@ def unpremultiply(f):
 
 
 def resize_premultiplied(premul, w, h):
-    """Lanczos-resize a float32 premultiplied RGBA array channel by channel."""
+    """Lanczos-resize a float32 RGBA array (premultiplied or not) channel by channel."""
     chans = [np.asarray(Image.fromarray(premul[..., c], mode="F").resize((w, h), Image.LANCZOS))
              for c in range(4)]
     return np.clip(np.stack(chans, axis=-1), 0, 255 * 1.0)
+
+
+def merge_levels(premul, straight):
+    """RGBA8 from the premultiplied level, with the straight level's colour
+    faded in where alpha nears zero (where unpremultiplying loses it)."""
+    out = unpremultiply(premul).astype(np.float32)
+    weight = np.clip(premul[..., 3:4] / ALPHA_FADE, 0, 1)
+    out[..., :3] = out[..., :3] * weight + straight[..., :3] * (1 - weight)
+    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
 
 
 def bc7_level(rgba):
@@ -102,15 +118,19 @@ def encode_one(job):
     h, w = rgba.shape[:2]
     tw, th = target_size(w, h, gc_w, gc_h, max_scale, max_dim)
     premul = premultiply(rgba)
-    level = premul if (tw, th) == (w, h) else resize_premultiplied(premul, tw, th)
+    straight = rgba.astype(np.float32)
+    if (tw, th) != (w, h):
+        premul = resize_premultiplied(premul, tw, th)
+        straight = resize_premultiplied(straight, tw, th)
     blobs = []
     lw, lh = tw, th
     while True:
-        blobs.append(bc7_level(unpremultiply(level)))
+        blobs.append(bc7_level(rgba if (lw, lh) == (w, h) else merge_levels(premul, straight)))
         if lw == 1 and lh == 1:
             break
         lw, lh = max(1, lw // 2), max(1, lh // 2)
-        level = resize_premultiplied(level, lw, lh)
+        premul = resize_premultiplied(premul, lw, lh)
+        straight = resize_premultiplied(straight, lw, lh)
     with open(dst, "wb") as f:
         f.write(dds_header(tw, th, len(blobs), len(blobs[0])))
         for b in blobs:

@@ -22,8 +22,10 @@ Cases:
               hand starts bottom left; stick time picks the portrait)
   menu/*      menu-only modes (main menu, trophies, tournament, ...)
 
-A case fails on a non-zero exit, a timeout, or a failure line in its output
-(panic, assertion, heap stomp, render audit, bad camera point). On macOS the
+A case fails on a non-zero exit, a timeout, a failure line in its output
+(panic, assertion, heap stomp, render audit, bad camera point), or when it
+never reached its gameplay scene (the "[scene] kind" line, gmscene.c), so a
+pick script that stalls on a menu is not counted as a pass. On macOS the
 newest crash report written during the case is attached (top stack frames).
 WORK_DIR/soak.json holds the results, so an interrupted soak resumes; the
 summary goes to WORK_DIR/summary.md.
@@ -56,6 +58,9 @@ MENU_MODES = ["menu", "trophies", "lottery", "collection", "tournament", "camera
               "special-stamina", "event"]
 
 
+GS_VS, GS_TRAINING = 0x02, 0x04
+
+
 def cases(frames):
     out = []
     slots = [(ck, color) for ck, (_, n) in enumerate(COSTUMES) for color in range(n)]
@@ -67,17 +72,20 @@ def cases(frames):
         if stage:
             env["MELEE_DEBUG_VS_STAGE"] = str(stage)
         who = "+".join(f"{COSTUMES[c][0].replace(' ', '')}{k}" for c, k in group)
-        out.append({"name": f"vs/stage{stage:02x}-{who}", "env": env, "frames": frames})
-    out.append({"name": "classic", "env": {"MELEE_BOOT_SCENE": "classic"}, "frames": frames * 2})
-    out.append({"name": "training", "env": {"MELEE_BOOT_SCENE": "training"}, "frames": frames})
+        out.append({"name": f"vs/stage{stage:02x}-{who}", "env": env, "frames": frames,
+                    "expect": GS_VS})
+    out.append({"name": "classic", "env": {"MELEE_BOOT_SCENE": "classic"}, "frames": frames * 2,
+                "expect": GS_VS})
+    out.append({"name": "training", "env": {"MELEE_BOOT_SCENE": "training"}, "frames": frames,
+                "expect": GS_TRAINING})
     for i, mode in enumerate(ONE_P_MODES):
-        # Vary the portrait between modes: 7 columns, ~55 ms of stick each.
+        # Vary the portrait between modes: 7 columns, ~55 ms of stick each,
+        # along the top row (a stick-down nudge can leave the hand between
+        # rows, and the pick never lands).
         right = 120 + (i * 3 % 7) * 55
-        down = 0 if i % 2 == 0 else 130
-        script = [f"Up 420"] + ([f"Down {down}"] if down else []) + [f"Right {right}", "X 150"] + \
-                 ["Return 150"] * 4
+        script = ["Up 420", f"Right {right}", "X 150"] + ["Return 150"] * 4
         out.append({"name": f"1p/{mode}", "env": {"MELEE_BOOT_SCENE": mode},
-                    "frames": frames * 2, "fifo": script, "fifo_delay": 9.0})
+                    "frames": frames * 2, "fifo": script, "fifo_delay": 9.0, "expect": GS_VS})
     for mode in MENU_MODES:
         out.append({"name": f"menu/{mode}", "env": {"MELEE_BOOT_SCENE": mode}, "frames": 900})
     return out
@@ -159,9 +167,13 @@ def run_case(case, args, logs):
     with open(log_path, errors="replace") as f:
         text = f.read()
     hits = sorted({m.group(0) for m in FAIL_PATTERNS.finditer(text)})
+    scenes = [int(k, 16) for k in re.findall(r"\[scene\] kind 0x([0-9a-f]+)", text)]
+    if case.get("expect") is not None and case["expect"] not in scenes:
+        hits.append(f"never reached scene 0x{case['expect']:02x} (saw {sorted(set(scenes))})")
     ticks = [float(x) for x in re.findall(r"fps [0-9.]+ ticks ([0-9.]+)", text)[3:]]
     result = {"exit": rc, "seconds": round(time.time() - start), "failures": hits,
               "ticks_per_s": round(sum(ticks) / len(ticks), 2) if ticks else None,
+              "scenes": scenes,
               "log": os.path.relpath(log_path, args.work)}
     if rc != 0 and sys.platform == "darwin":
         # ReportCrash writes the report a few seconds after the process dies.

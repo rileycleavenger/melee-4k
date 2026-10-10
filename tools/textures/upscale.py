@@ -39,11 +39,27 @@ FLAT_FORMATS = {0, 2, 8, 9, 10}  # I4 IA4 C4 C8 C14X2
 MODELS = {"flat": "realesrgan-x4plus-anime", "painted": "realesrgan-x4plus"}
 
 
+def hidden_art(rgba):
+    """True when the colour under alpha 0 is a picture rather than filler.
+    Melee draws some textures with an alpha test or ignores their alpha (the
+    character select slot wipe animates an alpha threshold over art stored
+    under alpha 0); that colour is seen, so it must be upscaled, not bled over.
+    Filler is one flat colour, or near-black with compression noise (the
+    cut-outs: plants, fences, trees), and is bled so edges stay free of dark
+    halos; so are an icon's transparent corners, too small to count."""
+    hidden = rgba[..., 3] == 0
+    if hidden.mean() < 0.25:
+        return False
+    rgb = rgba[..., :3][hidden].astype(np.float32)
+    return float(rgb.std(axis=0).max()) > 8.0 and float(rgb.mean()) > 32.0
+
+
 def bleed(rgba, iterations=16):
-    """Fill RGB under alpha 0 from opaque neighbours (repeated 3x3 dilation)."""
+    """Fill RGB under alpha 0 from opaque neighbours (repeated 3x3 dilation),
+    unless that colour is art in its own right (hidden_art)."""
     rgb = rgba[..., :3].astype(np.float32)
     known = rgba[..., 3] > 0
-    if known.all() or not known.any():
+    if known.all() or not known.any() or hidden_art(rgba):
         return rgba
     for _ in range(iterations):
         if known.all():
