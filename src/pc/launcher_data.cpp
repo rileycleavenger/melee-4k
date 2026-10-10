@@ -2,7 +2,9 @@
 #include "launcher_data.hpp"
 #include "disc_open.h"
 #include <nod.h>
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <fstream>
@@ -396,6 +398,18 @@ Preferences load_preferences(const std::filesystem::path& path) {
             int value;
             if (row >> value && (value == 0 || value == 1))
                 prefs.hud_mode = value;
+        } else if (key == "interp") {
+            int value;
+            if (row >> value && value >= 0 && value <= 2)
+                prefs.interp = value;
+        } else if (key == "stock_style") {
+            // A folder name under textures/stocks: no separators or dots.
+            std::string value;
+            if (row >> std::quoted(value) && !value.empty() && value.size() <= 64 &&
+                std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                    return std::isalnum(c) || c == '-' || c == '_' || c == ' ' || c == '+';
+                }))
+                prefs.stock_style = value;
         } else if (key == "music_volume" || key == "sfx_volume") {
             float value;
             if (row >> value && std::isfinite(value) && value >= 0.0f && value <= 1.0f)
@@ -432,6 +446,7 @@ bool save_preferences(
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
     text << "reverb " << prefs.reverb << '\n';
+    text << "interp " << prefs.interp << "\nstock_style " << std::quoted(prefs.stock_style) << '\n';
     auto data = text.str();
     size_t done = 0;
     bool ok = true;

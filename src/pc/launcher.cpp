@@ -77,6 +77,28 @@ bool change_online(Rml::Event& event) {
     return true;
 }
 
+const char* smooth_name(int mode) {
+    return mode == 1 ? "On" : mode == 2 ? "Off" : "Auto";
+}
+
+std::string stock_style_name(const std::string& style) {
+    return style == "default" ? "Default" : style;
+}
+
+/* The style after `current` in "default" followed by the installed
+ * textures/stocks folders, wrapping around. */
+std::string next_stock_style(const std::string& current) {
+    char names[32][64];
+    const int n = pc_textures_stock_styles(names, 32);
+    std::vector<std::string> styles{"default"};
+    for (int i = 0; i < n; i++)
+        styles.emplace_back(names[i]);
+    auto it = std::find(styles.begin(), styles.end(), current);
+    if (it == styles.end() || ++it == styles.end())
+        return styles.front();
+    return *it;
+}
+
 const char* filter_name(int mode) {
     // Mode 0 is the plain present blit -- no effect at all, so it is the
     // "off" setting; the bilinear filter it uses is just the scaler.
@@ -245,7 +267,7 @@ class Launcher final : public Rml::EventListener {
         switch (tab) {
         case 0:
             return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
-                "filter-mode", "custom-textures", "backend", "performance"};
+                "filter-mode", "custom-textures", "stock-style", "smooth", "backend", "performance"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
                 "check-updates", "check-now", "settings-discord"};
@@ -348,13 +370,15 @@ class Launcher final : public Rml::EventListener {
             std::string(effective_vsync ? "On" : "Off") + (override ? " (environment)" : ""));
         slider("resolution", prefs.render_scale);
         text("resolution-val", resolution_name(prefs.render_scale));
-        text("aspect", prefs.widescreen == 0 ? "Original (73:60)" :
+        text("aspect", prefs.widescreen == 0 ? "4:3 (Original)" :
                        prefs.widescreen == 1 ? "Widescreen 16:9" :
                                                "Auto (window aspect)");
         text("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         text("filter", std::to_string(prefs.anisotropy) + "x");
         text("filter-mode", filter_name(prefs.filter_mode));
         text("custom-textures", prefs.custom_textures ? "Enabled" : "Disabled");
+        text("stock-style", stock_style_name(prefs.stock_style));
+        text("smooth", smooth_name(prefs.interp));
         text("hud-mode", prefs.hud_mode == 0 ? "Classic (4:3)" : "Wide (16:9)");
         text("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         text("free-camera", prefs.free_camera ? "Free" : "Normal");
@@ -592,6 +616,16 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("hud-mode")->Focus();
+        } else if (id == "stock-style") {
+            prefs.stock_style = next_stock_style(prefs.stock_style);
+            save();
+            refresh_settings();
+            element("stock-style")->Focus();
+        } else if (id == "smooth") {
+            prefs.interp = (prefs.interp + 1) % 3;
+            save();
+            refresh_settings();
+            element("smooth")->Focus();
         } else if (id == "frozen-stadium") {
             prefs.frozen_stadium = !prefs.frozen_stadium;
             save();
@@ -1239,7 +1273,7 @@ public:
         switch (tab) {
         case 0:
             return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
-                "filter-mode", "custom-textures", "backend"};
+                "filter-mode", "custom-textures", "stock-style", "smooth", "backend"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
                 "port-check-update"};
@@ -1344,13 +1378,15 @@ public:
                                                    "Off");
         slider("resolution", prefs.render_scale);
         label("resolution-val", resolution_name(prefs.render_scale));
-        label("aspect", prefs.widescreen == 0 ? "Original (73:60)" :
+        label("aspect", prefs.widescreen == 0 ? "4:3 (Original)" :
                         prefs.widescreen == 1 ? "Widescreen 16:9" :
                                                 "Auto (window aspect)");
         label("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         label("filter", std::to_string(prefs.anisotropy) + "x");
         label("filter-mode", filter_name(prefs.filter_mode));
         label("custom-textures", prefs.custom_textures ? "Enabled" : "Disabled");
+        label("stock-style", stock_style_name(prefs.stock_style));
+        label("smooth", smooth_name(prefs.interp));
         label("hud-mode", prefs.hud_mode == 0 ? "Classic (4:3)" : "Wide (16:9)");
         label("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         label("free-camera", prefs.free_camera ? "Free" : "Normal");
@@ -1539,6 +1575,11 @@ public:
             pc_textures_reload();
         } else if (id == "hud-mode") {
             prefs.hud_mode = (prefs.hud_mode + 1) % 2;
+        } else if (id == "stock-style") {
+            prefs.stock_style = next_stock_style(prefs.stock_style);
+            pc_textures_reload();
+        } else if (id == "smooth") {
+            prefs.interp = (prefs.interp + 1) % 3;
         } else if (id == "frozen-stadium") {
             prefs.frozen_stadium = !prefs.frozen_stadium;
         } else if (id == "free-camera") {
@@ -1872,6 +1913,14 @@ extern "C" bool pc_is_ucf_enabled(void) {
 }
 extern "C" int pc_get_hud_mode(void) {
     return prefs.hud_mode;
+}
+
+extern "C" int pc_get_interp_mode(void) {
+    return prefs.interp;
+}
+
+extern "C" const char* pc_get_stock_style(void) {
+    return prefs.stock_style.c_str();
 }
 extern "C" float pc_get_music_volume(void) {
     return prefs.music_volume;

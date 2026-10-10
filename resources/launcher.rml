@@ -75,8 +75,8 @@
               </div>
             </div>
             <div class="setting">
-              <div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and cutscenes keep the original aspect.</p></div>
-              <button id="aspect">Original (73:60)</button>
+              <div class="description"><h3>Aspect ratio</h3><p>Widescreen 16:9 by default; 4:3 is the original picture.</p></div>
+              <button id="aspect">Widescreen 16:9</button>
             </div>
             <div class="setting">
               <div class="description"><h3>HUD layout</h3><p>Classic keeps 4:3 safe margins; Wide anchors damage/stocks to 16:9 edges.</p></div>
@@ -97,6 +97,14 @@
             <div class="setting">
               <div class="description"><h3>Custom HD textures</h3><p>Load replacement textures from textures folder.</p></div>
               <button id="custom-textures">Enabled</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Stock icons</h3><p>Style of the stock icons in HD texture packs.</p></div>
+              <button id="stock-style">Default</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Smooth motion</h3><p>Draws extra in-between frames on 120 Hz+ displays. Gameplay stays 60 Hz. Auto turns it on when the display supports it.</p></div>
+              <button id="smooth">Auto</button>
             </div>
             <div class="setting">
               <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Auto, or a specific API this platform provides.</p></div>

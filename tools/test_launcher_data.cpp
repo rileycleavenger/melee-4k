@@ -54,6 +54,10 @@ int main(int argc, char** argv) {
     auto prefs = load_preferences(config);
     assert(prefs.disc.empty() && prefs.vsync && !prefs.fullscreen && prefs.scale == 1.0f &&
            !prefs.free_camera);
+    // V1 defaults: widescreen 16:9 with the wide HUD, smooth motion on auto,
+    // the pack's own stock icons, no update checks against upstream.
+    assert(prefs.widescreen == 1 && prefs.hud_mode == 1 && prefs.interp == 0 &&
+           prefs.stock_style == "default" && !prefs.check_updates);
     prefs.disc = (dir / "quoted \"disc\".iso").string();
     prefs.net_name = "ALICE";
     prefs.net_target = "BOB#ABCD";
@@ -93,13 +97,32 @@ int main(int argc, char** argv) {
         assert(saved.find("backend 2\n") != std::string::npos);
         assert(saved.find("custom_textures 1\n") != std::string::npos);
         assert(saved.find("unlock_all 0\n") != std::string::npos);
-        assert(saved.find("hud_mode 0\n") != std::string::npos);
+        assert(saved.find("hud_mode 1\n") != std::string::npos);
+        assert(saved.find("widescreen 1\n") != std::string::npos);
+        assert(saved.find("interp 0\n") != std::string::npos);
+        assert(saved.find("stock_style \"default\"\n") != std::string::npos);
         assert(saved.find("frozen_stadium 0\n") != std::string::npos);
         assert(saved.find("free_camera 0\n") != std::string::npos);
         assert(saved.find("music_volume 1\n") != std::string::npos);
         assert(saved.find("sfx_volume 1\n") != std::string::npos);
         assert(saved.find("reverb 1\n") != std::string::npos);
     }
+    {
+        std::ofstream f(config);
+        f << "interp 2\nstock_style \"Smash 4\"\nwidescreen 0\n";
+    }
+    loaded = load_preferences(config);
+    assert(loaded.interp == 2 && loaded.stock_style == "Smash 4" && loaded.widescreen == 0);
+    assert(save_preferences(config, loaded, error));
+    loaded = load_preferences(config);
+    assert(loaded.interp == 2 && loaded.stock_style == "Smash 4");
+    {
+        // Out of range, and a style that would escape textures/stocks.
+        std::ofstream f(config);
+        f << "interp 3\nstock_style \"../evil\"\n";
+    }
+    loaded = load_preferences(config);
+    assert(loaded.interp == 0 && loaded.stock_style == "default");
     {
         std::ofstream f(config);
         f << "custom_textures 0\nunlock_all 1\nhud_mode 1\nfrozen_stadium 1\nfree_camera "
@@ -131,7 +154,8 @@ int main(int argc, char** argv) {
         std::ofstream f(config);
         f << "widescreen -1\nwidescreen 99\n";
     }
-    assert(load_preferences(config).widescreen == 0);
+    // Out-of-range values keep the default, 16:9.
+    assert(load_preferences(config).widescreen == 1);
     loaded.check_updates = false;
     assert(save_preferences(config, loaded, error));
     assert(!load_preferences(config).check_updates);

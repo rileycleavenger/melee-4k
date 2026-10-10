@@ -324,6 +324,15 @@ void pc_frame_boundary(void) {
         const char* n = getenv("MELEE_EXIT_AFTER_FRAMES");
         exit_after = n != NULL ? atoi(n) : 0;
     }
+    /* MELEE_OPEN_MENU_AT=<n>: open the settings overlay at frame n, so a
+     * scripted run can capture it (synthetic input cannot press F1). */
+    static int open_menu_at = -1;
+    if (open_menu_at < 0) {
+        const char* n = getenv("MELEE_OPEN_MENU_AT");
+        open_menu_at = n != NULL ? atoi(n) : 0;
+    }
+    if (open_menu_at > 0 && s_retrace_count == (u32)open_menu_at && !pc_menu_is_open())
+        pc_menu_toggle();
     if (exit_after > 0 && s_retrace_count >= (u32)exit_after && !pc_exit_requested) {
         pc_log_line("MELEE_EXIT_AFTER_FRAMES: reached frame %u, exiting", s_retrace_count);
         pc_exit_requested = true;
@@ -416,7 +425,8 @@ void pc_frame_boundary(void) {
                 bad_windows++;
             else
                 bad_windows = 0;
-            if (bad_windows >= 3 && !s_interp_fell_behind && getenv("MELEE_FRAME_INTERP") == NULL) {
+            if (bad_windows >= 3 && !s_interp_fell_behind && getenv("MELEE_FRAME_INTERP") == NULL &&
+                pc_get_interp_mode() != 1) {
                 s_interp_fell_behind = true;
                 bad_windows = 0;
                 pc_log_line("interp: %.1f ticks/s, frames %.2f ms apart (sd %.2f) for a %.2f ms "
@@ -647,11 +657,15 @@ void pc_present_interp_frame(void) {
 }
 
 bool pc_interp_enabled(void) {
-    static int mode = -2; /* -1 auto, 0 off, 1 forced on */
-    if (mode == -2) {
+    /* MELEE_FRAME_INTERP overrides the Smooth motion setting (interp pref:
+     * 0 auto, 1 on, 2 off). */
+    static int env = -2; /* -1 unset, 0 off, 1 on */
+    if (env == -2) {
         const char* e = getenv("MELEE_FRAME_INTERP");
-        mode = e == NULL || e[0] == '\0' ? -1 : e[0] == '0' ? 0 : 1;
+        env = e == NULL || e[0] == '\0' ? -1 : e[0] == '0' ? 0 : 1;
     }
+    const int pref = pc_get_interp_mode();
+    const int mode = env != -1 ? env : pref == 1 ? 1 : pref == 2 ? 0 : -1;
     if (mode == 0 || pc_net_active())
         return false;
     if (mode == 1)

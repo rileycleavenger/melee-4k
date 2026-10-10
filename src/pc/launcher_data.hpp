@@ -31,14 +31,16 @@ struct Preferences {
     float render_scale = 0.0f, volume = 1.0f;
     int msaa = 1, anisotropy = 16;
 #endif
-    int widescreen = 0;
+    int widescreen = 1;  // 0 original 73:60 ("4:3"), 1 16:9, 2 window aspect
     int filter_mode = 0;
     int backend = 0;
     bool mute = false, fps = false, reverb = true;
-    bool check_updates = true;
+    bool check_updates = false;
     bool custom_textures = true;
     bool unlock_all = false;
-    int hud_mode = 0;
+    int hud_mode = 1;    // 0 classic, 1 wide (anchored to the 16:9 edges)
+    int interp = 0;      // smooth motion: 0 auto (display >= 100 Hz), 1 on, 2 off
+    std::string stock_style = "default";  // texture overlay folder under textures/stocks
     bool frozen_stadium = false;
     bool free_camera = false;
     bool ucf = false;

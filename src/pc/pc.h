@@ -90,6 +90,10 @@ bool pc_is_frozen_stadium_enabled(void);
 bool pc_is_free_camera_enabled(void);
 bool pc_is_ucf_enabled(void);
 int pc_get_hud_mode(void);
+/// Smooth motion preference: 0 auto, 1 on, 2 off (launcher.cfg "interp").
+int pc_get_interp_mode(void);
+/// Stock-icon overlay folder under textures/stocks, or "default" for none.
+const char* pc_get_stock_style(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */
