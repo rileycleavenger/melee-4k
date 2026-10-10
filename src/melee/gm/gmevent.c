@@ -220,7 +220,7 @@ GameModeState gm_Mode_Event_States[] = {
 void gm_801BA8FC(void)
 {
     lbArchive_LoadSymbols("GmEvent.dat", &gm_804D6900,
-                          "sqEventInitDataLevelTbl", 0);
+                          "sqEventInitDataLevelTbl", NULL);
 }
 
 void gm_801BA938(struct EventData* arg0, int lo, int hi, bool arg3)
@@ -386,7 +386,7 @@ void onEnterVs(GameModeState* arg0)
     PAD_STACK(0x10);
 
     lbArchive_LoadSymbols("GmEvent.dat", &gm_804D6900,
-                          "sqEventInitDataLevelTbl", 0);
+                          "sqEventInitDataLevelTbl", NULL);
     levels = gm_804D6900[0];
     gm_SetupRulesDefaults(&md->rules);
     md->rules.match_kind = EV_INIT(LV(levels, level))->x0_0;
@@ -1036,7 +1036,7 @@ void gm_801BC00C(void)
     case 44:
     case 48:
         lbArchive_LoadSymbols("GmEvent.dat", &gm_804D6900,
-                              "sqEventInitDataLevelTbl", 0);
+                              "sqEventInitDataLevelTbl", NULL);
         event_levels = gm_804D6900[0];
         break;
     }

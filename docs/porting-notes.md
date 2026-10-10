@@ -32,6 +32,11 @@ Bug classes that keep coming back when bringing up a new scene:
 - Two struct views over the same disc blob must both carry `DISC_STRUCT`. A
   native view beside a `DISC_STRUCT` one reads every field byte-swapped; a small
   int coming back as `0x??000000` is the tell.
+- A variadic list terminated by a pointer sentinel must end in `NULL`, not `0`.
+  `lbArchive_LoadSymbols(..., "sym", 0)` passes a 32-bit int that the callee
+  reads back with `va_arg(ap, void**)`; on arm64 macOS/iOS variadic arguments
+  are 8-byte stack slots and the upper half is garbage (crash writing through
+  `0x100000000` in `vLoadSections`). Linux and Windows happen to zero-extend.
 - Retail `GXEnd` is empty and the decomp omits it, but aurora's `GXEnd` submits
   the draw. Every `GXBegin` needs one.
 - `Mtx` is 48 bytes and `Mtx44` is 64; `MTXOrtho` and `MTXPerspective` take `Mtx44`.

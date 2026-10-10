@@ -1,5 +1,6 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
+#include "pc/interp.h"
 #include "pc/net.h"
 #include "pc/pc.h"
 #include "pc/slp.h"
@@ -391,6 +392,10 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
     gm_80479D58.unk_C = 0;
     HSD_PadFlushQueue(HSD_PAD_FLUSH_QUEUE_LEAVE1);
     lb_8001CF18();
+#ifdef TARGET_PC
+    /* A new scene shares no transforms with the last one. */
+    pc_interp_reset();
+#endif
 
     while (temp_r25->unk_C == 0) {
         hsd_80392E80();
@@ -421,6 +426,10 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         }
 #endif
 
+#ifdef TARGET_PC
+        int ticks_run = 0;
+        const bool interp_on = pc_interp_enabled();
+#endif
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();
 #ifdef TARGET_PC
@@ -432,6 +441,8 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
             void (*frame_fn)(void) = s_scene_end_held != 0 ? NULL : on_frame;
             pc_net_sync();
             gm_RunSimTick(frame_fn, temp_r25);
+            ticks_run++;
+            pc_sim_ticks++;
             /* Finish rollback / sync-test re-simulation before gating the exit,
              * but never insert
              * a fresh tick past an exit request or its agreed boundary. */
@@ -456,14 +467,47 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         }
 
 #ifdef TARGET_PC
+        /* High-refresh presentation (src/pc/interp.h): until the next tick
+         * is due, present one frame per display refresh, each blended to the
+         * moment it reaches the screen; the tick's own render below is the
+         * last of them. After a boundary that ran several catch-up ticks the
+         * previous record is that many ticks old (pc_interp_span_t). */
+        bool interp_blend = false;
         pc_net_render_audit(false);
+        if (interp_on) {
+            /* Recorded once per boundary, after its ticks: recording between
+             * two catch-up ticks would bring JObj matrices up to date where
+             * the game never does, and game code reads them. */
+            pc_interp_capture();
+            interp_blend = ticks_run >= 1;
+            while (interp_blend && pc_interp_room_for_frame()) {
+                pc_interp_apply(pc_interp_span_t(pc_interp_frame_t(), ticks_run));
+                GXInvalidateVtxCache();
+                GXInvalidateTexAll();
+                HSD_StartRender(HSD_RP_SCREEN);
+                HSD_GObj_80390FC0();
+                HSD_Init_803755A8();
+                pc_interp_restore();
+                pc_present_interp_frame();
+            }
+        }
 #endif
         lb_800195D0();
         GXInvalidateVtxCache();
         GXInvalidateTexAll();
+#ifdef TARGET_PC
+        if (interp_blend) {
+            pc_interp_apply(pc_interp_span_t(pc_interp_frame_t(), ticks_run));
+        }
+#endif
         HSD_StartRender(HSD_RP_SCREEN);
         HSD_GObj_80390FC0();
         HSD_Init_803755A8();
+#ifdef TARGET_PC
+        if (interp_blend) {
+            pc_interp_restore();
+        }
+#endif
         HSD_PerfSetDrawTime();
         HSD_VICopyXFBAsync(HSD_RP_SCREEN);
 #ifdef TARGET_PC

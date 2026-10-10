@@ -222,7 +222,7 @@ void mnHyaku_8024CD64(u8 arg0)
             &dp_[1], "MenMainConKm_Top_animjoint",
             &dp_[2], "MenMainConKm_Top_matanim_joint",
             &dp_[3], "MenMainConKm_Top_shapeanim_joint",
-            0);
+            NULL);
         DP_SET(mnHyaku_804A08E8.joint, dp_[0]);
         DP_SET(mnHyaku_804A08E8.animjoint, dp_[1]);
         DP_SET(mnHyaku_804A08E8.matanim_joint, dp_[2]);

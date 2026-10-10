@@ -270,7 +270,7 @@ HSD_Archive* gmTitle_801A1AC0(void)
         &j1, "TtlBg_Top_joint", &a1, "TtlBg_Top_animjoint", &m1,
         "TtlBg_Top_matanim_joint", &s1, "TtlBg_Top_shapeanim_joint",
 
-        &gm_804D67F0, "TitleMark_sobjdesc", 0);
+        &gm_804D67F0, "TitleMark_sobjdesc", NULL);
     DP_SET(model_desc_0.joint, j0);
     DP_SET(model_desc_0.animjoint, a0);
     DP_SET(model_desc_0.matanim_joint, m0);

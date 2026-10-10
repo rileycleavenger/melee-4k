@@ -266,10 +266,13 @@ std::optional<uint32_t> mip_tail_start(const ParsedDDS& dds, uint32_t maxDimensi
   if (maxDimension == 0) {
     return std::nullopt;
   }
+  // The tail becomes a texture of its own, so for block formats its first level must be
+  // block aligned (a 300x384 BC7 chain reaches 37x48 at mip 3). Take the largest aligned
+  // level that fits; with none, there is no thumbnail and the full load is used directly.
   for (uint32_t mip = 0; mip < dds.mips; ++mip) {
     const uint32_t width = std::max(dds.width >> mip, 1u);
     const uint32_t height = std::max(dds.height >> mip, 1u);
-    if (width <= maxDimension && height <= maxDimension) {
+    if (width <= maxDimension && height <= maxDimension && is_block_aligned(dds.format, width, height)) {
       return mip;
     }
   }

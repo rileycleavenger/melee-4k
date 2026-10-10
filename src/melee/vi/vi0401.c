@@ -135,7 +135,7 @@ void vi0401_Scene_OnEnter(void* data)
                           &un_804D6F4C, "visual0401InfoScene", NULL);
     lbArchive_LoadSymbols("IfAll.dat", &un_804D6F50, "ScInfDmg_scene_data",
                           NULL);
-    un_804D6F54 = lbArchive_LoadSymbols(viGetCharAnimByIndex(char_index), 0);
+    un_804D6F54 = lbArchive_LoadSymbols(viGetCharAnimByIndex(char_index), NULL);
 
     fog_gobj = GObj_Create(0xB, 3, 0);
     fog = HSD_FogLoadDesc(vi_SceneFogDesc(un_804D6F48));

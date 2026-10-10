@@ -122,6 +122,10 @@ void resize_swapchain() noexcept {
       Log.info("Display scale changed to {}", size.scale);
     }
   }
+  if (size.fb_width != g_windowSize.fb_width || size.fb_height != g_windowSize.fb_height) {
+    Log.info("Framebuffer resized to {}x{} (window {}x{})", size.fb_width, size.fb_height, size.native_fb_width,
+             size.native_fb_height);
+  }
   g_windowSize = size;
   if (g_renderer != nullptr) {
     SDL_SetRenderLogicalPresentation(g_renderer, static_cast<int>(size.native_fb_width),

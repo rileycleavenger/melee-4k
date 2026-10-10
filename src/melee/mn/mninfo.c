@@ -534,7 +534,7 @@ s32 mnInfo_80252758(void)
         lbArchive_LoadSections(archive, &dp_[0], top_joint, &dp_[1],
                                mnInfo_TopAnimJoint, &dp_[2],
                                mnInfo_TopMatanimJoint, &dp_[3],
-                               mnInfo_TopShapeanimJoint, 0);
+                               mnInfo_TopShapeanimJoint, NULL);
         DP_SET(model->joint, dp_[0]);
         DP_SET(model->animjoint, dp_[1]);
         DP_SET(model->matanim_joint, dp_[2]);

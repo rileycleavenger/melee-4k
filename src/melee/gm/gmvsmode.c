@@ -209,6 +209,31 @@ void onEnterDebugVs(GameModeState* state)
             start->players[i].slot_type = Gm_PKind_Cpu;
         }
     }
+    /* MELEE_DEBUG_VS_CHARS=<ckind>:<color>[,...]: up to four CPU fighters
+     * with chosen costumes, so the texture coverage sweep
+     * (tools/textures/sweep.py) can load every character's every costume.
+     * The caller keeps <color> inside the character's costume count. */
+    if (getenv("MELEE_DEBUG_VS_CHARS") != NULL) {
+        const char* p = getenv("MELEE_DEBUG_VS_CHARS");
+        for (i = 0; i < Gm_Player_NumMax; i++) {
+            start->players[i].slot_type = Gm_PKind_NA;
+        }
+        for (i = 0; i < Gm_Player_NumMax && *p != '\0'; i++) {
+            char* end;
+            long ckind = strtol(p, &end, 10);
+            long color = 0;
+            if (*end == ':') {
+                color = strtol(end + 1, &end, 10);
+            }
+            if (ckind >= 0 && ckind < CKind_Playable_Count && color >= 0 && color < 6) {
+                start->players[i].ckind = (CharacterKind) ckind;
+                start->players[i].color = (u8) color;
+                start->players[i].slot_type = Gm_PKind_Cpu;
+                start->players[i].cpu_level = 9;
+            }
+            p = *end == ',' ? end + 1 : end;
+        }
+    }
     /* MELEE_DEBUG_VS_STOCKS=<n>: a stock match instead of an untimed time
      * one, so a run can end on GAME! with stocks the replay (src/pc/slp.c)
      * must carry. */

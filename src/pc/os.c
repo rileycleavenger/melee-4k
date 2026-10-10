@@ -251,6 +251,28 @@ void pc_os_wait_alarm(void) {
     }
 }
 
+/* When the game's next tick will happen, on the SDL clock (ns), or 0 when
+ * unknown. Melee ticks when its 60 Hz timekeeping alarm (lb_80019628) queues
+ * a pad sample, so that alarm, not the frame pacer, is the tick clock that
+ * high-refresh presentation has to blend against (src/pc/interp.h). */
+uint64_t pc_os_next_tick_ns(void) {
+    const OSTime lo = OSMillisecondsToTicks(12), hi = OSMillisecondsToTicks(22);
+    BOOL intr = OSDisableInterrupts();
+    OSTime next = 0;
+    for (OSAlarm* a = s_alarms; a; a = a->next) {
+        if (a->period >= lo && a->period <= hi && (next == 0 || a->fire < next)) {
+            next = a->fire;
+        }
+    }
+    OSRestoreInterrupts(intr);
+    if (next == 0) {
+        return 0;
+    }
+    const int64_t ns = (int64_t)OSTicksToMicroseconds(next - OSGetTime()) * 1000;
+    const uint64_t now = SDL_GetTicksNS();
+    return ns < 0 && (uint64_t)(-ns) > now ? 0 : (uint64_t)((int64_t)now + ns);
+}
+
 /* The game's disc waits (lbdvd.c, lbfile.c) spin on a flag that aurora's DVD
  * and decompression threads set, so on a 2-core machine the spin competes with
  * the very threads it waits for. A short sleep per poll hands them the core:

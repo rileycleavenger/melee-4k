@@ -23,7 +23,12 @@ typedef struct grBb_TrackEntry {
     Vec3 delta;
 } grBb_TrackEntry;
 
-typedef struct grBb_YakumonoParam {
+/* PORT: read straight from the stage file (Ground_GetYakumonoParam), so
+ * big-endian like every other stage's YakumonoParam. Without DISC_STRUCT the
+ * Falcon Flyer's speed (xD0) read byte-swapped and carried every fighter on it
+ * to x = -4.3e8 during Entry, tripping lbVector_WorldToScreen's range assert
+ * on the first draw of every Big Blue match. */
+typedef struct DISC_STRUCT grBb_YakumonoParam {
     f32 x0;
     f32 x4;
     f32 x8;
@@ -100,7 +105,7 @@ typedef struct grBb_YakumonoParam {
     f32 x128;
     f32 x12C;
     f32 x130;
-    Vec3 x134_translate;
+    DiscVec3 x134_translate;
     f32 x140_scale;
 } grBb_YakumonoParam;
 

@@ -352,7 +352,7 @@ void mnInfoBonus_80252F8C(void)
             archive, &dp_[0], "MenMainConBo_Top_joint",
             &dp_[1], "MenMainConBo_Top_animjoint", &dp_[2],
             "MenMainConBo_Top_matanim_joint", &dp_[3],
-            "MenMainConBo_Top_shapeanim_joint", 0);
+            "MenMainConBo_Top_shapeanim_joint", NULL);
         DP_SET(o->x50.joint, dp_[0]);
         DP_SET(o->x50.animjoint, dp_[1]);
         DP_SET(o->x50.matanim_joint, dp_[2]);

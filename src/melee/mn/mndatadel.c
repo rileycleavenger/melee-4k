@@ -929,7 +929,7 @@ void mnDataDel_80250170(void)
             "MenMainWarCmn_Top_joint", &dp_[9],
             "MenMainWarCmn_Top_animjoint", &dp_[10],
             "MenMainWarCmn_Top_matanim_joint", &dp_[11],
-            "MenMainWarCmn_Top_shapeanim_joint", 0);
+            "MenMainWarCmn_Top_shapeanim_joint", NULL);
         DP_SET(mnDataDel_804A0918.joint, dp_[0]);
         DP_SET(mnDataDel_804A0918.animjoint, dp_[1]);
         DP_SET(mnDataDel_804A0918.matanim_joint, dp_[2]);

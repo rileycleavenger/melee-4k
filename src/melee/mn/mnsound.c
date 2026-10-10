@@ -380,7 +380,7 @@ void mnSound_8024A09C(int arg0)
             &dp_[1], "MenMainConSo_Top_animjoint",
             &dp_[2], "MenMainConSo_Top_matanim_joint",
             &dp_[3], "MenMainConSo_Top_shapeanim_joint",
-            0);
+            NULL);
         DP_SET(mnSound_804A08A8.joint, dp_[0]);
         DP_SET(mnSound_804A08A8.animjoint, dp_[1]);
         DP_SET(mnSound_804A08A8.matanim_joint, dp_[2]);

@@ -32,7 +32,7 @@ static bool ifTime_LoadModels(void)
     DynamicModelDesc* model;
     lbArchive_LoadSections(*ifAll_GetArchive(), (void*) &ScInfTim_scene_models,
                            "ScInfTim_scene_models",
-                           &ifTime_data.countdown_timer_models, "tdsce", 0);
+                           &ifTime_data.countdown_timer_models, "tdsce", NULL);
     model = DP(DynamicModelDesc, ScInfTim_scene_models[0].v);
     if (model != NULL) {
         ifTime_match_timer_models.joint = model->joint;

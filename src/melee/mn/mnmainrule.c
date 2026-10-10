@@ -1477,7 +1477,7 @@ void mn_80231804(HSD_Archive* archive, int arg1)
             &dp_[71],
             "MenMainCursorSs_Top_shapeanim_joint",
 
-            0);
+            NULL);
         DP_SET(MenMainBack_Top.joint, dp_[0]);
         DP_SET(MenMainBack_Top.animjoint, dp_[1]);
         DP_SET(MenMainBack_Top.matanim_joint, dp_[2]);

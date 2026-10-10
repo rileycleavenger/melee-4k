@@ -3071,7 +3071,7 @@ void mnMain_Scene_OnEnter(void* user_data)
                 &dp_[79],
                 "MenMainCursorSs_Top_shapeanim_joint",
 
-                0);
+                NULL);
             DP_SET(MenMainBack_Top.joint, dp_[0]);
             DP_SET(MenMainBack_Top.animjoint, dp_[1]);
             DP_SET(MenMainBack_Top.matanim_joint, dp_[2]);

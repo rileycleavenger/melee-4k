@@ -1756,7 +1756,7 @@ s32 mnName_8023AC40(void)
             "MenMainSbaseEtNw_Top_animjoint", &dp_[14],
             "MenMainSbaseEtNw_Top_matanim_joint",
             &dp_[15],
-            "MenMainSbaseEtNw_Top_shapeanim_joint", 0);
+            "MenMainSbaseEtNw_Top_shapeanim_joint", NULL);
         DP_SET(mnNameNew_804A06F0.joint, dp_[0]);
         DP_SET(mnNameNew_804A06F0.animjoint, dp_[1]);
         DP_SET(mnNameNew_804A06F0.matanim_joint, dp_[2]);
@@ -1778,11 +1778,11 @@ s32 mnName_8023AC40(void)
     if (lbLang_IsSavedLanguageUS()) {
         lbArchive_LoadSections(
             archive, (void**) &AutoNamesList, mnName_AutoNameUsName,
-            (void**) &NotAllowedNamesList, mnName_RefuseNameUsName, 0);
+            (void**) &NotAllowedNamesList, mnName_RefuseNameUsName, NULL);
     } else {
         lbArchive_LoadSections(
             archive, (void**) &AutoNamesList, mnName_AutoNameName,
-            (void**) &NotAllowedNamesList, mnName_RefuseNameName, 0);
+            (void**) &NotAllowedNamesList, mnName_RefuseNameName, NULL);
     }
 
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;

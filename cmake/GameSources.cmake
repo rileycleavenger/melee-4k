@@ -46,5 +46,7 @@ else ()
 endif ()
 
 list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
+# Reads and writes HSD JObj/CObj state, so it is game C like vtxarray.c.
+list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/interp.c")
 # PowerPC/MetroTRK debugger integration; no PC equivalent.
 list(FILTER GAME_SOURCES EXCLUDE REGEX "baselib/debugconsole_main\\.c$")

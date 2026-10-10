@@ -822,7 +822,7 @@ void ifStatus_802F66A4(void)
     HSD_Archive** arch;
     arch = ifAll_GetArchive();
     lbArchive_LoadSections(*arch, (void**) &num_tbl, num_models_name,
-                           (void**) &mrk_tbl, mrk_models_name, 0);
+                           (void**) &mrk_tbl, mrk_models_name, NULL);
     num = DP(DynamicModelDesc, num_tbl[0].v);
     mrk = DP(DynamicModelDesc, mrk_tbl[0].v);
     /* The three anim tables are arrays of 32-bit disc slots, not host

@@ -183,7 +183,8 @@ endif ()
 # ---- PC platform layer -----------------------------------------------------
 # Explicit, not a glob: this list links straight into the shipped binary, so a
 # stray .c/.cpp dropped into src/pc must not silently join the build.
-# src/pc/vtxarray.c is deliberately absent - it belongs to melee_game.
+# src/pc/vtxarray.c and src/pc/interp.c are deliberately absent - they belong
+# to melee_game.
 set(PC_SOURCES
         src/pc/audio.c
         src/pc/disc_open.c

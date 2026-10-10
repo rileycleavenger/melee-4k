@@ -723,7 +723,7 @@ void mnEvent_8024E838(int event_idx, bool first_time)
             "MenMainConEv_Top_animjoint", &dp_[2],
             "MenMainConEv_Top_matanim_joint", &dp_[3],
             "MenMainConEv_Top_shapeanim_joint", &dp_[4],
-            "MenMainMarkEv_Top_joint", 0);
+            "MenMainMarkEv_Top_joint", NULL);
         DP_SET(MenMainConEv.joint, dp_[0]);
         DP_SET(MenMainConEv.animjoint, dp_[1]);
         DP_SET(MenMainConEv.matanim_joint, dp_[2]);

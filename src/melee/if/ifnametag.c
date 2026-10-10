@@ -185,7 +185,7 @@ void un_802FCBA0(void)
     DynamicModelDesc* d;
 
     archive = ifAll_GetArchive();
-    lbArchive_LoadSections(*archive, (void**) &x, "ScInfPnm_scene_models", 0);
+    lbArchive_LoadSections(*archive, (void**) &x, "ScInfPnm_scene_models", NULL);
     d = DP(DynamicModelDesc, x[0].v);
     DP_SET(un_804A1ED0.joint, DP(HSD_Joint, d->joint));
     if (d->anims) {

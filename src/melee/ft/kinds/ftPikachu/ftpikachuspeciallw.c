@@ -140,6 +140,13 @@ void ftPk_SpecialLw_Enter(HSD_GObj* gobj)
     fp->throw_flags = 0;
     fp->mv.pk.specialhi.x4 = 1;
     fp->mv.pk.specialhi.x0 = 0;
+    /* PORT: on GameCube specialhi.x0 is gp+00, which was also speciallw.x0
+     * (the thunder gobj), so the line above cleared it. The host view moved
+     * that pointer to +08 (types.h), so clear it by name: otherwise it keeps
+     * the previous state's bytes (two 30.0f from Pichu's last move), the
+     * spawn check below sees a thunder already out, and 8012765C
+     * dereferences 0x41F0000041F00000. */
+    fp->mv.pk.speciallw.x0 = NULL;
     Fighter_ChangeMotionState(gobj, 359, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
     ftAnim_8006EBA4(gobj);
 }
@@ -151,6 +158,13 @@ void ftPk_SpecialAirLw_Enter(HSD_GObj* gobj)
     fp->throw_flags = 0;
     fp->mv.pk.specialhi.x4 = 1;
     fp->mv.pk.specialhi.x0 = 0;
+    /* PORT: on GameCube specialhi.x0 is gp+00, which was also speciallw.x0
+     * (the thunder gobj), so the line above cleared it. The host view moved
+     * that pointer to +08 (types.h), so clear it by name: otherwise it keeps
+     * the previous state's bytes (two 30.0f from Pichu's last move), the
+     * spawn check below sees a thunder already out, and 8012765C
+     * dereferences 0x41F0000041F00000. */
+    fp->mv.pk.speciallw.x0 = NULL;
     Fighter_ChangeMotionState(gobj, 363, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
     ftAnim_8006EBA4(gobj);
 }

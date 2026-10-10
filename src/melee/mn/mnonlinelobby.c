@@ -141,7 +141,7 @@ void mnOnlineLobby_Create(void)
         "MenMainBack_Top_animjoint", &dp_[2], "MenMainBack_Top_matanim_joint",
         &dp_[3], "MenMainBack_Top_shapeanim_joint", &MenMain_cam,
         "ScMenMain_cam_int1_camera", &MenMain_lights, "ScMenMain_scene_lights",
-        &MenMain_fog, "ScMenMain_fog", 0);
+        &MenMain_fog, "ScMenMain_fog", NULL);
     DP_SET(MenMainBack_Top.joint, dp_[0]);
     DP_SET(MenMainBack_Top.animjoint, dp_[1]);
     DP_SET(MenMainBack_Top.matanim_joint, dp_[2]);

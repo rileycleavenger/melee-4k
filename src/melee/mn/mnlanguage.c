@@ -215,7 +215,7 @@ void mnLanguage_8024C5C0(HSD_GObj* gobj)
             archive, &dp_[0], "MenMainConLa_Top_joint",
             &dp_[1], "MenMainConLa_Top_animjoint",
             &dp_[2], "MenMainConLa_Top_matanim_joint",
-            &dp_[3], "MenMainConLa_Top_shapeanim_joint", 0);
+            &dp_[3], "MenMainConLa_Top_shapeanim_joint", NULL);
         DP_SET(model_desc.joint, dp_[0]);
         DP_SET(model_desc.animjoint, dp_[1]);
         DP_SET(model_desc.matanim_joint, dp_[2]);

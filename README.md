@@ -216,6 +216,9 @@ per-device `.controller` files; everything else shares `launcher.cfg`.
 | `MELEE_UCF=1` | Universal Controller Fix (UCF 0.8x dashback and shield-drop rules); overrides the `ucf` launcher.cfg pref. |
 | `MELEE_GC_ADAPTER=0` | Hand the GameCube adapter (WUP-028) back to SDL's gamepad driver instead of reading it raw. |
 | `MELEE_SLP_DIR=<dir>` | Record every VS match, offline or netplay, as a Slippi replay `<dir>/Game_YYYYMMDDTHHMMSS.slp` (replay format 3.18.0) that Slippi Launcher, slippi-js stats, Clippi and overlays read. Only frames no rollback can change are written, so both netplay peers' files hold the same frames. Off by default. |
+| `MELEE_FRAME_INTERP=0\|1` | High-refresh presentation: frames at the display's refresh rate, blended between the 60 Hz ticks. Default is on when the game window's display refreshes at 100 Hz or more; `1` forces it, `0` disables it. Never used in netplay. Details in `docs/melee-4k.md`. |
+| `MELEE_TEXTURE_DIR=<dir>` | Load texture replacements from this directory instead of the user `textures` folder. |
+| `MELEE_TEXTURE_DUMP=1` | Write every texture that has no replacement to `<cache>/texture_dumps/` as `tex1_*.dds`. |
 | `--no-card` | Boot without a memory card. |
 | `--dvd <image>` | Explicit form of the positional disc argument. |
 | `--version` | Print the build version and exit. |

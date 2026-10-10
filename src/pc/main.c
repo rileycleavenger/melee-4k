@@ -561,6 +561,10 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         .windowHeight = 960,
         .logCallback = log_callback,
         .desiredBackend = backend_from_env(),
+        /* MELEE_TEXTURE_DUMP=1: every texture without a replacement is
+         * written once to <cache>/texture_dumps as tex1_*.dds (RGBA8), so a
+         * play-through with packs loaded leaves exactly the uncovered set. */
+        .allowTextureDumps = getenv("MELEE_TEXTURE_DUMP") && getenv("MELEE_TEXTURE_DUMP")[0] == '1',
         .mem1Size = PC_MEM1_SIZE,
         .mem2Size = PC_ARAM_SIZE,
     };
@@ -682,6 +686,15 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     pc_android_set_launcher_active(false);
 
     pc_menu_init(info.window);
+    pc_vi_set_window(info.window);
+    /* Started from a terminal (or a launcher that keeps focus), the game
+     * window can open behind another app's window, and macOS then hands a
+     * covered window frames at its own pace, which defeats high-refresh
+     * presentation. Bring it to the front once at startup. */
+    if (info.window != NULL) {
+        SDL_SetHint(SDL_HINT_FORCE_RAISEWINDOW, "1");
+        SDL_RaiseWindow(info.window);
+    }
     pc_platform_init();
     aurora_card_set_present(card);
     int rc = melee_main();

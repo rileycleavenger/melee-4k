@@ -346,9 +346,9 @@ void lbCardGame_InitScene(void)
 void lbCardGame_LoadArchive(int jobj_translate_idx)
 {
     if (_p(icon_data) == NULL) {
-        lbArchive_80016DBC("LbMcGame.", (void**) &_p(icon_data), "MemCardIconData", 0);
+        lbArchive_80016DBC("LbMcGame.", (void**) &_p(icon_data), "MemCardIconData", NULL);
         lbArchive_80016DBC("NtMemAc", (void**) &_p(scene_data),
-                           "ScNtcCommon_scene_data", 0);
+                           "ScNtcCommon_scene_data", NULL);
         _p(jobj_translate_idx) = jobj_translate_idx;
     }
     _p(enable) = true;

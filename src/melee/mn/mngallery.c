@@ -490,7 +490,7 @@ void mnGallery_80259868(void)
             "MenMainCursorGa_Top_animjoint", &dp_[6],
             "MenMainCursorGa_Top_matanim_joint",
             &dp_[7],
-            "MenMainCursorGa_Top_shapeanim_joint", 0);
+            "MenMainCursorGa_Top_shapeanim_joint", NULL);
         DP_SET(mnGallery_804A0BA0.joint, dp_[0]);
         DP_SET(mnGallery_804A0BA0.animjoint, dp_[1]);
         DP_SET(mnGallery_804A0BA0.matanim_joint, dp_[2]);

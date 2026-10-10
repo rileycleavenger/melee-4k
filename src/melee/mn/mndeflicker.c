@@ -189,7 +189,7 @@ void mnDeflicker_8024A6C4(HSD_GObj* arg0)
             "MenMainConDf_Top_animjoint", &dp_[2],
             "MenMainConDf_Top_matanim_joint",
             &dp_[3],
-            "MenMainConDf_Top_shapeanim_joint", 0);
+            "MenMainConDf_Top_shapeanim_joint", NULL);
         DP_SET(mnDeflicker_804A08B8.joint, dp_[0]);
         DP_SET(mnDeflicker_804A08B8.animjoint, dp_[1]);
         DP_SET(mnDeflicker_804A08B8.matanim_joint, dp_[2]);

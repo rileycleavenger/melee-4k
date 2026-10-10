@@ -1047,6 +1047,23 @@ static inline float get_stage_floor_height(GrKind kind)
     return height;
 }
 
+#ifdef TARGET_PC
+/* src/pc/interp.c blends the game camera between ticks. The render callback
+ * rebuilds the CObj from these on every draw (Camera_8002A4AC), so they are
+ * what has to be blended, not the CObj. */
+CameraTransformState* pc_camera_transform(int which)
+{
+    return which == 0 ? &game_camera.transform : &game_camera.transform_copy;
+}
+
+/* Screen shake and pan offset, added to both eye and interest by
+ * Camera_8002AF68 on every draw. */
+Vec2* pc_camera_translation(void)
+{
+    return &game_camera.translation;
+}
+#endif
+
 void Camera_8002A4AC(HSD_GObj* gobj)
 {
     f32 floor_height;

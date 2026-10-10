@@ -83,7 +83,7 @@ struct SoundTestLoadData {
 
 void un_802FF7DC(void)
 {
-    lbArchive_LoadSymbols(un_803F9FA4.x160, &un_804D6DA8, un_803F9FA4.x16C, 0);
+    lbArchive_LoadSymbols(un_803F9FA4.x160, &un_804D6DA8, un_803F9FA4.x16C, NULL);
     un_803F9FA4.entries[1].x18 = un_804D6DA8->x0;
     un_803F9FA4.entries[1].xC = un_804D6DA8->x4;
     un_803F9FA4.entries[6].xC = un_804D6DA8->x8;

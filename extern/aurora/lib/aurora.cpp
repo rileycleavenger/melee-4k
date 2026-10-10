@@ -6,6 +6,7 @@
 #include "gfx/resources.hpp"
 #include "gfx/frame.hpp"
 #include "gfx/recording.hpp"
+#include "gfx/screenshot.hpp"
 #include "gfx/render_worker.hpp"
 #include "gx/command_processor.hpp"
 #include "gx/fifo.hpp"
@@ -441,6 +442,9 @@ void end_frame() noexcept {
     } else {
       Log.info("Skipping present; no usable surface texture ({})", magic_enum::enum_name(surfaceStatus));
     }
+    if (gfx::screenshot::begin_frame()) {
+      gfx::screenshot::record(encoder, webgpu::present_source());
+    }
     webgpu::gpu_prof::frame_end(encoder);
     const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Redraw command buffer"};
     const auto buffer = encoder.Finish(&cmdBufDescriptor);
@@ -449,6 +453,7 @@ void end_frame() noexcept {
       g_queue.Submit(1, &buffer);
     }
     webgpu::gpu_prof::after_submit();
+    gfx::screenshot::after_submit();
     if (canPresent && g_surface) {
       ZoneScopedN("Present");
       wgpu::ConvertibleStatus status = wgpu::Status::Error;

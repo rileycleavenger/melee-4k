@@ -24,6 +24,8 @@ uint64_t pc_sim_period_ns(void);
 /* Sleep (at most 1 ms) toward the next due OSAlarm instead of spinning for it,
  * and a 0.1 ms sleep for the game's disc wait loops, src/pc/os.c. */
 void pc_os_wait_alarm(void);
+/// SDL-clock ns of the next game tick (the 60 Hz pad alarm), 0 if unknown.
+uint64_t pc_os_next_tick_ns(void);
 void pc_os_yield(void);
 
 /* Append a line to the diagnostic log (src/pc/main.c), so frame stalls
@@ -132,5 +134,9 @@ uint32_t pc_gfx_prewarm(uint32_t max_wait_ms);
 #ifdef __cplusplus
 }
 #endif
+
+/// The game window, whose display decides high-refresh presentation (vi.c).
+struct SDL_Window;
+void pc_vi_set_window(struct SDL_Window* window);
 
 #endif

@@ -2524,7 +2524,7 @@ void mnDiagram_Init(u8 arg0, u8 arg1)
             "MenMainConB3_Top_joint", &dp_[22], "MenMainConB3_Top_animjoint",
             &dp_[23], "MenMainConB3_Top_matanim_joint", &dp_[24],
             "MenMainConB3_Top_shapeanim_joint", &dp_[25],
-            "MenMainCursorB3_Top_joint", 0);
+            "MenMainCursorB3_Top_joint", NULL);
 
         DP_SET(MenMainConB1_Top.joint, dp_[0]);
         DP_SET(MenMainConB1_Top.animjoint, dp_[1]);

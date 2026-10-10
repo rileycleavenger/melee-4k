@@ -20,6 +20,12 @@ std::string s_textures_dir_str;
 bool s_initialized = false;
 
 std::filesystem::path resolve_texture_directory() {
+    // 0. MELEE_TEXTURE_DIR wins: lets a pack be tested without installing it,
+    //    and gives consoles (no SDL pref path) a fixed location.
+    if (const char* env = SDL_getenv("MELEE_TEXTURE_DIR"); env != nullptr && env[0] != '\0') {
+        return std::filesystem::path(env);
+    }
+
     // 1. On Linux/Windows, user data dir is SDL_GetPrefPath("", "melee-pc").
     //    Use a "textures" subdirectory there: <prefPath>/textures
     std::filesystem::path user_dir;
