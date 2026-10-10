@@ -16,6 +16,8 @@
 #pragma GCC diagnostic ignored "-Wscalar-storage-order" /* disc-struct unions in lb/types.h */
 #include <melee/ft/fighter.h>
 #include <melee/ft/inlines.h>
+#include <melee/it/types.h>
+#include <sysdolphin/baselib/gobj.h>
 #include <melee/pl/player.h>
 #pragma GCC diagnostic pop
 #include <xxhash.h>
@@ -263,6 +265,18 @@ int32_t pc_net_confirmed_frame(void) {
     return s_confirmed;
 }
 
+/* MELEE_NET_CHECKSUM_WIDE=1: also fold every live hitbox and every item.
+ * Off by default: it changes the checksum, so both sides of a comparison
+ * (record and replay, or two peers) must agree on it. */
+static bool checksum_wide(void) {
+    static int on = -1;
+    if (on < 0) {
+        const char* e = getenv("MELEE_NET_CHECKSUM_WIDE");
+        on = e != NULL && e[0] == '1';
+    }
+    return on;
+}
+
 uint32_t frame_checksum(const PADStatus* head) {
     /* Inputs as simulated, the RNG seed entering the frame, and each
      * fighter's position, facing, percent, stocks and action state (plan
@@ -288,6 +302,29 @@ uint32_t frame_checksum(const PADStatus* head) {
         ck = fnv1a(ck, &stocks, sizeof stocks);
         ck = fnv1a(ck, &fp->self_vel, sizeof fp->self_vel);
         ck = fnv1a(ck, &fp->x8c_kb_vel, sizeof fp->x8c_kb_vel);
+        if (checksum_wide()) {
+            /* Hitboxes are placed from bone matrices: a render-side matrix
+             * leaking into the simulation shows here on the same frame. */
+            for (int i = 0; i < 4; i++) {
+                const HitCapsule* hit = &fp->x914[i];
+                ck = fnv1a(ck, &hit->state, sizeof hit->state);
+                if (hit->state != HitCapsule_Disabled) {
+                    ck = fnv1a(ck, &hit->x4C, sizeof hit->x4C);
+                }
+            }
+        }
+    }
+    if (checksum_wide() && in_fight()) {
+        for (int p = 0; p <= HSD_GObjLibInitData.p_link_max; p++) {
+            for (HSD_GObj* gobj = HSD_GObjPLinkHead[p]; gobj != NULL; gobj = gobj->next) {
+                if (gobj->classifier == HSD_GOBJ_CLASS_ITEM && gobj->user_data != NULL) {
+                    const Item* ip = gobj->user_data;
+                    ck = fnv1a(ck, &ip->kind, sizeof ip->kind);
+                    ck = fnv1a(ck, &ip->pos, sizeof ip->pos);
+                    ck = fnv1a(ck, &ip->x40_vel, sizeof ip->x40_vel);
+                }
+            }
+        }
     }
     return ck;
 }

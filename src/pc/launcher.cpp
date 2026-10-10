@@ -1870,7 +1870,16 @@ extern "C" bool pc_is_custom_textures_enabled(void) {
 extern "C" bool pc_net_rules(bool* unlock_all, bool* frozen_stadium);
 extern "C" bool pc_is_unlock_all_enabled(void) {
     bool unlock_all, frozen;
-    return pc_net_rules(&unlock_all, &frozen) ? unlock_all : prefs.unlock_all;
+    if (pc_net_rules(&unlock_all, &frozen))
+        return unlock_all;
+    /* MELEE_UNLOCK_ALL=1: test sweeps reach every character, stage and
+     * trophy without touching the player's saved setting. */
+    static int env = -1;
+    if (env < 0) {
+        const char* e = std::getenv("MELEE_UNLOCK_ALL");
+        env = e != nullptr && e[0] == '1';
+    }
+    return env || prefs.unlock_all;
 }
 extern "C" bool pc_is_frozen_stadium_enabled(void) {
     bool unlock_all, frozen;

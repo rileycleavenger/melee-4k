@@ -4,8 +4,8 @@
 #ifdef TARGET_PC
 #include <dolphin/types.h>
 
-/// MELEE_BOOT_SCENE: the GameModeKind to boot straight into, or GM_COUNT when
-/// the knob is unset. Cached, so this is cheap to call from an on_load hook.
+/// MELEE_BOOT_SCENE=<name|mode:N> (gmboot.c lists the names): the
+/// GameModeKind to boot straight into, or GM_COUNT when unset.
 u8 pc_boot_scene(void);
 #endif
 

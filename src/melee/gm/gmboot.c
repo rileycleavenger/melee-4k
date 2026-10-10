@@ -37,15 +37,58 @@ static struct loadData load_data;
 static struct leaveData leave_data;
 
 #ifdef TARGET_PC
-/* MELEE_BOOT_SCENE=<title|vs|classic|training|unranked|direct|ranked>: skip the whole menu walk and
- * boot into one scene with a fixed setup. Menu navigation here can only be
- * driven by synthetic input, which misses keypresses often enough that an
- * automated run cannot rely on it (see tools/smoke_test.py).
+/* MELEE_BOOT_SCENE=<name|mode:N>: skip the whole menu walk and boot into one
+ * mode. Menu navigation here can only be driven by synthetic input, which
+ * misses keypresses often enough that an automated run cannot rely on it
+ * (see tools/smoke_test.py).
  *
  * vs maps to GM_DEBUG_VS because that mode already *is* a fixed direct start
  * (onEnterDebugVs in gmvsmode.c fills the StartMeleeData itself). classic and
- * training still open on a character-select state, so their on_load hooks
- * seed the pick and jump past it. */
+ * training open on a character-select state, so their on_load hooks seed the
+ * pick and jump past it. Every other mode starts on its own first screen
+ * (usually its character select), which is what screen and texture sweeps
+ * need; tools/soak.py picks a character through MELEE_KEY_FIFO. */
+static const struct {
+    const char* name;
+    u8 mode;
+} boot_scenes[] = {
+    {"title", GM_TITLE},
+    {"menu", GM_MENU},
+    {"vs", GM_DEBUG_VS},
+    {"vs-css", GM_VS},
+    {"classic", GM_CLASSIC},
+    {"adventure", GM_ADVENTURE},
+    {"allstar", GM_ALLSTAR},
+    {"training", GM_TRAINING},
+    {"event", GM_EVENT},
+    {"target", GM_TARGET_TEST},
+    {"homerun", GM_HOME_RUN_CONTEST},
+    {"multiman10", GM_10MAN_VS},
+    {"multiman100", GM_100MAN_VS},
+    {"multiman3min", GM_3MIN_VS},
+    {"multiman15min", GM_15MIN_VS},
+    {"endless", GM_ENDLESS_VS},
+    {"cruel", GM_CRUEL_VS},
+    {"tournament", GM_TOURNAMENT},
+    {"trophies", GM_TOY_GALLERY},
+    {"lottery", GM_TOY_LOTTERY},
+    {"collection", GM_TOY_COLLECTION},
+    {"camera", GM_CAMERA_MODE},
+    {"special-camera", GM_CAMERA_VS},
+    {"special-stamina", GM_STAMINA_VS},
+    {"special-super-sudden-death", GM_SUPER_SUDDEN_DEATH_VS},
+    {"special-giant", GM_GIANT_VS},
+    {"special-tiny", GM_TINY_VS},
+    {"special-invisible", GM_INVISIBLE_VS},
+    {"special-single-button", GM_SINGLE_BUTTON_VS},
+    {"special-lightning", GM_LIGHTNING_VS},
+    {"special-slomo", GM_SLOMO_VS},
+    {"opening", GM_OPENING_MV},
+    {"unranked", GM_ONLINE},
+    {"direct", GM_ONLINE},
+    {"ranked", GM_ONLINE},
+};
+
 u8 pc_boot_scene(void)
 {
     static int done;
@@ -53,30 +96,36 @@ u8 pc_boot_scene(void)
 
     if (!done) {
         const char* want = getenv("MELEE_BOOT_SCENE");
+        size_t i;
         done = 1;
         if (want == NULL || want[0] == '\0') {
-            /* nothing */
-        } else if (strcmp(want, "title") == 0) {
-            scene = GM_TITLE;
-        } else if (strcmp(want, "vs") == 0) {
-            scene = GM_DEBUG_VS;
-        } else if (strcmp(want, "classic") == 0) {
-            scene = GM_CLASSIC;
-        } else if (strcmp(want, "training") == 0) {
-            scene = GM_TRAINING;
-        } else if (strcmp(want, "unranked") == 0) {
-            scene = GM_ONLINE;
+            return scene;
+        }
+        if (strncmp(want, "mode:", 5) == 0) {
+            int mode = atoi(want + 5);
+            if (mode >= 0 && mode < GM_COUNT) {
+                scene = (u8) mode;
+            }
+        }
+        for (i = 0; i < sizeof boot_scenes / sizeof boot_scenes[0]; i++) {
+            if (strcmp(want, boot_scenes[i].name) == 0) {
+                scene = boot_scenes[i].mode;
+            }
+        }
+        if (strcmp(want, "unranked") == 0) {
             gmOnline_SetKind(ONLINE_KIND_UNRANKED);
         } else if (strcmp(want, "direct") == 0) {
-            scene = GM_ONLINE;
             gmOnline_SetKind(ONLINE_KIND_DIRECT);
         } else if (strcmp(want, "ranked") == 0) {
-            scene = GM_ONLINE;
             gmOnline_SetKind(ONLINE_KIND_RANKED);
-        } else {
-            OSReport("MELEE_BOOT_SCENE: unknown scene '%s'; valid values are "
-                     "title, vs, classic, training, unranked, direct, ranked\n",
-                     want);
+        }
+        if (scene == GM_COUNT) {
+            OSReport("MELEE_BOOT_SCENE: unknown scene '%s'; use mode:<0-%d> or one of:",
+                     want, GM_COUNT - 1);
+            for (i = 0; i < sizeof boot_scenes / sizeof boot_scenes[0]; i++) {
+                OSReport(" %s", boot_scenes[i].name);
+            }
+            OSReport("\n");
         }
     }
     return scene;

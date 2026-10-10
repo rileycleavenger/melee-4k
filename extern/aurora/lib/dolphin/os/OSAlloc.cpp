@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <mutex>
 #include <unordered_map>
 #include <array>
 #if defined(_WIN32)
@@ -66,6 +67,13 @@ static u8* sArenaEnd = nullptr;
 // melee-pc: MELEE_HEAP_CHECK=1 appends a 32-byte canary to every allocation and
 // verifies all of them on each alloc/free (and from pc_frame_boundary via
 // aurora_heap_check), so heap stomps are caught near the culprit.
+// PC: DVD completion callbacks run on aurora's DVD worker thread, and some
+// allocate (HSD_SynthSFXHeaderLoadCallback). On the GameCube they ran as
+// interrupts and never overlapped game code; here they run alongside the
+// game thread, so every heap entry point is serialised. Recursive because
+// the canary checks and dumps call back into the heap walkers.
+static std::recursive_mutex sHeapLock;
+
 static const bool sCanary = getenv("MELEE_HEAP_CHECK") != nullptr;
 constexpr u8 kCanaryByte = 0xC5;
 
@@ -430,6 +438,7 @@ static void carveRangeFromHeap(HeapDesc& hd, uintptr_t carveStart, uintptr_t car
 extern "C" {
 
 void* OSInitAlloc(void* arenaStart, void* arenaEnd, int maxHeaps) {
+  std::lock_guard heapLock(sHeapLock);
   if (arenaStart == nullptr || arenaEnd == nullptr || maxHeaps <= 0) {
     return nullptr;
   }
@@ -468,6 +477,7 @@ void* OSInitAlloc(void* arenaStart, void* arenaEnd, int maxHeaps) {
 }
 
 OSHeapHandle OSCreateHeap(void* start, void* end) {
+  std::lock_guard heapLock(sHeapLock);
   if (sHeapArray == nullptr) {
     return -1;
   }
@@ -498,6 +508,7 @@ OSHeapHandle OSCreateHeap(void* start, void* end) {
 }
 
 void OSDestroyHeap(OSHeapHandle heap) {
+  std::lock_guard heapLock(sHeapLock);
   if (!validHeapHandle(heap)) {
     return;
   }
@@ -512,6 +523,7 @@ void OSDestroyHeap(OSHeapHandle heap) {
 }
 
 void OSAddToHeap(OSHeapHandle heap, void* start, void* end) {
+  std::lock_guard heapLock(sHeapLock);
   if (!validHeapHandle(heap)) {
     return;
   }
@@ -533,6 +545,7 @@ void OSAddToHeap(OSHeapHandle heap, void* start, void* end) {
 }
 
 void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
+  std::lock_guard heapLock(sHeapLock);
   if (!validHeapHandle(heap) || size == 0) {
     return nullptr;
   }
@@ -581,6 +594,7 @@ void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
 }
 
 void OSFreeToHeap(OSHeapHandle heap, void* ptr) {
+  std::lock_guard heapLock(sHeapLock);
   if (!validHeapHandle(heap) || ptr == nullptr) {
     return;
   }
@@ -601,9 +615,13 @@ void OSFreeToHeap(OSHeapHandle heap, void* ptr) {
   hd.freeList = insertAndCoalesce(hd.freeList, cell);
 }
 
-extern "C" void aurora_heap_check(void) { checkCanaries("frame"); }
+extern "C" void aurora_heap_check(void) {
+  std::lock_guard heapLock(sHeapLock);
+  checkCanaries("frame");
+}
 
 OSHeapHandle OSSetCurrentHeap(OSHeapHandle heap) {
+  std::lock_guard heapLock(sHeapLock);
   const auto prev = __OSCurrHeap;
   if (heap == -1 || validHeapHandle(heap)) {
     __OSCurrHeap = heap;
@@ -612,6 +630,7 @@ OSHeapHandle OSSetCurrentHeap(OSHeapHandle heap) {
 }
 
 void* OSAllocFixed(void* rstart, void* rend) {
+  std::lock_guard heapLock(sHeapLock);
   if (sHeapArray == nullptr || rstart == nullptr || rend == nullptr) {
     return nullptr;
   }
@@ -643,6 +662,7 @@ void* OSAllocFixed(void* rstart, void* rend) {
 }
 
 s32 OSCheckHeap(OSHeapHandle heap) {
+  std::lock_guard heapLock(sHeapLock);
   if (!validHeapHandle(heap)) {
     return -1;
   }
@@ -694,6 +714,7 @@ s32 OSCheckHeap(OSHeapHandle heap) {
 }
 
 u32 OSReferentSize(void* ptr) {
+  std::lock_guard heapLock(sHeapLock);
   if (ptr == nullptr || !inArena(ptr) || (reinterpret_cast<uintptr_t>(ptr) & (kAlignment - 1)) != 0) {
     return 0;
   }
@@ -705,6 +726,7 @@ u32 OSReferentSize(void* ptr) {
 }
 
 void OSDumpHeap(OSHeapHandle heap) {
+  std::lock_guard heapLock(sHeapLock);
   AllocLog.info("OSDumpHeap({})", heap);
   if (!validHeapHandle(heap)) {
     AllocLog.info("--------Invalid");
@@ -740,6 +762,7 @@ void OSDumpHeap(OSHeapHandle heap) {
 }
 
 void OSVisitAllocated(void (*visitor)(void*, u32)) {
+  std::lock_guard heapLock(sHeapLock);
   if (visitor == nullptr || sHeapArray == nullptr) {
     return;
   }
@@ -761,6 +784,7 @@ void OSVisitAllocated(void (*visitor)(void*, u32)) {
 // until it is split, and splitting rewrites only headers). Returns false for
 // an unused handle.
 bool aurora_heap_extent(OSHeapHandle heap, void** lo, void** hi) {
+  std::lock_guard heapLock(sHeapLock);
   if (!validHeapHandle(heap)) {
     return false;
   }
@@ -787,6 +811,7 @@ bool aurora_heap_extent(OSHeapHandle heap, void** lo, void** hi) {
 // melee-pc: the HeapDesc array (list heads) sits at the arena start, outside
 // every cell, and must be part of any snapshot of the heaps.
 void aurora_heap_descs(void** lo, size_t* len) {
+  std::lock_guard heapLock(sHeapLock);
   *lo = sHeapArray;
   *len = static_cast<size_t>(sNumHeaps) * sizeof(HeapDesc);
 }
@@ -795,6 +820,7 @@ void aurora_heap_descs(void** lo, size_t* len) {
 // heap's body can exclude its list heads too. Restoring the heads without the
 // cell headers they point at is what corrupts the heap.
 bool aurora_heap_desc(OSHeapHandle heap, void** lo, size_t* len) {
+  std::lock_guard heapLock(sHeapLock);
   if (heap < 0 || heap >= sNumHeaps) {
     return false;
   }
