@@ -27,12 +27,14 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <random>
 #include <cstdlib>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <sys/stat.h>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -1070,6 +1072,56 @@ public:
     }
 };
 }  // namespace
+
+/* `melee --verify-disc <image>`, for Setup: checks the image the way the
+ * launcher does (nod + Redump SHA-1), prints "progress N" lines and one result
+ * line, and on success saves it as the disc to boot. Exit status: 0 verified,
+ * 1 playable but not the verified USA 1.02 image, 2 unusable. */
+extern "C" int pc_verify_disc_cli(const char* path, const char* user_path) {
+    std::atomic_bool cancel{false};
+    std::atomic_uint progress{0};
+    auto info = launcher::inspect_disc(path);
+    if (!info.supported) {
+        printf("error: %s\n", info.message.c_str());
+        return 2;
+    }
+    launcher::Verification result;
+    std::atomic_bool finished{false};
+    std::thread worker([&] {
+        result = launcher::verify_disc(path, cancel, progress);
+        finished = true;
+    });
+    unsigned last = ~0u;
+    for (bool done = false; !done;) {
+        done = finished.load();
+        unsigned now = progress.load();
+        if (now != last) {
+            printf("progress %u\n", now);
+            fflush(stdout);
+            last = now;
+        }
+        if (!done)
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+    worker.join();
+    int status = result.state == launcher::VerifyState::Verified ? 0
+                 : result.state == launcher::VerifyState::Mismatch ? 1
+                                                                   : 2;
+    printf("%s: %s\n", status == 0 ? "ok" : status == 1 ? "mismatch" : "error",
+           result.message.c_str());
+    if (status < 2) {
+        std::filesystem::path cfg =
+            std::filesystem::path(user_path ? user_path : ".") / "launcher.cfg";
+        auto saved = launcher::load_preferences(cfg);
+        saved.disc = std::filesystem::absolute(path).string();
+        std::string error;
+        if (!launcher::save_preferences(cfg, saved, error)) {
+            printf("error: could not save the disc choice: %s\n", error.c_str());
+            return 2;
+        }
+    }
+    return status;
+}
 
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";

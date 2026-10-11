@@ -282,10 +282,11 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info) {
 static void usage(const char* argv0) {
     fprintf(stderr,
         "usage: %s [--no-card] [--dvd] [disc image (iso/gcm/ciso/rvz/...)]\n"
+        "       %s --verify-disc <disc image>   check it and save it as the disc to boot\n"
         "       %s --version | --help\n"
         "No disc argument opens the launcher. MELEE_BACKEND, MELEE_VSYNC, MELEE_LOG_FILE,\n"
         "MELEE_DEBUG and the other MELEE_* knobs are documented in README.md.\n",
-        argv0, argv0);
+        argv0, argv0, argv0);
     exit(2);
 }
 
@@ -479,6 +480,13 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
             d = argv[++i];
         } else if (strcmp(argv[i], "--no-card") == 0) {
             card = false;
+        } else if (strcmp(argv[i], "--verify-disc") == 0) {
+            extern int pc_verify_disc_cli(const char* path, const char* user_path);
+            if (i + 1 >= argc) {
+                fprintf(stderr, "%s: --verify-disc needs a disc path\n", argv[0]);
+                usage(argv[0]);
+            }
+            return pc_verify_disc_cli(argv[i + 1], SDL_GetPrefPath(NULL, "melee-pc"));
         } else if (strcmp(argv[i], "--version") == 0) {
             printf("melee-pc %s\n", pc_app_version());
             return 0;
