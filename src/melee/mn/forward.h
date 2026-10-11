@@ -120,6 +120,8 @@ typedef enum MenuKind {
 #ifdef TARGET_PC
     /* PC: VS Mode > Online. Its row is appended to mnmain.c's tables. */
     MENU_KIND_ONLINE = 34,
+    /* PC: Options > Melee 4K (mnm4k.c) */
+    MENU_KIND_M4K = 35,
 #endif
 } MenuKind;
 
@@ -201,6 +203,9 @@ typedef enum SettingsMenuSelection {
     SEL_SETTINGS_3 = 3, ///< hidden
     SEL_SETTINGS_LANG = 4,
     SEL_SETTINGS_ERASE = 5,
+#ifdef TARGET_PC
+    SEL_SETTINGS_M4K = 6, ///< PC: Melee 4K settings page
+#endif
 } SettingsMenuSelection;
 
 typedef enum DataMenuSelection {

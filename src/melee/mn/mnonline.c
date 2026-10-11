@@ -2,6 +2,7 @@
 
 #include "forward.h"
 #include "inlines.h"
+#include "mnm4k.h"
 #include "mnmain.h"
 #include "types.h"
 #include <melee/gm/gmonlinemode.h>
@@ -29,6 +30,10 @@ static const char* notice;
 
 const char* mnOnline_Label(MenuKind kind, int selection)
 {
+    const char* m4k = mnM4K_Label(kind, selection);
+    if (m4k != NULL) {
+        return m4k; /* Options > Melee 4K shares this text path */
+    }
     if (kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
         return "ONLINE";
     }
@@ -42,6 +47,10 @@ const char* mnOnline_Label(MenuKind kind, int selection)
 
 const char* mnOnline_Description(MenuKind kind, int selection)
 {
+    const char* m4k = mnM4K_Description(kind, selection);
+    if (m4k != NULL) {
+        return m4k;
+    }
     if (kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
         return "Play against other players over the network.";
     }

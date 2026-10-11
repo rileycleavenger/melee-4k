@@ -43,9 +43,11 @@ After that, use the **Melee 4K** shortcut Setup put on your desktop.
   shows your port colour.
 - **Keyboard:** arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
   Enter = Start.
-- **Settings:** press **F1** (or Back/Select/Create on a controller) for
-  aspect ratio (16:9 or the original 4:3), resolution, smooth motion, HD
-  textures and stock icon style.
+- **Settings:** in the game's main menu, go to **Options > Melee 4K** for
+  screen (16:9 or the original 4:3), HUD, resolution, smooth motion, HD
+  textures and stock icon style: Left/Right changes a setting. During a match,
+  **F1** (or Back/Select/Create on a controller) opens the same settings plus
+  the rest (controls, audio, graphics).
 
 ### Troubleshooting
 

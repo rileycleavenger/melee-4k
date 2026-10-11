@@ -875,6 +875,7 @@ src/melee/mn/mninfo.c
 src/melee/mn/mninfobonus.c
 src/melee/mn/mnitemsw.c
 src/melee/mn/mnlanguage.c
+src/melee/mn/mnm4k.c
 src/melee/mn/mnmain.c
 src/melee/mn/mnmainrule.c
 src/melee/mn/mnname.c

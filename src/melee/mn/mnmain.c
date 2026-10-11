@@ -16,6 +16,11 @@
 #include "mninfo.h"
 #include "mninfobonus.h"
 #include "mnlanguage.h"
+#ifdef TARGET_PC
+#include "mnm4k.h"
+#include <stdio.h>
+#include <string.h>
+#endif
 #include "mnmainrule.h"
 #include "mnname.h"
 #include "mnonline.h"
@@ -100,7 +105,7 @@ static u16 mn_803EAE7C[] = {
     0x2, 0x3, 0x4, 0x9, 0xB, 0xC, 0xD, 0x0,
 };
 #ifdef TARGET_PC
-#define MENU_KIND_TABLE_LEN (MENU_KIND_ONLINE + 1)
+#define MENU_KIND_TABLE_LEN (MENU_KIND_M4K + 1)
 #else
 #define MENU_KIND_TABLE_LEN 0x22
 #endif
@@ -282,6 +287,11 @@ static AnimLoopSettings mn_803EAE8C[MENU_KIND_TABLE_LEN][3] = {
         { 450, 499, 450 },
         { 500, 599, 500 },
     },
+    { /* MENU_KIND_M4K: keep the Options title */
+        { 800, 849, 800 },
+        { 850, 899, 850 },
+        { 900, 999, 900 },
+    },
 #endif
 };
 
@@ -345,7 +355,18 @@ static AnimLoopSettings mn_803EB4C8[] = {
 static AnimLoopSettings mn_803EB4F8[] = {
     { 1300, 1349, 1320 }, { 1350, 1399, 1370 }, { 1400, 1449, 1420 },
     { 1450, 1499, 1470 }, { 1500, 1549, 1520 }, { 1550, 1599, 1570 },
+#ifdef TARGET_PC
+    { 1400, 1449, 1420 }, /* SEL_SETTINGS_M4K: reuse the Screen Display preview */
+#endif
 };
+
+#ifdef TARGET_PC
+/* MENU_KIND_M4K preview pane: the Screen Display preview for every row */
+static AnimLoopSettings mn_M4KPreview[6] = {
+    { 1400, 1449, 1420 }, { 1400, 1449, 1420 }, { 1400, 1449, 1420 },
+    { 1400, 1449, 1420 }, { 1400, 1449, 1420 }, { 1400, 1449, 1420 },
+};
+#endif
 
 static AnimLoopSettings mn_803EB540[] = {
     { 1600, 1649, 1620 }, { 1650, 1699, 1670 }, { 1700, 1749, 1720 },
@@ -437,7 +458,11 @@ MenuKindData mn_803EB6B0[MENU_KIND_TABLE_LEN] = {
         mn_803EB4F8,
         80,
         mn_803EB684,
+#ifdef TARGET_PC
+        0x07, /* + SEL_SETTINGS_M4K */
+#else
         0x06,
+#endif
         mn_8022D104,
     },
     {
@@ -651,6 +676,13 @@ MenuKindData mn_803EB6B0[MENU_KIND_TABLE_LEN] = {
         ARRAY_SIZE(mn_OnlinePreview),
         mnOnline_Think,
     },
+    { /* MENU_KIND_M4K: labels and descriptions come from mnm4k.c */
+        mn_M4KPreview,
+        80,
+        NULL,
+        ARRAY_SIZE(mn_M4KPreview),
+        mnM4K_Think,
+    },
 #endif
 };
 
@@ -849,6 +881,7 @@ static void mn_UpdatePcLabels(MainMenuData* data, bool alive)
     static const GXColor hovered = { 0x28, 0x28, 0x28, 0xFF };
     static const GXColor idle = { 0xFF, 0xD2, 0x50, 0xFF };
     const float label_size = 0.033f;
+    static char shown[ARRAY_SIZE(((MainMenuData*) 0)->pc_label)][48];
     int i;
 
     if (alive && data->description != NULL) {
@@ -876,7 +909,17 @@ static void mn_UpdatePcLabels(MainMenuData* data, bool alive)
             text->default_kerning = 1;
             text->font_size.x = label_size;
             text->font_size.y = label_size;
+            if (data->menu_kind == MENU_KIND_M4K) {
+                /* setting and value share one button: condensed, as Melee
+                 * squeezes long names */
+                text->font_size.x = label_size * 0.72f;
+            }
             HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", label);
+            snprintf(shown[i], sizeof shown[i], "%s", label);
+        } else if (strcmp(shown[i], label) != 0) {
+            /* a Melee 4K row shows its setting's value, which just changed */
+            HSD_SisLib_803A70A0(text, 0, "%s", label);
+            snprintf(shown[i], sizeof shown[i], "%s", label);
         }
         lb_8000B1CC(data->tree[mn_803EAE68[i]], NULL, &pos);
         text->pos_x = pos.x;
@@ -1865,6 +1908,9 @@ int mn_8022C010(int menu_kind, int selection)
     case MENU_KIND_TOY:
         return 2;
     case MENU_KIND_SETTINGS:
+#ifdef TARGET_PC
+    case MENU_KIND_M4K:
+#endif
     case MENU_KIND_SETTINGS_RUMBLE:
     case MENU_KIND_SETTINGS_SOUND:
     case MENU_KIND_DISPLAY:
@@ -2480,6 +2526,12 @@ void mn_8022D104(HSD_GObj* gp)
             mnDataDel_80250170();
             HSD_GObjFree(gp);
             break;
+#ifdef TARGET_PC
+        case SEL_SETTINGS_M4K:
+            sfxForward();
+            mn_80229894(MENU_KIND_M4K, 0, 1);
+            break;
+#endif
         }
     } else if (buttons & MenuInput_Back) {
         sfxBack();

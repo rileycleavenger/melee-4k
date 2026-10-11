@@ -33,8 +33,10 @@ Controllers: DualSense, Switch Pro, Xbox and GameCube adapters work out of
 the box. Keyboard: arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
 Enter = Start.
 
-Press F1 (or Back/Select/Create on a controller) for settings: aspect ratio
-(16:9 or 4:3), resolution, smooth motion, HD textures and stock icon style.
+Settings: main menu > Options > Melee 4K (screen 16:9 or 4:3, HUD,
+resolution, smooth motion, HD textures, stock icons; Left/Right changes a
+setting). During a match, F1 (or Back/Select/Create on a controller) opens
+the same settings plus controls, audio and graphics.
 
 
 IF SOMETHING GOES WRONG

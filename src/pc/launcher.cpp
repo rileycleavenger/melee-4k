@@ -26,6 +26,7 @@
 #include <RmlUi/Core.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <random>
@@ -2023,4 +2024,118 @@ extern "C" int pc_get_net_port(void) {
 }
 extern "C" int pc_get_net_delay(void) {
     return prefs.net_delay;
+}
+
+/* Options > Melee 4K (src/melee/mn/mnm4k.c): the same settings as the F1
+ * overlay, drawn in Melee's own menu. Labels use only what the SIS encoder
+ * draws (letters, digits, space, ':'). Every change applies and saves at
+ * once, so the overlay and this page always agree. */
+enum { M4K_ASPECT, M4K_HUD, M4K_RESOLUTION, M4K_SMOOTH, M4K_TEXTURES, M4K_STOCKS, M4K_ROWS };
+
+extern "C" int pc_m4k_rows(void) {
+    return M4K_ROWS;
+}
+
+extern "C" void pc_m4k_label(int row, char* out, int size) {
+    std::string value;
+    switch (row) {
+    case M4K_ASPECT:
+        snprintf(out, size, "SCREEN  %s",
+            prefs.widescreen == 0 ? "4:3" :
+            prefs.widescreen == 1 ? "16:9" :
+                                    "AUTO");
+        return;
+    case M4K_HUD:
+        snprintf(out, size, "HUD  %s", prefs.hud_mode == 0 ? "CLASSIC" : "WIDE");
+        return;
+    case M4K_RESOLUTION:
+        if (prefs.render_scale <= 0)
+            snprintf(out, size, "RESOLUTION  AUTO");
+        else
+            snprintf(out, size, "RESOLUTION  %dx", int(prefs.render_scale));
+        return;
+    case M4K_SMOOTH:
+        snprintf(out, size, "SMOOTH MOTION  %s",
+            prefs.interp == 1 ? "ON" :
+            prefs.interp == 2 ? "OFF" :
+                                "AUTO");
+        return;
+    case M4K_TEXTURES:
+        snprintf(out, size, "HD TEXTURES  %s", prefs.custom_textures ? "ON" : "OFF");
+        return;
+    case M4K_STOCKS:
+        value = prefs.stock_style == "default" ? "HD REMIX" : prefs.stock_style;
+        for (char& c : value)
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        snprintf(out, size, "STOCKS  %s", value.c_str());
+        return;
+    default:
+        snprintf(out, size, "%s", "");
+    }
+}
+
+extern "C" const char* pc_m4k_description(int row) {
+    /* <= 44 characters: what fits the menu's bottom bar */
+    static const char* const descriptions[M4K_ROWS] = {
+        "Widescreen 16:9, or the original 4:3.",
+        "Wide moves the HUD out to the screen edges.",
+        "Rendering resolution. Auto fits the window.",
+        "Extra frames on 120 Hz and faster screens.",
+        "Use the HD texture pack.",
+        "The style of the stock icons in a match.",
+    };
+    return row >= 0 && row < M4K_ROWS ? descriptions[row] : "";
+}
+
+extern "C" void pc_m4k_step(int row, int dir) {
+    const int d = dir < 0 ? -1 : 1;
+    switch (row) {
+    case M4K_ASPECT: {
+        /* 16:9, 4:3, then Auto (follow the window) */
+        static const int order[3] = {1, 0, 2};
+        int at = 0;
+        while (at < 2 && order[at] != prefs.widescreen)
+            at++;
+        prefs.widescreen = order[(at + 3 + d) % 3];
+        pc_widescreen_set_mode(prefs.widescreen);
+        break;
+    }
+    case M4K_HUD:
+        prefs.hud_mode = !prefs.hud_mode;
+        break;
+    case M4K_RESOLUTION:
+        prefs.render_scale = (int(prefs.render_scale) + 11 + d) % 11; /* 0 = Auto .. 10x */
+        VISetFrameBufferScale(prefs.render_scale);
+        break;
+    case M4K_SMOOTH:
+        prefs.interp = (prefs.interp + 3 + d) % 3;
+        break;
+    case M4K_TEXTURES:
+        prefs.custom_textures = !prefs.custom_textures;
+        pc_textures_reload();
+        break;
+    case M4K_STOCKS: {
+        std::string next = prefs.stock_style;
+        if (d > 0) {
+            next = next_stock_style(next);
+        } else {
+            /* the previous style: step forward until the next one is current */
+            std::string probe = next;
+            for (int i = 0; i < 64; i++) {
+                std::string after = next_stock_style(probe);
+                if (after == prefs.stock_style)
+                    break;
+                probe = after;
+            }
+            next = probe;
+        }
+        prefs.stock_style = next;
+        pc_textures_reload();
+        break;
+    }
+    default:
+        return;
+    }
+    std::string error;
+    launcher::save_preferences(config_path, prefs, error);
 }
