@@ -1,9 +1,8 @@
 # melee-4k
 
 This fork of melee-pc targets 4K with HD textures and smooth motion on
-high-refresh displays, following the approach of
-[dusklight-ps5](https://github.com/mshivam019/dusklight-ps5). V1 is macOS and
-Windows with a one-step installer; the PS5 port is V2.
+high-refresh displays, on macOS (Apple Silicon) and Windows, with a one-step
+installer.
 
 No game data and no texture packs are in this repository. You supply your own
 disc and download the community packs yourself. The tools here only process
@@ -57,7 +56,6 @@ workflow (see [setup.md](setup.md)).
 | Apple arm64 | Variadic `lbArchive_*` lists end in `NULL`, not `0` (crash loading stages; see `porting-notes.md`). Aurora's `system_info.cpp` builds on older SDKs. |
 | Gameplay fixes | Pichu's Thunder no longer dereferences a stale pointer (`ftpikachuspeciallw.c`). Big Blue's stage parameters are read as big-endian disc data (`grbigblue.c`): before this, every Big Blue match crashed at entry. |
 | High refresh | `src/pc/interp.c` and `vi.c`: blended frames at the display's refresh rate on top of the 60 Hz simulation (`MELEE_FRAME_INTERP`). See below. |
-| PS5 | `ps5/spike/`: proves that the GCC-built game C links into a PS5 executable (see its README). |
 
 ## Texture pipeline (`tools/textures/`)
 

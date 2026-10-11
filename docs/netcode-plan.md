@@ -1,6 +1,6 @@
 # Netcode plan: rollback, serverless matchmaking, ranked, LAN
 
-Expands ROADMAP.md Phase 4. Everything below is grounded in the current tree
+Everything below is grounded in the current tree
 (`file:line`) or a cited external source. Model: Slippi's rollback and set
 flow, re-implemented natively; matchmaking and ranked replace Slippi's central
 server with the BitTorrent Mainline DHT and signed, on-device rating records.

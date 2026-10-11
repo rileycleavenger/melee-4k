@@ -26,8 +26,7 @@ python3 tools/browser/serve.py            # http://127.0.0.1:5190/
 
 `serve.py` exists because the engine uses threads, which browsers only allow on
 a cross-origin-isolated page (COOP/COEP headers). A host that cannot send them,
-such as GitHub Pages (`.github/workflows/pages.yml` publishes this build under
-`/play/`), gets them from `coi-sw.js`, a service worker the page registers and
+such as GitHub Pages, gets them from `coi-sw.js`, a service worker the page registers and
 reloads under once.
 
 Any `MELEE_*` query parameter becomes an environment variable, so the knobs in

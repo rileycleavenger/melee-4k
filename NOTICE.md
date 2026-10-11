@@ -16,8 +16,8 @@ not affiliated with or endorsed by them.
   compatibility layer and WebGPU renderer.
 - **Dawn**, **SDL3**, **RmlUi**, **nod**, **xxHash**, **zstd**, **libpng**,
   **monocypher** and the other libraries listed in `licenses/`.
-- **[dusklight](https://github.com/TwilitRealm/dusklight)** and
-  **dusklight-ps5**: the approach this project follows.
+- **[dusklight](https://github.com/TwilitRealm/dusklight)**: the approach this
+  project follows.
 - **[melee-unlocked](https://github.com/Hero88go/melee-unlocked)**: used as a
   reference for widescreen behaviour (Slippi's widescreen fix lists).
 

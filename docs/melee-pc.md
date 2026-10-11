@@ -1,7 +1,9 @@
 # melee-pc (upstream README)
 
-The sections below describe melee-pc, which this fork builds on. Most of it
-applies here too; the download and community links point at upstream.
+melee-pc's own README, kept as a reference for the engine Melee 4K builds on:
+features, settings, environment variables, netplay and the platform status as
+upstream described them. Melee 4K's own docs are [melee-4k.md](melee-4k.md),
+[playing.md](playing.md) and [setup.md](setup.md).
 
 **Beta, for testing only.** "melee-pc" is a working name. Online play with
 rollback netcode is in development. This branch includes LAN, internet friend
@@ -17,13 +19,6 @@ compatibility layer with a WebGPU backend) and SDL3. Same approach as
 You need your own disc image. **No game data ships here.** The decompiled game
 code is not licensed and is not relicensed by this project; only the port code
 is GPL-3.0-or-later. Details under [License](#license).
-
-> New here? The **[project site](https://999sian.github.io/melee-pc/)** has the
-> five-step setup, the FAQ (supported disc, Windows first run, older Intel GPUs,
-> first-use shader stutter, Android requirements, where the log and settings
-> live) and the per-platform known-issues list. Bugs go through the
-> [bug report form](https://github.com/999sian/melee-pc/issues/new?template=bug_report.yml);
-> questions on [Discord](https://discord.gg/aurt34svq).
 
 ## Features
 
@@ -48,21 +43,6 @@ is GPL-3.0-or-later. Details under [License](#license).
 What each of those actually covers, including the parts that are unfinished, is
 in the [status table](#status) below.
 
-## Screenshots
-
-![Title screen](screenshots/title.png)
-
-| | |
-|---|---|
-| ![Main menu](screenshots/main-menu.png) | ![Character select](screenshots/character-select.png) |
-| Main menu | Character select |
-| ![Stage select](screenshots/stage-select.png) | ![Gameplay](screenshots/gameplay-4p.png) |
-| Stage select | Four-player match |
-| ![Gameplay](screenshots/gameplay-onett.png) | ![Settings](screenshots/pc-settings.png) |
-| Onett | F1 settings overlay |
-
-![Launcher](screenshots/launcher.png)
-
 ## Status
 
 Every mode boots and plays: VS, 1-P Classic / Adventure / All-Star to
@@ -70,9 +50,8 @@ completion with results and score saved, Training, Stadium (Target Test,
 Home-Run Contest, 10-Man Melee), Event Match, Trophy gallery, memory card
 create / load, opening movie and attract demos.
 
-**This table is the single source of truth for feature status.** The release
-notes, the project site and `ROADMAP.md` defer to it; when they disagree, this
-table is right and the other one is stale.
+Upstream's feature status when Melee 4K forked; Melee 4K's own state is in
+[melee-4k.md](melee-4k.md).
 
 | Feature | Status | Note |
 |---|---|---|
@@ -82,7 +61,7 @@ table is right and the other one is stale.
 | Android arm64 | done | Drawn on-screen GameCube overlay with opacity, deadzone and haptics settings; hides itself when a physical gamepad is connected. |
 | iOS arm64 | partial | Sideloadable IPA on Metal, cross-built from Linux. Touch input is fixed invisible screen regions (stick on the left half, face buttons bottom right) with no drawn overlay, no calibration and no gamepad auto-hide -- the Android overlay is Android-only. |
 | macOS Apple Silicon / Intel | partial | Apple Silicon tested; the Intel job is `continue-on-error` in CI, so a release can ship without an Intel build and none has been run on Intel hardware. |
-| Browser (WebGPU) | partial | [Play in the browser](https://999sian.github.io/melee-pc/play/) with your own raw GALE01 rev 2 image; tested in Chrome. No online play, no gamepad remapping. Build: `tools/browser/build.py`. |
+| Browser (WebGPU) | partial | Builds and plays with your own raw GALE01 rev 2 image; tested in Chrome. No online play, no gamepad remapping. Build: `tools/browser/build.py`. |
 | PAL disc (GALP01) | partial | Experimental: USA game code on PAL data, English (UK) text, NTSC 60 Hz. Trophy tables are stubbed out rather than read, and there is no reference hash, so PAL images always verify as unknown. |
 | Widescreen 16:9 / window aspect | partial | VS, Sudden Death and Training only; menus, results and cutscenes stay at the original 73:60. |
 | Wide HUD anchoring | done | Separate on/off toggle from the aspect setting, and only moves anything while widescreen is on. Anchors the timer and the 2-4 player HUD groups (damage, stocks, tags); a 1-player HUD keeps its original placement. No configurable margins. |
@@ -103,19 +82,7 @@ table is right and the other one is stale.
 | Online play (LAN / direct IP) | partial | LAN/direct-IP plus signed internet Direct, Unranked and Ranked implemented. Every datagram is authenticated (protocol 9), so both peers must run the same build, and a connect code is 8 characters after the `#`. Phone VPN to home broadband Direct Connect reached results; broader two-NAT and live ranked acceptance remain pending. See platform matrix below. |
 | RetroAchievements | planned | |
 
-The phases behind the planned rows, and why they are ordered that way, are in
-[ROADMAP.md](../ROADMAP.md).
-
-## Download
-
-Builds for every platform are on the
-[releases page](https://github.com/999sian/melee-pc/releases). Release notes
-list the per-platform files, known issues and requirements.
-
-```sh
-./Melee-x86_64.AppImage                  # open the launcher
-./Melee-x86_64.AppImage /path/to/melee.iso
-```
+## Discs
 
 **Melee USA revision 2 (NTSC-U 1.02, GALE01)** is the supported disc. A
 **Europe (PAL, GALP01)** image also boots, with the limits listed in the
@@ -229,15 +196,6 @@ per-device `.controller` files; everything else shares `launcher.cfg`.
 Diagnostic knobs (`MELEE_DEBUG`, `MELEE_FPS`, `MELEE_HEAP_CHECK`, the
 `AURORA_*` draw filters, ...) are listed in
 [docs/debugging.md](debugging.md#diagnostic-environment-variables).
-
-## Community
-
-- [Discord](https://discord.gg/aurt34svq) for questions and testing.
-- [Project site](https://999sian.github.io/melee-pc/) for setup, FAQ and
-  known issues.
-- [Bug report form](https://github.com/999sian/melee-pc/issues/new?template=bug_report.yml);
-  attach the log (`melee-pc.log` on Windows, see
-  [docs/debugging.md](debugging.md#log-files)).
 
 ## Netplay (LAN and direct IP, prototype)
 
@@ -376,8 +334,6 @@ python3 tools/net_determinism.py --only linux,linux-flip   # ~2 min, no Proton
   aurora.
 - [CODING_STYLE.md](../CODING_STYLE.md) - coding standards and verification
   procedure; run `python3 tools/check_style.py` before opening pull requests.
-- [ROADMAP.md](../ROADMAP.md) - scope and sequencing of the remaining phases. It
-  carries no status; the [table above](#status) does.
 
 ## License
 
