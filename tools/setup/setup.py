@@ -12,7 +12,8 @@ Steps, each safe to repeat (a second run resumes or skips what is done):
   4. on macOS, clear the download quarantine from the app
   5. start the game
 
-Standard library only, so the frozen Setup stays small. Every failure prints
+Standard library plus truststore/certifi (bundled into the frozen Setup), so
+it stays small. Every failure prints
 one sentence saying what to do next; the full log is ROOT/setup-log.txt.
 """
 import argparse
@@ -35,6 +36,27 @@ DEFAULT_MANIFEST = os.environ.get(
     "MELEE4K_MANIFEST",
     "https://github.com/rileycleavenger/melee-4k-textures/releases/latest/download/manifest.json")
 PACK_VERSION_FILE = ".melee4k-pack"
+
+
+def trust_os_certificates():
+    """Verify HTTPS the way the system does. A frozen Setup carries its own
+    OpenSSL, which on Windows does not see the certificate store the way the
+    browser does (CERTIFICATE_VERIFY_FAILED on github.com); truststore hands
+    verification to the OS, certifi's bundle is the fallback."""
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+        return "system"
+    except ImportError:
+        pass
+    try:
+        import ssl
+        import certifi
+        cafile = certifi.where()
+        ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=cafile)
+        return "certifi"
+    except ImportError:
+        return "python default"
 
 
 class SetupError(Exception):
@@ -195,6 +217,9 @@ def load_manifest(where):
             return json.load(f)
     except (OSError, ValueError) as e:
         log(f"manifest {where}: {e}")
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            raise SetupError("Could not make a secure connection to GitHub to download the HD "
+                             "textures; please report this with setup-log.txt attached.")
         raise SetupError("Could not download the HD texture list; check your internet "
                          "connection and run Setup again.")
 
@@ -316,6 +341,7 @@ def main():
     root = os.path.abspath(args.root or app_root())
     log_file = open(os.path.join(root, "setup-log.txt"), "a")
     log(f"--- Setup {time.strftime('%Y-%m-%d %H:%M:%S')} on {platform.platform()}")
+    log(f"certificates: {trust_os_certificates()}")
     try:
         say("Melee 4K Setup")
         say("")

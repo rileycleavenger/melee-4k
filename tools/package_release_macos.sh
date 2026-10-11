@@ -24,6 +24,7 @@ PY="${ROOT_DIR}/.venv/bin/python"
 BUILD_DIR="${BUILD_DIR}" "${SCRIPT_DIR}/package_macos.sh"
 
 echo "=== Freezing Setup ==="
+"${PY}" -m pip install -q truststore certifi
 SETUP_WORK="${BUILD_DIR}/setup-freeze"
 rm -rf "${SETUP_WORK}"
 SETUP_SRC="${ROOT_DIR}/tools/setup/setup.py"
