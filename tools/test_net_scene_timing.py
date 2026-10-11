@@ -50,8 +50,11 @@ static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* st) {
     if (on_frame) on_frame();
     return st->unk_C != 0;
 }
+unsigned pc_sim_ticks; /* vi.c: ticks run, for the high-refresh presenter */
 static void shipping_dispatch(void (*on_frame)(void)) {
     struct gm_80479D58_t* temp_r25 = &scene_state;
+    int ticks_run = 0; /* gmscene.c's per-frame count, read by the presenter */
+    (void) ticks_run;
     for (int i = 0; i < 1; i++) {
 DISPATCH
     }

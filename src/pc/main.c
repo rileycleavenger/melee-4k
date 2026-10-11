@@ -568,8 +568,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         .resourcesPath = resources_path[0] != '\0' ? resources_path : NULL,
         /* MELEE_CACHE_DIR: two instances on one machine (netplay testing)
          * must not share the pipeline-cache SQLite file. */
-        .cachePath = getenv("MELEE_CACHE_DIR") ? getenv("MELEE_CACHE_DIR") :
-                                                 pc_user_dir(),
+        .cachePath = getenv("MELEE_CACHE_DIR") ? getenv("MELEE_CACHE_DIR") : pc_user_dir(),
         .msaa = 1,
         .maxTextureAnisotropy = 16,
         /* MELEE_VSYNC=0 picks Mailbox/Immediate instead of FifoRelaxed; some

@@ -269,7 +269,8 @@ class Launcher final : public Rml::EventListener {
         switch (tab) {
         case 0:
             return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
-                "filter-mode", "custom-textures", "stock-style", "smooth", "backend", "performance"};
+                "filter-mode", "custom-textures", "stock-style", "smooth", "backend",
+                "performance"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
                 "check-updates", "check-now", "settings-discord"};
@@ -1104,11 +1105,14 @@ extern "C" int pc_verify_disc_cli(const char* path, const char* user_path) {
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
     worker.join();
-    int status = result.state == launcher::VerifyState::Verified ? 0
-                 : result.state == launcher::VerifyState::Mismatch ? 1
-                                                                   : 2;
-    printf("%s: %s\n", status == 0 ? "ok" : status == 1 ? "mismatch" : "error",
-           result.message.c_str());
+    int status = result.state == launcher::VerifyState::Verified ? 0 :
+                 result.state == launcher::VerifyState::Mismatch ? 1 :
+                                                                   2;
+    printf("%s: %s\n",
+        status == 0 ? "ok" :
+        status == 1 ? "mismatch" :
+                      "error",
+        result.message.c_str());
     if (status < 2) {
         std::filesystem::path cfg =
             std::filesystem::path(user_path ? user_path : ".") / "launcher.cfg";

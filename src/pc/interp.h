@@ -45,9 +45,8 @@ float pc_interp_frame_t(void);
 
 /// `t` (between the last tick and the one before) rescaled to a record
 /// `ticks` ticks old, as after a boundary that ran several catch-up ticks.
-static inline float pc_interp_span_t(float t, int ticks)
-{
-    return ticks > 1 ? 1.0f - (1.0f - t) / (float) ticks : t;
+static inline float pc_interp_span_t(float t, int ticks) {
+    return ticks > 1 ? 1.0f - (1.0f - t) / (float)ticks : t;
 }
 
 /// True when another frame can be presented before the next tick is due.

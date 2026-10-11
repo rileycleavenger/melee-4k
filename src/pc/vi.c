@@ -283,10 +283,10 @@ void pc_frame_boundary(void) {
                 const SDL_WindowFlags wf = s_window != NULL ? SDL_GetWindowFlags(s_window) : 0;
                 /* A covered or unfocused window may be throttled by the OS,
                  * which shows up here as a wide spread. */
-                pc_log_line("interp frame begin interval %.2f ms (sd %.2f) over %u frames%s%s", mean,
-                            var > 0 ? sqrt(var) : 0.0, s_begin_n,
-                            (wf & SDL_WINDOW_OCCLUDED) ? " [occluded]" : "",
-                            (wf & SDL_WINDOW_INPUT_FOCUS) ? "" : " [no focus]");
+                pc_log_line("interp frame begin interval %.2f ms (sd %.2f) over %u frames%s%s",
+                    mean, var > 0 ? sqrt(var) : 0.0, s_begin_n,
+                    (wf & SDL_WINDOW_OCCLUDED) ? " [occluded]" : "",
+                    (wf & SDL_WINDOW_INPUT_FOCUS) ? "" : " [no focus]");
             }
             s_begin_sum = s_begin_sq = 0;
             s_begin_n = 0;
@@ -418,7 +418,8 @@ void pc_frame_boundary(void) {
             const double mean = s_wd_n ? s_wd_sum / s_wd_n : 0.0;
             const double var = s_wd_n ? s_wd_sq / s_wd_n - mean * mean : 0.0;
             const double sd = var > 0 ? sqrt(var) : 0.0;
-            const bool cadence_off = s_wd_n > 30 && (mean > refresh_ms * 1.12 || sd > refresh_ms * 0.35);
+            const bool cadence_off =
+                s_wd_n > 30 && (mean > refresh_ms * 1.12 || sd > refresh_ms * 0.35);
             if (window_stalled || window_interp <= window_ticks / 2)
                 ; /* no verdict */
             else if (tick_rate < 57.0 || cadence_off)
@@ -426,12 +427,13 @@ void pc_frame_boundary(void) {
             else
                 bad_windows = 0;
             if (bad_windows >= 3 && !s_interp_fell_behind && getenv("MELEE_FRAME_INTERP") == NULL &&
-                pc_get_interp_mode() != 1) {
+                pc_get_interp_mode() != 1)
+            {
                 s_interp_fell_behind = true;
                 bad_windows = 0;
                 pc_log_line("interp: %.1f ticks/s, frames %.2f ms apart (sd %.2f) for a %.2f ms "
                             "refresh; presenting once per tick until the window changes display",
-                            tick_rate, mean, sd, refresh_ms);
+                    tick_rate, mean, sd, refresh_ms);
             }
             window_ns = now;
             window_ticks = window_interp = 0;
@@ -558,7 +560,8 @@ static float display_refresh_hz(void) {
     if (checked_ns != 0 && now - checked_ns < 1000000000ull)
         return hz;
     checked_ns = now;
-    SDL_DisplayID display = s_window != NULL ? SDL_GetDisplayForWindow(s_window) : SDL_GetPrimaryDisplay();
+    SDL_DisplayID display =
+        s_window != NULL ? SDL_GetDisplayForWindow(s_window) : SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* mode = display != 0 ? SDL_GetCurrentDisplayMode(display) : NULL;
     const float was = hz;
     hz = mode != NULL ? mode->refresh_rate : 0.0f;

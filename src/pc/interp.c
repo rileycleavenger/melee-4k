@@ -128,17 +128,15 @@ static bool s_gcam_restored;
 /* Live particle lists, one per link (src/sysdolphin/baselib/particle.c). */
 extern HSD_Particle* hsd_804D0908[16];
 
-static unsigned hash_ptr(const void* p)
-{
-    uintptr_t v = (uintptr_t) p;
+static unsigned hash_ptr(const void* p) {
+    uintptr_t v = (uintptr_t)p;
     v ^= v >> 33;
     v *= 0xff51afd7ed558ccdull;
     v ^= v >> 33;
-    return (unsigned) v;
+    return (unsigned)v;
 }
 
-static void table_clear(JTable* t)
-{
+static void table_clear(JTable* t) {
     if (t->slots != NULL) {
         memset(t->slots, 0, sizeof(JEntry) * t->cap);
     }
@@ -147,8 +145,7 @@ static void table_clear(JTable* t)
 
 static void table_put(JTable* t, HSD_JObj* jobj, const Mtx m);
 
-static void table_grow(JTable* t)
-{
+static void table_grow(JTable* t) {
     JTable old = *t;
     t->cap = old.cap ? old.cap * 2 : 4096;
     t->slots = calloc(t->cap, sizeof(JEntry));
@@ -161,8 +158,7 @@ static void table_grow(JTable* t)
     free(old.slots);
 }
 
-static void table_put(JTable* t, HSD_JObj* jobj, const Mtx m)
-{
+static void table_put(JTable* t, HSD_JObj* jobj, const Mtx m) {
     if ((t->count + 1) * 2 > t->cap) {
         table_grow(t);
     }
@@ -177,8 +173,7 @@ static void table_put(JTable* t, HSD_JObj* jobj, const Mtx m)
     memcpy(t->slots[i].mtx, m, sizeof(Mtx));
 }
 
-static const JEntry* table_get(const JTable* t, const HSD_JObj* jobj)
-{
+static const JEntry* table_get(const JTable* t, const HSD_JObj* jobj) {
     if (t->count == 0) {
         return NULL;
     }
@@ -192,16 +187,14 @@ static const JEntry* table_get(const JTable* t, const HSD_JObj* jobj)
     return NULL;
 }
 
-static float lerpf(float a, float b, float t)
-{
+static float lerpf(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
 /* Split a world matrix into scale, rotation quaternion and translation.
  * False when it is degenerate (a zero scale hides a part) or sheared (a
  * non-uniformly scaled parent), where only a plain lerp is safe. */
-static bool decompose(const Mtx m, float scale[3], float q[4])
-{
+static bool decompose(const Mtx m, float scale[3], float q[4]) {
     float c[3][3];
     for (int j = 0; j < 3; j++) {
         float x = m[0][j], y = m[1][j], z = m[2][j];
@@ -262,8 +255,7 @@ static bool decompose(const Mtx m, float scale[3], float q[4])
     return true;
 }
 
-static void blend_mtx(Mtx out, const Mtx a, const Mtx b, float t)
-{
+static void blend_mtx(Mtx out, const Mtx a, const Mtx b, float t) {
     float sa[3], sb[3], qa[4], qb[4];
     if (!decompose(a, sa, qa) || !decompose(b, sb, qb) || (sa[0] < 0) != (sb[0] < 0)) {
         for (int r = 0; r < 3; r++) {
@@ -327,14 +319,12 @@ static void blend_mtx(Mtx out, const Mtx a, const Mtx b, float t)
     }
 }
 
-static bool jumped(const Mtx a, const Mtx b)
-{
+static bool jumped(const Mtx a, const Mtx b) {
     float dx = a[0][3] - b[0][3], dy = a[1][3] - b[1][3], dz = a[2][3] - b[2][3];
     return !(dx * dx + dy * dy + dz * dz < SNAP_DISTANCE * SNAP_DISTANCE);
 }
 
-static void push_restore(HSD_JObj* jobj)
-{
+static void push_restore(HSD_JObj* jobj) {
     if (s_restore_count == s_restore_cap) {
         s_restore_cap = s_restore_cap ? s_restore_cap * 2 : 4096;
         s_restore = realloc(s_restore, s_restore_cap * sizeof(Restore));
@@ -344,8 +334,7 @@ static void push_restore(HSD_JObj* jobj)
     s_restore_count++;
 }
 
-static void walk(HSD_JObj* jobj, JTable* cur)
-{
+static void walk(HSD_JObj* jobj, JTable* cur) {
     for (; jobj != NULL; jobj = jobj->next) {
         /* Parents first, so each child is rebuilt from an up-to-date parent
          * exactly as the render would. */
@@ -359,8 +348,7 @@ static void walk(HSD_JObj* jobj, JTable* cur)
     }
 }
 
-static void cam_read(HSD_CObj* cobj, CamState* s)
-{
+static void cam_read(HSD_CObj* cobj, CamState* s) {
     s->cobj = cobj;
     memset(&s->eye, 0, sizeof s->eye);
     memset(&s->interest, 0, sizeof s->interest);
@@ -374,8 +362,7 @@ static void cam_read(HSD_CObj* cobj, CamState* s)
     s->fov = cobj->projection_param.perspective.fov;
 }
 
-static void cam_write(HSD_CObj* cobj, const CamState* s)
-{
+static void cam_write(HSD_CObj* cobj, const CamState* s) {
     if (cobj->eyepos != NULL) {
         cobj->eyepos->pos = s->eye;
     }
@@ -391,8 +378,7 @@ static void cam_write(HSD_CObj* cobj, const CamState* s)
     cobj->flags |= 1u << 30;
 }
 
-static void capture_camera(HSD_CObj* cobj)
-{
+static void capture_camera(HSD_CObj* cobj) {
     int n = s_cam_count[s_cur];
     if (n == MAX_CAMS) {
         return;
@@ -408,8 +394,7 @@ static void capture_camera(HSD_CObj* cobj)
     s_cam_count[s_cur] = n + 1;
 }
 
-static void apply_camera(const CamState* now, float t)
-{
+static void apply_camera(const CamState* now, float t) {
     const CamState* before = NULL;
     for (int i = 0; i < s_cam_count[!s_cur]; i++) {
         if (s_cams[!s_cur][i].cobj == now->cobj) {
@@ -439,16 +424,14 @@ static void apply_camera(const CamState* now, float t)
     cam_write(now->cobj, &mix);
 }
 
-static void ptable_clear(PTable* t)
-{
+static void ptable_clear(PTable* t) {
     t->count = 0;
     if (t->index != NULL) {
         memset(t->index, 0xFF, sizeof(unsigned) * t->index_cap);
     }
 }
 
-static void ptable_add(PTable* t, const PState* st)
-{
+static void ptable_add(PTable* t, const PState* st) {
     if (t->count == t->cap) {
         t->cap = t->cap ? t->cap * 2 : 1024;
         t->items = realloc(t->items, t->cap * sizeof(PState));
@@ -474,8 +457,7 @@ static void ptable_add(PTable* t, const PState* st)
     t->index[h] = t->count++;
 }
 
-static const PState* ptable_get(const PTable* t, const HSD_Particle* pp)
-{
+static const PState* ptable_get(const PTable* t, const HSD_Particle* pp) {
     if (t->count == 0) {
         return NULL;
     }
@@ -489,8 +471,7 @@ static const PState* ptable_get(const PTable* t, const HSD_Particle* pp)
     return NULL;
 }
 
-void pc_interp_reset(void)
-{
+void pc_interp_reset(void) {
     table_clear(&s_tables[0]);
     table_clear(&s_tables[1]);
     ptable_clear(&s_ptcl[0]);
@@ -505,8 +486,7 @@ void pc_interp_reset(void)
     s_trail_restore_count = 0;
 }
 
-void pc_interp_capture(void)
-{
+void pc_interp_capture(void) {
     s_cur = !s_cur;
     JTable* cur = &s_tables[s_cur];
     table_clear(cur);
@@ -567,8 +547,7 @@ void pc_interp_capture(void)
 static void apply_trails(float t);
 static void apply_game_camera(float t);
 
-void pc_interp_apply(float t)
-{
+void pc_interp_apply(float t) {
     const JTable* cur = &s_tables[s_cur];
     const JTable* prev = &s_tables[!s_cur];
     s_restore_count = 0;
@@ -624,8 +603,7 @@ void pc_interp_apply(float t)
     apply_game_camera(t);
 }
 
-static void apply_trails(float t)
-{
+static void apply_trails(float t) {
     s_trail_restore_count = 0;
     for (int i = 0; i < s_trail_count[s_cur]; i++) {
         const TrailState* now = &s_trail[s_cur][i];
@@ -656,15 +634,13 @@ static void apply_trails(float t)
     }
 }
 
-static void lerp_vec(Vec3* out, const Vec3* a, const Vec3* b, float t)
-{
+static void lerp_vec(Vec3* out, const Vec3* a, const Vec3* b, float t) {
     out->x = lerpf(a->x, b->x, t);
     out->y = lerpf(a->y, b->y, t);
     out->z = lerpf(a->z, b->z, t);
 }
 
-static void apply_game_camera(float t)
-{
+static void apply_game_camera(float t) {
     s_gcam_restored = false;
     if (!s_gcam_valid[0] || !s_gcam_valid[1]) {
         return;
@@ -691,8 +667,7 @@ static void apply_game_camera(float t)
     s_gcam_restored = true;
 }
 
-void pc_interp_restore(void)
-{
+void pc_interp_restore(void) {
     for (unsigned i = 0; i < s_restore_count; i++) {
         memcpy(s_restore[i].jobj->mtx, s_restore[i].real, sizeof(Mtx));
     }
@@ -719,7 +694,8 @@ void pc_interp_restore(void)
     }
     s_ptcl_restore_count = 0;
     for (int i = 0; i < s_trail_restore_count; i++) {
-        memcpy(s_trail_restore[i].fp->x20B0, s_trail_restore[i].ring, sizeof s_trail_restore[i].ring);
+        memcpy(
+            s_trail_restore[i].fp->x20B0, s_trail_restore[i].ring, sizeof s_trail_restore[i].ring);
     }
     s_trail_restore_count = 0;
     if (s_gcam_restored) {

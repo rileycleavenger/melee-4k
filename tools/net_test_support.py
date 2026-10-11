@@ -10,7 +10,8 @@ def build_dir(root):
 
 def sdl_includes(root):
     build = build_dir(root)
-    candidates = [build / "_deps/sdl-src/include", Path("/usr/include/SDL3").parent]
+    candidates = [build / "_deps/sdl-src/include", Path("/usr/include/SDL3").parent,
+                  Path("/opt/homebrew/include")]
     cache = build / "CMakeCache.txt"
     if cache.exists():
         for line in cache.read_text().splitlines():

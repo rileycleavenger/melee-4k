@@ -45,7 +45,10 @@ if (IOS)
 endif ()
 
 if (AURORA_ENABLE_GX)
-    target_sources(aurora_core PRIVATE lib/imgui.cpp)
+    # screenshot.cpp is called only from aurora.cpp; in aurora_gx, GNU ld
+    # (Linux, MinGW) dropped it, since aurora_gx precedes aurora_core on the
+    # link line and nothing else referenced it.
+    target_sources(aurora_core PRIVATE lib/imgui.cpp lib/gfx/screenshot.cpp)
     target_link_libraries(aurora_core PUBLIC imgui)
 endif ()
 

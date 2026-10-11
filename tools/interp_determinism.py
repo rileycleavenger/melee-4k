@@ -29,16 +29,23 @@ import sys
 
 RECORD_MAGIC_SIZE = 8           # "MRC5" + u32 seed
 FRAME_RECORD = 4 * 16 + 4 + 4 + 4  # PADStatus[4] (16 B on PC), ck, seed, scene
+REPLAY_SLACK = 120
 
 
 def run(args, env_extra, log):
+    # A replay reports "no divergence" when its recording runs out; give it
+    # time to get there before the exit frame (both landing on the same
+    # frame let the exit win and read as a failure). Not for the canon leg,
+    # which records as it replays and would only lengthen its recording.
+    checking = "MELEE_NET_REPLAY" in env_extra and "MELEE_NET_RECORD" not in env_extra
+    frames = args.frames + (REPLAY_SLACK if checking else 0)
     env = dict(os.environ, MELEE_BOOT_SCENE="vs", MELEE_DEBUG_VS="cpu4",
-               MELEE_NET_CHECKSUM_WIDE="1", MELEE_EXIT_AFTER_FRAMES=str(args.frames),
+               MELEE_NET_CHECKSUM_WIDE="1", MELEE_EXIT_AFTER_FRAMES=str(frames),
                MELEE_LOG_FILE=log)
     env.update(env_extra)
     with open(log + ".out", "w") as out:
         rc = subprocess.run([args.game, args.disc], env=env, stdout=out, stderr=subprocess.STDOUT,
-                            timeout=args.frames / 30 + 120).returncode
+                            timeout=frames / 30 + 120).returncode
     text = open(log, errors="replace").read() if os.path.exists(log) else ""
     diverged = "REPLAY DIVERGED" in text
     finished = "no divergence" in text

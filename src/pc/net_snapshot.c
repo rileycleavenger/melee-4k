@@ -368,8 +368,8 @@ void pc_net_render_audit(bool after) {
             continue;
         }
         const Fighter* fp = GET_FIGHTER(gobj);
-        now[slot] = (Snap){true, fp->kind, fp->motion_id, fp->cur_pos, fp->self_vel,
-            fp->x8c_kb_vel, fp->facing_dir, fp->dmg.x1830_percent};
+        now[slot] = (Snap){true, fp->kind, fp->motion_id, fp->cur_pos, fp->self_vel, fp->x8c_kb_vel,
+            fp->facing_dir, fp->dmg.x1830_percent};
     }
     if (!after) {
         before = ck;
@@ -379,7 +379,8 @@ void pc_net_render_audit(bool after) {
         pc_log_line("net: render audit: sim state changed during render at frame %d (%u so far)",
             pc_net_frame(), hits);
         if (*HSD_RandSeedPtr != seed_before) {
-            pc_log_line("net: render audit:   RNG seed %08x -> %08x", seed_before, *HSD_RandSeedPtr);
+            pc_log_line(
+                "net: render audit:   RNG seed %08x -> %08x", seed_before, *HSD_RandSeedPtr);
         }
         for (int i = 0; i < 4; i++) {
             const Snap* a = &snap[i];
@@ -389,16 +390,16 @@ void pc_net_render_audit(bool after) {
             }
 #define AUDIT_V3(f)                                                                                \
     if (memcmp(&a->f, &b->f, sizeof a->f) != 0)                                                    \
-    pc_log_line("net: render audit:   slot %d kind %d motion %d " #f " (%g,%g,%g) -> (%g,%g,%g)", i,  \
-        b->kind, b->motion, a->f.x, a->f.y, a->f.z, b->f.x, b->f.y, b->f.z)
+    pc_log_line("net: render audit:   slot %d kind %d motion %d " #f " (%g,%g,%g) -> (%g,%g,%g)",  \
+        i, b->kind, b->motion, a->f.x, a->f.y, a->f.z, b->f.x, b->f.y, b->f.z)
             AUDIT_V3(pos);
             AUDIT_V3(self_vel);
             AUDIT_V3(kb_vel);
 #undef AUDIT_V3
             if (a->facing != b->facing || a->percent != b->percent || a->motion != b->motion) {
                 pc_log_line("net: render audit:   slot %d kind %d facing %g->%g percent %g->%g "
-                            "motion %d->%d", i, b->kind, a->facing, b->facing, a->percent,
-                    b->percent, a->motion, b->motion);
+                            "motion %d->%d",
+                    i, b->kind, a->facing, b->facing, a->percent, b->percent, a->motion, b->motion);
             }
         }
     }
