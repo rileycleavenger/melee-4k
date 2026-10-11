@@ -37,7 +37,7 @@ struct Preferences {
     bool mute = false, fps = false, reverb = true;
     bool check_updates = false;
     bool custom_textures = true;
-    bool unlock_all = false;
+    bool unlock_all = true;  // Melee 4K: every character, stage and mode from the start
     int hud_mode = 1;                     // 0 classic, 1 wide (anchored to the 16:9 edges)
     int interp = 0;                       // smooth motion: 0 auto (display >= 100 Hz), 1 on, 2 off
     std::string stock_style = "default";  // texture overlay folder under textures/stocks

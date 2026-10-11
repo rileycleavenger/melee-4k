@@ -362,9 +362,10 @@ static AnimLoopSettings mn_803EB4F8[] = {
 
 #ifdef TARGET_PC
 /* MENU_KIND_M4K preview pane: the Screen Display preview for every row */
-static AnimLoopSettings mn_M4KPreview[6] = {
+static AnimLoopSettings mn_M4KPreview[8] = {
     { 1400, 1449, 1420 }, { 1400, 1449, 1420 }, { 1400, 1449, 1420 },
     { 1400, 1449, 1420 }, { 1400, 1449, 1420 }, { 1400, 1449, 1420 },
+    { 1400, 1449, 1420 }, { 1400, 1449, 1420 },
 };
 #endif
 

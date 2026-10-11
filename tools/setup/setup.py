@@ -388,7 +388,7 @@ def main():
                 "original textures.")
         else:
             install_textures(args.manifest, root)
-        say("[4/4] Starting the game...")
+        say("[4/4] Finishing..." if args.no_launch else "[4/4] Starting the game...")
         clear_quarantine(root)
         desktop_shortcut(game)
         if not args.no_launch:

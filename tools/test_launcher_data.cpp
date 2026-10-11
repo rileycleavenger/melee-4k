@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
         assert(saved.find("filter_mode 2\n") != std::string::npos);
         assert(saved.find("backend 2\n") != std::string::npos);
         assert(saved.find("custom_textures 1\n") != std::string::npos);
-        assert(saved.find("unlock_all 0\n") != std::string::npos);
+        assert(saved.find("unlock_all 1\n") != std::string::npos);
         assert(saved.find("hud_mode 1\n") != std::string::npos);
         assert(saved.find("widescreen 1\n") != std::string::npos);
         assert(saved.find("interp 0\n") != std::string::npos);

@@ -1,5 +1,5 @@
 <rml>
-<head><title>Melee-PC</title><link type="text/rcss" href="launcher.rcss" /></head>
+<head><title>Melee 4K</title><link type="text/rcss" href="launcher.rcss" /></head>
 <body>
   <div id="shell">
     <div class="topline"><span class="brand">MELEE / PC</span><span class="edition"><span id="app-version">v0.1.8-beta</span> · NTSC-U 1.02</span></div>
@@ -28,12 +28,16 @@
       </div>
       <div class="columns">
         <div class="menu">
-          <button id="play" class="primary">Play Melee</button>
-          <button id="choose">Choose disc</button>
-          <button id="verify">Verify disc</button>
+          <button id="play" class="primary">Play</button>
           <button id="settings">Settings</button>
-          <button id="discord" class="discord-btn"><img class="discord-icon" src="discord.png" /> Discord</button>
-          <button id="quit" class="quiet">Quit</button>
+          <!-- Melee 4K: Setup picks and verifies the disc, so the launcher only
+               plays and opens settings. These stay in the document (hidden)
+               because launcher.cpp still addresses them by id; Play opens the
+               disc picker when no valid disc is set. -->
+          <button id="choose" style="display: none;">Choose disc</button>
+          <button id="verify" style="display: none;">Verify disc</button>
+          <button id="discord" style="display: none;">Discord</button>
+          <button id="quit" style="display: none;">Quit</button>
         </div>
         <div class="disc-card">
           <div class="eyebrow">DISC</div>
@@ -41,7 +45,7 @@
           <p id="disc-info">Melee, USA revision 2 (NTSC-U 1.02).</p>
           <p id="disc-path" class="path">ISO · GCM · CISO · RVZ</p>
           <div class="divider"></div>
-          <p class="note">Use Choose disc, or place a disc image in Files &gt; On My iPhone &gt; Melee.</p>
+          <p class="note">Run Setup to choose your disc, or press Play to pick one.</p>
         </div>
       </div>
     </div>
@@ -179,12 +183,12 @@
               <button id="check-updates">On</button>
             </div>
             <div class="setting">
-              <div class="description"><h3>Check for updates now</h3><p id="check-status">Melee-PC is up to date.</p></div>
+              <div class="description"><h3>Check for updates now</h3><p id="check-status">Melee 4K is up to date.</p></div>
               <button id="check-now">Check now</button>
             </div>
             <div class="setting">
               <div class="description"><h3>Discord community</h3><p>Join the community Discord server.</p></div>
-              <button id="settings-discord" class="discord-btn"><img class="discord-icon" src="discord.png" /> Join Discord</button>
+              <button id="settings-discord" style="display: none;">Join Discord</button>
             </div>
           </div>
           <div id="page-online" class="page">

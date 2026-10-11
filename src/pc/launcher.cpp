@@ -274,7 +274,7 @@ class Launcher final : public Rml::EventListener {
                 "performance"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
-                "check-updates", "check-now", "settings-discord"};
+                "check-updates", "check-now"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
         case 4:
@@ -284,14 +284,14 @@ class Launcher final : public Rml::EventListener {
         }
     }
     void controls() {
-        enabled("play", supported && !busy());
+        enabled("play", !busy()); /* without a disc, Play opens the picker */
         enabled("choose", !busy());
         enabled("verify", verification.valid() || (supported && !busy()));
         enabled("settings", !busy());
         enabled("discord", !busy());
         text("verify", verification.valid() ? "Cancel verification" : "Verify disc");
         if (!settings) {
-            focus_ids = {"play", "choose", "verify", "settings", "discord", "quit"};
+            focus_ids = {"play", "settings"};
             auto ustate = pc::updater::get_state();
             if ((ustate.status == pc::updater::Status::UpdateAvailable ||
                     ustate.status == pc::updater::Status::Downloaded) &&
@@ -487,7 +487,8 @@ class Launcher final : public Rml::EventListener {
             std::async(std::launch::async, [path] { return launcher::inspect_disc(path); });
         controls();
     }
-    void action(const std::string& id) {
+    void action(const std::string& requested) {
+        std::string id = requested;
         if (id == "net-delay") {
             prefs.net_delay = prefs.net_delay == 4 ? -1 : prefs.net_delay + 1;
             save();
@@ -515,6 +516,8 @@ class Launcher final : public Rml::EventListener {
         }
         if (busy())
             return;
+        if (id == "play" && !supported)
+            id = "choose"; /* no usable disc yet: pick one first */
         if (id == "choose") {
             static const SDL_DialogFileFilter filters[] = {
                 {"GameCube disc images", "iso;gcm;ciso;rvz;gcz;wia"}, {"All files", "*"}};
@@ -2030,7 +2033,17 @@ extern "C" int pc_get_net_delay(void) {
  * overlay, drawn in Melee's own menu. Labels use only what the SIS encoder
  * draws (letters, digits, space, ':'). Every change applies and saves at
  * once, so the overlay and this page always agree. */
-enum { M4K_ASPECT, M4K_HUD, M4K_RESOLUTION, M4K_SMOOTH, M4K_TEXTURES, M4K_STOCKS, M4K_ROWS };
+enum {
+    M4K_ASPECT,
+    M4K_HUD,
+    M4K_RESOLUTION,
+    M4K_SMOOTH,
+    M4K_TEXTURES,
+    M4K_STOCKS,
+    M4K_FPS,
+    M4K_UNLOCK,
+    M4K_ROWS
+};
 
 extern "C" int pc_m4k_rows(void) {
     return M4K_ROWS;
@@ -2069,6 +2082,12 @@ extern "C" void pc_m4k_label(int row, char* out, int size) {
             c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
         snprintf(out, size, "STOCKS  %s", value.c_str());
         return;
+    case M4K_FPS:
+        snprintf(out, size, "FPS COUNTER  %s", prefs.fps ? "ON" : "OFF");
+        return;
+    case M4K_UNLOCK:
+        snprintf(out, size, "UNLOCK ALL  %s", prefs.unlock_all ? "ON" : "OFF");
+        return;
     default:
         snprintf(out, size, "%s", "");
     }
@@ -2083,6 +2102,8 @@ extern "C" const char* pc_m4k_description(int row) {
         "Extra frames on 120 Hz and faster screens.",
         "Use the HD texture pack.",
         "The style of the stock icons in a match.",
+        "Show the frame rate in the corner.",
+        "Every character, stage and mode, unlocked.",
     };
     return row >= 0 && row < M4K_ROWS ? descriptions[row] : "";
 }
@@ -2113,6 +2134,12 @@ extern "C" void pc_m4k_step(int row, int dir) {
     case M4K_TEXTURES:
         prefs.custom_textures = !prefs.custom_textures;
         pc_textures_reload();
+        break;
+    case M4K_FPS:
+        prefs.fps = !prefs.fps;
+        break;
+    case M4K_UNLOCK:
+        prefs.unlock_all = !prefs.unlock_all;
         break;
     case M4K_STOCKS: {
         std::string next = prefs.stock_style;
