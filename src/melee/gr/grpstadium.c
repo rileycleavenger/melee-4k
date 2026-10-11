@@ -1928,18 +1928,18 @@ bool grStadium_801D42B8(void)
 {
     HSD_GObj* map_gobj;
     Ground* gp;
-    bool result;
 
     map_gobj = Ground_GetMapGObj(2);
     HSD_ASSERT(0x978, map_gobj);
     gp = grStadium_801D4354(map_gobj);
     HSD_ASSERT(0x979, gp);
+    /* Still loading (fn_801D4220 clears the flag). PORT: this used to fall
+     * through and parse anyway, and a finished load was parsed twice: the
+     * second relocation of an already relocated archive never returns
+     * (HSD_ArchiveLocateExtern), which froze Pokemon Stadium at its first
+     * transformation. */
     if (gp->u.stadium.xC4_b1) {
-        result = false;
-    } else {
-        gp->u.stadium.xD0 =
-            grDatFiles_801C6478(gp->u.stadium.xCC, gp->u.stadium.xC8);
-        result = true;
+        return false;
     }
 #ifdef TARGET_PC
     /* The parse relocates the archive in place, and the buffer may be
@@ -2142,10 +2142,14 @@ void grStadium_801D4548(Ground_GObj* gobj)
                     return;
                 }
                 int sp60[] = { 3, 4, 6, 9 };
-                int idx;
+                int r;
+                /* PORT: the kind is sp60[r], not r. Taking the index made
+                 * three transformations in four hit HSD_ASSERT(0xA44) below:
+                 * every Pokemon Stadium match that reached its first
+                 * transformation could panic. */
                 do {
-                    kind = HSD_Randi(ARRAY_SIZE(sp60));
-                } while (gp->u.stadium.xE2 == kind);
+                    r = HSD_Randi(ARRAY_SIZE(sp60));
+                } while (gp->u.stadium.xE2 == (kind = sp60[r]));
             } else {
                 kind = 5;
             }

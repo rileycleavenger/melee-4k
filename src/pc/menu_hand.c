@@ -202,10 +202,11 @@ int pc_menu_hand_take_step(void) {
 }
 
 void pc_menu_hand_frame(void) {
-    float x, y;
+    float x, y, u, v;
     const bool wanted = s_want_tick != 0 && VIGetRetraceCount() - s_want_tick <= 1;
     s_shown = false;
-    if (!wanted || !build()) {
+    /* The mouse first: a controller player never loads the hand. */
+    if (!wanted || !pc_mouse_menu(&u, &v) || !build()) {
         pc_mouse_show_pointer(true);
         return;
     }
