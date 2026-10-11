@@ -8,8 +8,9 @@
 #     .setup/melee4k-setup  tools/setup/setup.py frozen with PyInstaller
 #     README.txt            platforms/release/README.txt
 #
-# MELEE4K_MANIFEST bakes the texture pack manifest URL into Setup. Needs the
-# repo .venv with pyinstaller (`.venv/bin/pip install pyinstaller`).
+# Setup downloads the newest texture pack release by default (setup.py's
+# DEFAULT_MANIFEST). Needs the repo .venv with pyinstaller
+# (`.venv/bin/pip install pyinstaller`).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,12 +27,6 @@ echo "=== Freezing Setup ==="
 SETUP_WORK="${BUILD_DIR}/setup-freeze"
 rm -rf "${SETUP_WORK}"
 SETUP_SRC="${ROOT_DIR}/tools/setup/setup.py"
-if [[ -n "${MELEE4K_MANIFEST:-}" ]]; then
-    mkdir -p "${SETUP_WORK}"
-    sed "s|^DEFAULT_MANIFEST = .*|DEFAULT_MANIFEST = \"${MELEE4K_MANIFEST}\"|" \
-        "${SETUP_SRC}" > "${SETUP_WORK}/setup.py"
-    SETUP_SRC="${SETUP_WORK}/setup.py"
-fi
 "${PY}" -m PyInstaller --onefile --console --name melee4k-setup \
     --distpath "${SETUP_WORK}/dist" --workpath "${SETUP_WORK}/build" \
     --specpath "${SETUP_WORK}" "${SETUP_SRC}"

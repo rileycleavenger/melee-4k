@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       manifest:
-        description: Texture pack manifest URL baked into Setup (empty = none)
+        description: Texture pack manifest URL for Setup (empty = the newest melee-4k-textures release)
         required: false
         default: ''
 
@@ -62,7 +62,9 @@ jobs:
           python -m pip install pyinstaller
           $src = Get-Content tools/setup/setup.py -Raw
           if ($env:MANIFEST) {
-            $src = $src -replace '(?m)^DEFAULT_MANIFEST = .*$', "DEFAULT_MANIFEST = `"$env:MANIFEST`""
+            $src = $src.Replace(
+              'https://github.com/rileycleavenger/melee-4k-textures/releases/latest/download/manifest.json',
+              $env:MANIFEST)
           }
           Set-Content -Path setup_frozen.py -Value $src -NoNewline
           python -m PyInstaller --onefile --console --name Setup setup_frozen.py

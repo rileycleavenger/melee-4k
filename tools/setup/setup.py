@@ -29,8 +29,11 @@ import zipfile
 
 ROM_DIR = "PUT-YOUR-ROM-HERE"
 DISC_EXTS = (".iso", ".gcm", ".ciso", ".rvz", ".gcz", ".wbfs")
-# Set at release time to the published texture manifest (see docs/setup.md).
-DEFAULT_MANIFEST = os.environ.get("MELEE4K_MANIFEST", "")
+# The newest published texture pack (docs/setup.md); its manifest pins the
+# part URLs of that release. MELEE4K_MANIFEST overrides it for testing.
+DEFAULT_MANIFEST = os.environ.get(
+    "MELEE4K_MANIFEST",
+    "https://github.com/rileycleavenger/melee-4k-textures/releases/latest/download/manifest.json")
 PACK_VERSION_FILE = ".melee4k-pack"
 
 

@@ -23,8 +23,9 @@ They drop the disc image in `PUT-YOUR-ROM-HERE` and run Setup once. Setup
 2. runs `melee --verify-disc <image>`: nod + Redump SHA-1, as in the
    launcher; exit 0 verified, 1 playable but not USA 1.02, 2 unusable. A
    usable image is saved as the disc to boot in `launcher.cfg`;
-3. downloads the HD texture pack listed in the manifest baked in at build
-   time (`MELEE4K_MANIFEST`), resuming partial parts and checking each part's
+3. downloads the HD texture pack listed in the newest release of
+   [melee-4k-textures](https://github.com/rileycleavenger/melee-4k-textures)
+   (`MELEE4K_MANIFEST` overrides it for tests), resuming partial parts and checking each part's
    size and SHA-256, and unpacks it into the user `textures/` folder,
    replacing only the packs it ships;
 4. clears the download quarantine (macOS; `Setup.command` already did, since
@@ -56,24 +57,28 @@ Build the folder with the texture tools (see `docs/melee-4k.md`): merge the
 community packs and the AI gap-fill, `encode.py` them into
 `packs/10-community`, and `original_pack.py` for `packs/05-css-original`.
 
-The pack is hosted as release assets, not on Google Drive (its large-file
-warning page and download quotas break scripted downloads). The textures
-are derived from Nintendo's artwork, so publishing them is the owner's
-decision; it has not been made yet.
+The pack is hosted as release assets of the public
+[melee-4k-textures](https://github.com/rileycleavenger/melee-4k-textures)
+repository, not on Google Drive (its large-file warning page and download
+quotas break scripted downloads). Setup reads
+`releases/latest/download/manifest.json`, so publishing a new pack release
+updates every install the next time Setup runs.
 
 ## Building a release
 
 macOS (on a Mac, with the repo `.venv` holding pyinstaller):
 
 ```sh
-MELEE4K_MANIFEST=https://.../manifest.json tools/package_release_macos.sh
+tools/package_release_macos.sh
 # -> dist/Melee4K-macOS-<arch>.zip
 ```
 
 Windows: `Setup.exe` has to be frozen on Windows (PyInstaller does not
 cross-compile), so the Windows release is assembled by CI on a Windows
-runner. CI (`.github/workflows/build.yml`) runs on `v*` tags and on manual
-dispatch only.
+runner: run the "Release (Windows)" workflow (`release-windows.yml`) by
+hand; its artifact is `Melee4K-Windows-x86_64.zip`. Releases on the game
+repository are published by hand with both zips (the full platform matrix in
+`build.yml` is manual too, so a tag never publishes upstream's builds).
 
 The app is not signed with an Apple Developer ID or a Windows certificate:
 README.txt covers the one-time right-click > Open (macOS) and
