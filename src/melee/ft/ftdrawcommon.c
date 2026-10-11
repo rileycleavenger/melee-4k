@@ -375,8 +375,11 @@ static inline void ftDrawCommon_80080E18_inline2(HSD_GObj* gobj, Fighter* old)
     /* Slippi's UpdateModelPos.asm: a render callback places the model and
      * nothing else. Writing cur_pos here made the physics position depend
      * on whether this frame was drawn, which a rollback resim is not (see
-     * ftCo_DeadUpFall_Anim). */
-    if (pc_net_deterministic()) {
+     * ftCo_DeadUpFall_Anim). Offline too: high-refresh presentation draws
+     * zero or several times per tick through a blended camera, so the
+     * screen-KO position differed between runs (the render audit caught
+     * it); every mode now behaves as netplay does. */
+    {
         Vec3 model;
         PSMTXMultVec(matrix, (Vec3*) &old->mv.co.walk.fast_anim_frame,
                      &model);
