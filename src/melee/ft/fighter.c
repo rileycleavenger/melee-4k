@@ -1609,7 +1609,13 @@ void Fighter_procAnim(Fighter_GObj* gobj)
 
         if (!fp->is_sub_fighter && Camera_80031144() == 1.0f) {
             if (fp->dmg.x1830_percent < p_ftCommonData->x7B0) {
+#ifdef TARGET_PC
+                /* PORT: the simulation's own visibility test, not the flag a
+                 * render wrote (ifMagnify_IsOffscreenForDamage). */
+                if (ifMagnify_IsOffscreenForDamage(fp->player_idx) &&
+#else
                 if (ifMagnify_802FC998(fp->player_idx) &&
+#endif
                     (Player_GetMoreFlagsBit3(fp->player_idx) != 0))
                 {
                     fp->dmg.x1910++;

@@ -71,11 +71,16 @@ int main(void) {
     assert(!ifMagnify_IsOffscreenForDamage(0));
     hidden = false;
     assert(!ifMagnify_IsOffscreenForDamage(1));
+    /* Offline too: with high-refresh presentation a tick sees zero or
+     * several renders, so the drawn bit must not decide damage there either. */
     online = false;
-    for (unsigned drawn = 0; drawn < 2; drawn++) {
-        ifMagnify_804A1DE0.player[0].state.is_offscreen = drawn;
-        assert(ifMagnify_IsOffscreenForDamage(0) == drawn);
+    for (unsigned visible = 0; visible < 2; visible++) {
+        onscreen = visible;
+        for (unsigned drawn = 0; drawn < 2; drawn++) {
+            ifMagnify_804A1DE0.player[0].state.is_offscreen = drawn;
+            assert(ifMagnify_IsOffscreenForDamage(0) == !visible);
+        }
     }
-    puts("PASS: online magnifier damage independent of render history; camera refresh, visibility "
-         "gates and offline semantics preserved");
+    puts("PASS: magnifier damage independent of render history online and offline; camera "
+         "refresh and visibility gates preserved");
 }

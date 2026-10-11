@@ -14,7 +14,9 @@ args = standalone_compile_args(entry)
 if "--old" in sys.argv: args.append("-DTEST_OLD_PREDICATE")
 with tempfile.TemporaryDirectory(prefix="melee-magnify-test-") as directory:
     exe = Path(directory) / "net_magnify_test"
-    subprocess.run(args + ["-UNDEBUG", "-ffunction-sections", "-fdata-sections",
-                          "-Wl,--gc-sections", "-no-pie", str(root / "tools/test_net_magnify.c"),
+    # Unused game functions pulled in by ifmagnify.c must be dropped at link.
+    strip = (["-Wl,-dead_strip"] if sys.platform == "darwin"
+             else ["-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections", "-no-pie"])
+    subprocess.run(args + ["-UNDEBUG", *strip, str(root / "tools/test_net_magnify.c"),
                           "-o", str(exe)], cwd=entry["directory"], check=True)
     subprocess.run([str(exe)], check=True)

@@ -676,31 +676,34 @@ bool ifMagnify_802FC998(s32 ply_slot)
 /* The magnifier's is_offscreen bit is written by a GX callback, so it is
  * stale during rollback and can describe a speculative future render after
  * restoring a snapshot. It must not decide the once-per-second damage tick.
- * Refresh the camera from its simulation transform, then perform the same
- * subject visibility test without consulting either render-populated flag.
- * Camera_80030CD8 builds its matrix from the camera's eye/interest directly;
- * no current GX camera or render pass is required. */
+ * Offline it is no better: with high-refresh presentation a tick can see zero
+ * or several renders, drawn through a blended (and widened) camera, so the
+ * damage tick moved by a frame between runs of the same replay. Refresh the
+ * camera from its simulation transform, then perform the same subject
+ * visibility test without consulting either render-populated flag, always.
+ * Camera_80030CD8 builds its matrix from the camera's eye/interest directly
+ * (the 4:3 view, as on hardware); no current GX camera or render pass is
+ * required. */
 bool ifMagnify_IsOffscreenForDamage(s32 ply_slot)
 {
 #ifdef TARGET_PC
-    if (pc_net_active()) {
-        HSD_GObj* fighter_gobj;
-        HSD_GObj* camera_gobj;
-        CmSubject* subject;
-        if (ply_slot < 0 || ply_slot >= 6 || !ifMagnify_IsHUDVisible() ||
-            ifMagnify_804A1DE0.player[ply_slot].state.ignore_offscreen)
-        {
-            return false;
-        }
-        fighter_gobj = Player_GetEntity(ply_slot);
-        if (fighter_gobj == NULL || !ftLib_CanBeMagnified(fighter_gobj)) return false;
-        subject = ftLib_GetCameraSubject(fighter_gobj);
-        camera_gobj = Camera_80030A50();
-        if (subject == NULL || camera_gobj == NULL) return false;
-        Camera_8002A4AC(camera_gobj);
-        return !Camera_80030CD8(subject, NULL);
+    HSD_GObj* fighter_gobj;
+    HSD_GObj* camera_gobj;
+    CmSubject* subject;
+    if (ply_slot < 0 || ply_slot >= 6 || !ifMagnify_IsHUDVisible() ||
+        ifMagnify_804A1DE0.player[ply_slot].state.ignore_offscreen)
+    {
+        return false;
     }
-#endif
+    fighter_gobj = Player_GetEntity(ply_slot);
+    if (fighter_gobj == NULL || !ftLib_CanBeMagnified(fighter_gobj)) return false;
+    subject = ftLib_GetCameraSubject(fighter_gobj);
+    camera_gobj = Camera_80030A50();
+    if (subject == NULL || camera_gobj == NULL) return false;
+    Camera_8002A4AC(camera_gobj);
+    return !Camera_80030CD8(subject, NULL);
+#else
     return ifMagnify_802FC998(ply_slot);
+#endif
 }
 
