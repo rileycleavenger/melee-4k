@@ -11,16 +11,23 @@
 #include <limits>
 #include <ranges>
 #include <sys/stat.h>
+#include <utility>
 
 namespace {
 constexpr aurora::Module Log{"aurora::input"};
 
-constexpr int32_t k_mappingsFileVersion = 4;
+// 5: Melee 4K swapped the default A and B (g_defaultButtonsStandard); older
+// files from a modern pad are migrated as they load.
+constexpr int32_t k_mappingsFileVersion = 5;
+constexpr int32_t k_swappedABFileVersion = 5;
 constexpr int32_t k_minMappingsFileVersion = 3;
 
+// Melee 4K: A on the right face button and B on the bottom one, for every
+// controller but a GameCube's (Nintendo's layout, and how Melee players hold
+// A and B on a modern pad).
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsStandard{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -37,8 +44,8 @@ std::array<PADStatus, PAD_CHANMAX> g_virtualPadStatus{};
 std::array<bool, PAD_CHANMAX> g_virtualPadActive{};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsXBox360{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -52,8 +59,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsXBox360{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsXBoxOne{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -67,8 +74,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsXBoxOne{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsPS3{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -82,8 +89,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsPS3{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsPS4{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -97,8 +104,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsPS4{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsPS5{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -142,8 +149,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsNSOGamecube{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsProCon{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -157,8 +164,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsProCon{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsJoyConRight{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -172,8 +179,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsJoyConRight{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsJoyConLeft{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -187,8 +194,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsJoyConLeft{{
 }};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsJoyPair{{
-    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
-    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_B},
+    {SDL_GAMEPAD_BUTTON_EAST, PAD_BUTTON_A},
+    {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_B},
     {SDL_GAMEPAD_BUTTON_WEST, PAD_BUTTON_X},
     {SDL_GAMEPAD_BUTTON_NORTH, PAD_BUTTON_Y},
     {SDL_GAMEPAD_BUTTON_START, PAD_BUTTON_START},
@@ -582,7 +589,7 @@ void __PADLoadMapping(aurora::input::GameController* controller) /*  NOLINT(*-re
             aurora::io::read_exact(file.get(), axisMapping.data(), sizeof(axisMapping));
   if (!isGameCube) {
     ok = ok && SDL_ReadU16LE(file.get(), &rumbleIntensityLow) && SDL_ReadU16LE(file.get(), &rumbleIntensityHigh);
-    if (version >= k_mappingsFileVersion) {
+    if (version >= 4) {
       uint8_t forceDeviceRumbleValue = 0;
       ok = ok && SDL_ReadU8(file.get(), &forceDeviceRumbleValue);
       forceDeviceRumble = forceDeviceRumbleValue != 0;
@@ -591,6 +598,18 @@ void __PADLoadMapping(aurora::input::GameController* controller) /*  NOLINT(*-re
   if (!ok) {
     Log.warn("Unable to read controller bindings! Path: \"{}\"", aurora::io::fs_path_to_string(path));
     return;
+  }
+  if (!isGameCube && version < k_swappedABFileVersion) {
+    PADButtonMapping* a = nullptr;
+    PADButtonMapping* b = nullptr;
+    for (auto& m : buttonMapping) {
+      if (m.padButton == PAD_BUTTON_A)
+        a = &m;
+      else if (m.padButton == PAD_BUTTON_B)
+        b = &m;
+    }
+    if (a != nullptr && b != nullptr)
+      std::swap(a->nativeButton, b->nativeButton);
   }
   controller->m_deadZones = deadZones;
   controller->m_buttonMapping = buttonMapping;

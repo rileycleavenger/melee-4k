@@ -107,7 +107,7 @@
               <button id="stock-style">Default</button>
             </div>
             <div class="setting">
-              <div class="description"><h3>Smooth motion</h3><p>Draws extra in-between frames on 120 Hz+ displays. Gameplay stays 60 Hz. Auto turns it on when the display supports it.</p></div>
+              <div class="description"><h3>Frame rate</h3><p>Frames drawn per second: 30, 60, 120 or 144. The game itself always runs at 60. Auto adds in-between frames on 100 Hz+ displays.</p></div>
               <button id="smooth">Auto</button>
             </div>
             <div class="setting">

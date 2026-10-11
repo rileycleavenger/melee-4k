@@ -942,7 +942,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                              who, secs / 60, secs % 60);
                 } else if (online_kind == ONLINE_KIND_DIRECT && direct_role == ONLINE_DIRECT_HOST) {
                     snprintf(view.message, sizeof view.message,
-                             "Lobby open. Your friend picks Join Lobby and types your code  %u:%02u",
+                             "Lobby open. Your friend joins with your code  %u:%02u",
                              secs / 60, secs % 60);
                 } else if (online_kind == ONLINE_KIND_DIRECT) {
                     snprintf(view.message, sizeof view.message,

@@ -20,4 +20,11 @@
 /* 2F390C */ void ifAll_802F390C(void);
 /* 2F3A64 */ void ifAll_802F3A64(void);
 
+#ifdef TARGET_PC
+/// Move the HUD after a change of aspect or HUD mode (once per frame).
+void ifAll_PcRelayoutHud(void);
+/// A new scene: the last one's HUD is gone.
+void ifAll_PcForgetHud(void);
+#endif
+
 #endif

@@ -37,8 +37,16 @@
 
 typedef struct Line {
     int entry;
+    float scale;
+    float max_w; /* canvas units the text may span; 0 = any */
     char str[ONLINE_LOBBY_MSG_LEN];
 } Line;
+
+/* Rough width of one SIS menu glyph at scale 1, in canvas units (measured
+ * on the lobby's status line, rounded up). */
+#define GLYPH_W 19.5f
+/* The panel's text column: x 48 to the rules' right end at 592. */
+#define TEXT_W 544.0f
 
 enum {
     line_title,
@@ -72,6 +80,7 @@ static GXColor col_error = { 0xFF, 0x60, 0x60, 0xFF };
 static void addLine(Line* l, float x, float y, float scale, GXColor* color)
 {
     l->entry = HSD_SisLib_803A6B98(lobby_text, x, y, "%s", l->str);
+    l->scale = scale;
     HSD_SisLib_803A7548(lobby_text, l->entry, scale, scale);
     HSD_SisLib_803A74F0(lobby_text, l->entry, color);
 }
@@ -85,6 +94,16 @@ static void setLine(Line* l, const char* s)
     }
     snprintf(l->str, sizeof(l->str), "%s", s);
     HSD_SisLib_803A70A0(lobby_text, l->entry, "%s", l->str);
+    if (l->max_w > 0.0f) {
+        /* Squeeze a long line to fit the panel, as Melee squeezes its own
+         * long labels, rather than letting it run off the edge. */
+        const size_t n = strlen(l->str);
+        float sx = l->scale;
+        if (n > 0 && n * GLYPH_W * sx > l->max_w) {
+            sx = l->max_w / (n * GLYPH_W);
+        }
+        HSD_SisLib_803A7548(lobby_text, l->entry, sx, l->scale);
+    }
 }
 
 static void setColor(Line* l, GXColor* c)
@@ -193,6 +212,8 @@ void mnOnlineLobby_Create(void)
     addLine(&lines[line_countdown], 360.0f, 56.0f, 0.7f, &col_you);
     addLine(&lines[line_status], 48.0f, 392.0f, 0.55f, &col_white);
     addLine(&lines[line_hint], 48.0f, 418.0f, 0.45f, &col_dim);
+    lines[line_status].max_w = TEXT_W;
+    lines[line_hint].max_w = TEXT_W;
 }
 
 void mnOnlineLobby_Update(const OnlineLobbyView* view)

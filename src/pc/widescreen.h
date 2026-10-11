@@ -38,6 +38,9 @@ float pc_widescreen_hud_offset(void);
  * Return original_x untouched when Wide HUD is not active or scale <= 1.0. */
 float pc_widescreen_hud_player_x(int player_idx, int total_players, float original_x);
 float pc_widescreen_hud_timer_x(float original_x);
+/* How far the wide HUD moves player `player_idx` of `total_players` (-1: the
+ * timer) for a given pc_widescreen_hud_offset(). */
+float pc_widescreen_hud_dx(int player_idx, int total_players, float offset);
 
 /* Scale one projection edge pair about `center` -- the widening is a scale
  * about the camera's horizontal centre, not about the world origin. */

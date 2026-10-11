@@ -2,6 +2,8 @@
 
 #include "inlines.h"
 #include "mnmain.h"
+#include "pc/menu_hand.h"
+#include <string.h>
 #include <melee/gm/gm_1A36.h>
 #include <melee/gm/gm_1A3F.h>
 #include <melee/gm/gmmain_lib.h>
@@ -154,6 +156,26 @@ void mn_802339FC(void);
 void mnCharSel_80264070(void);
 s32 mnCharSel_802640A0(void);
 
+#ifdef TARGET_PC
+/* Each rule row's label, for the mouse hand (pc/menu_hand.c); NULL for a
+ * row the mode hides. */
+static HSD_JObj* pc_rule_label[7];
+
+/* A row, in the menu camera's world: from 2 left of its label's origin to
+ * 18 right (the value box), and half the 2.0 between rows up and down. */
+static void mn_PcRuleHover(void)
+{
+    int best;
+    pc_menu_hand_want();
+    pc_menu_hand_step(0);
+    best = pc_menu_hand_row(mn_PcMenuCObj(), pc_rule_label,
+                            ARRAY_SIZE(pc_rule_label), -2.0f, 18.0f, 1.0f);
+    if (best >= 0 && best != mn_804A04F0.hovered_selection) {
+        pc_menu_hand_step(best > mn_804A04F0.hovered_selection ? 1 : -1);
+    }
+}
+#endif
+
 static inline u8 mn_8022F538_GetHoveredSelection(void)
 {
     return mn_804A04F0.hovered_selection;
@@ -174,6 +196,9 @@ void fn_8022F538(HSD_GObj* arg0)
     (void) U32_TO_F32;
 
     data = HSD_GObjGetUserData(mn_804D6BD0);
+#ifdef TARGET_PC
+    mn_PcRuleHover();
+#endif
     buttons = mn_80229624(4);
     mn_804A04F0.buttons = buttons;
     if ((buttons & 0x200) != 0) {
@@ -1113,6 +1138,9 @@ HSD_GObj* mn_80230E38(int arg0)
     }
 
     sub_count_ptr = mn_803EC808;
+#ifdef TARGET_PC
+    memset(pc_rule_label, 0, sizeof(pc_rule_label));
+#endif
     for (i = 0; i < (s32) num_options; i++) {
         vis_before = mn_80230E38_CountVisible((u8) i);
 
@@ -1147,6 +1175,11 @@ HSD_GObj* mn_80230E38(int arg0)
                                 rule_label_frames[i][selected == i]);
             }
             HSD_JObjAnim(jobj_parts[7]);
+#ifdef TARGET_PC
+            if (i < (s32) ARRAY_SIZE(pc_rule_label)) {
+                pc_rule_label[i] = jobj_parts[7];
+            }
+#endif
 
             if ((s32) selected != i) {
                 HSD_JObjSetFlagsAll(jobj_parts[16], JOBJ_HIDDEN);

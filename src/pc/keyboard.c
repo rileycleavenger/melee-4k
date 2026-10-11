@@ -26,6 +26,7 @@
 #include <dolphin/gx/GXAurora.h>
 
 #include "pc/pc.h"
+#include <dolphin/vi.h>
 #include "pc/touch.h"
 
 static bool s_key[SDL_SCANCODE_COUNT];
@@ -173,8 +174,13 @@ static bool mouse_menu_live(void) {
  * the pointer is over it and is driving the hand. */
 bool pc_mouse_menu(float* u, float* v) {
     atomic_store_explicit(&s_mouse_wanted_ms, SDL_GetTicks(), memory_order_relaxed);
-    const char* test = getenv("MELEE_MOUSE_TEST"); /* "u,v": a fixed pointer, for tests */
+    /* "u,v[@frame]": a fixed pointer, for tests; from that frame on. */
+    const char* test = getenv("MELEE_MOUSE_TEST");
     if (test != NULL && test[0] != '\0') {
+        const char* at = strchr(test, '@');
+        if (at != NULL && VIGetRetraceCount() < (u32)atoi(at + 1)) {
+            return false;
+        }
         return sscanf(test, "%f,%f", u, v) == 2;
     }
     SDL_Window* window = SDL_GetMouseFocus();
@@ -209,7 +215,41 @@ void pc_mouse_menu_stick_moved(void) {
     s_mouse_moved = false;
 }
 
+/* The system pointer hides while the game draws a hand under the mouse
+ * (pc/menu_hand.c). Called once a frame from the game thread. */
+void pc_mouse_show_pointer(bool show) {
+    static int shown = -1;
+    if (shown == (int)show) {
+        return;
+    }
+    shown = show;
+    if (show) {
+        SDL_ShowCursor();
+    } else {
+        SDL_HideCursor();
+    }
+}
+
+static int s_mouse_wheel; /* notches, + up, while a menu wants the mouse */
+
+int pc_mouse_take_wheel(void) {
+    lock_keys();
+    const int n = s_mouse_wheel;
+    s_mouse_wheel = 0;
+    unlock_keys();
+    return n;
+}
+
 void pc_keyboard_event(const SDL_Event* e) {
+    if (e->type == SDL_EVENT_MOUSE_WHEEL) {
+        if (mouse_menu_live()) {
+            const float y = e->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e->wheel.y : e->wheel.y;
+            lock_keys();
+            s_mouse_wheel += y > 0 ? 1 : y < 0 ? -1 : 0;
+            unlock_keys();
+        }
+        return;
+    }
     if (e->type == SDL_EVENT_MOUSE_MOTION) {
         lock_keys();
         s_mouse_x = e->motion.x;

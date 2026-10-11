@@ -18,7 +18,9 @@
 #include "mnlanguage.h"
 #ifdef TARGET_PC
 #include "mnm4k.h"
+#include "pc/menu_hand.h"
 #include "pc/menu_label.h"
+#include "pc/mouse_menu.h"
 #include <stdio.h>
 #include <string.h>
 #endif
@@ -747,6 +749,26 @@ u32 mn_80229624(u32 slot)
     if (inputs_repeated & PAD_ANY_RIGHT) {
         ret |= MenuInput_Right;
     }
+#ifdef TARGET_PC
+    /* The mouse hand hovering another entry (pc/menu_hand.c). */
+    switch (pc_menu_hand_take_step()) {
+    case -1:
+        ret |= MenuInput_Up;
+        break;
+    case 1:
+        ret |= MenuInput_Down;
+        break;
+    }
+    /* The wheel steps a value, as left and right do. */
+    {
+        const int wheel = pc_menu_hand_take_wheel();
+        if (wheel > 0) {
+            ret |= MenuInput_Right;
+        } else if (wheel < 0) {
+            ret |= MenuInput_Left;
+        }
+    }
+#endif
     return ret;
 }
 
@@ -1315,6 +1337,37 @@ void fn_8022AF10(HSD_GObj* gp)
 
 /// @brief main menu think func that handles the updating
 /// of objects (animations, text)
+#ifdef TARGET_PC
+/* The mouse hand (pc/menu_hand.c) over this menu's entries: hovering one
+ * walks the selection to it. An entry is the band around its label, from
+ * halfway to the label above to halfway to the one below. */
+/* A button, in the menu camera's world: from its label's origin, 6 left
+ * and 8 right, and half the 2.4 between rows up and down. */
+#define PC_HAND_LEFT (-6.0f)
+#define PC_HAND_RIGHT 8.0f
+#define PC_HAND_ROW 1.2f
+HSD_CObj* mn_PcMenuCObj(void)
+{
+    return mn_804D6BAC != NULL ? GET_COBJ(mn_804D6BAC) : NULL;
+}
+
+static void mn_PcMouseHover(MainMenuData* data)
+{
+    int best;
+    pc_menu_hand_want();
+    pc_menu_hand_step(0);
+    if (mn_804D6BAC == NULL || data->state != MENU_STATE_IDLE) {
+        return;
+    }
+    best = pc_menu_hand_row(GET_COBJ(mn_804D6BAC), data->pc_label_jobj,
+                            ARRAY_SIZE(data->pc_label_jobj), PC_HAND_LEFT,
+                            PC_HAND_RIGHT, PC_HAND_ROW);
+    if (best >= 0 && best != mn_804A04F0.hovered_selection) {
+        pc_menu_hand_step(best > mn_804A04F0.hovered_selection ? 1 : -1);
+    }
+}
+#endif
+
 void fn_8022AFEC(HSD_GObj* gp)
 {
     /// @todo figure out the inlines
@@ -1339,6 +1392,9 @@ void fn_8022AFEC(HSD_GObj* gp)
         MainMenuData* tmp_data = gp->user_data;
         data = tmp_data;
     }
+#ifdef TARGET_PC
+    mn_PcMouseHover(data);
+#endif
     state = data->state;
     if ((state == MENU_STATE_5 || state <= MENU_STATE_ENTER_TO ||
          state == MENU_STATE_EXIT_TO) &&

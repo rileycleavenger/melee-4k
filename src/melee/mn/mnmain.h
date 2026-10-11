@@ -140,6 +140,10 @@ typedef struct _MenuInputState {
 /* 4D6BBC */ extern DiscU32* MenMain_lights; /* LightList*[] */
 /* 4D6BC0 */ extern HSD_FogDesc* MenMain_fog;
 /* 4D6BC4 */ extern HSD_CObjDesc* MenMain_cam;
+#ifdef TARGET_PC
+/// The menu camera the list menus are seen through (the mouse hand's).
+HSD_CObj* mn_PcMenuCObj(void);
+#endif
 /* 4D6BC8 */ extern MenuInputState mn_804D6BC8;
 /* 4D6C00 */ extern DiscU32* NotAllowedNamesList; /* char*[] on disc */
 /* 4D6C04 */ extern DiscU32* AutoNamesList;       /* u8*[] on disc */

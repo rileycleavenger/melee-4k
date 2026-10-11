@@ -117,9 +117,21 @@ int main(int argc, char** argv) {
     loaded = load_preferences(config);
     assert(loaded.interp == 2 && loaded.stock_style == "Smash 4");
     {
+        // Frame rate 30 fps.
+        std::ofstream f(config);
+        f << "interp 3\n";
+    }
+    assert(load_preferences(config).interp == 3);
+    {
+        // The retired "in-between frames forced on" reads as auto.
+        std::ofstream f(config);
+        f << "interp 1\n";
+    }
+    assert(load_preferences(config).interp == 0);
+    {
         // Out of range, and a style that would escape textures/stocks.
         std::ofstream f(config);
-        f << "interp 3\nstock_style \"../evil\"\n";
+        f << "interp 6\nstock_style \"../evil\"\n";
     }
     loaded = load_preferences(config);
     assert(loaded.interp == 0 && loaded.stock_style == "default");

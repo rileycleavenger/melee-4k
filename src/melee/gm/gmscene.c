@@ -1,6 +1,7 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
 #include "pc/interp.h"
+#include "pc/menu_hand.h"
 #include "pc/net.h"
 #include "pc/pc.h"
 #include "pc/slp.h"
@@ -14,6 +15,7 @@
 #include "gmscdata.h"
 #include <dolphin/os/OSThread.h>
 #include <melee/db/db.h>
+#include <melee/if/ifall.h>
 #include <melee/if/ifcoget.h>
 #include <melee/lb/lb_013B.h>
 #include <melee/lb/lb_0195.h>
@@ -483,6 +485,9 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
          * last of them. After a boundary that ran several catch-up ticks the
          * previous record is that many ticks old (pc_interp_span_t). */
         bool interp_blend = false;
+        /* Settings change mid-match from the F1 overlay (16:9 <-> 4:3). */
+        ifAll_PcRelayoutHud();
+        pc_menu_hand_frame();
         pc_net_render_audit(false);
         if (interp_on) {
             /* Recorded once per boundary, after its ticks: recording between
@@ -530,5 +535,11 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         HSD_PerfSetTotalTime();
         HSD_PerfInitStat();
     }
+#ifdef TARGET_PC
+    /* The scene's HUD goes with it; the next scene builds its own before
+     * its loop starts. */
+    ifAll_PcForgetHud();
+    pc_menu_hand_forget();
+#endif
     HSD_VIWaitXFBFlush();
 }

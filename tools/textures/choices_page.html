@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Texture Choices</title>
+<style>
+:root {
+  --bg: #f4f4f6; --panel: #fff; --ink: #1c1c22; --muted: #6a6a78; --line: #dcdce3;
+  --pick: #2f6fed; --pick-bg: #e7efff; --checker: #d9d9df;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15151a; --panel: #1f1f26; --ink: #ececf1; --muted: #9a9aab; --line: #33333d;
+          --pick: #6b9bff; --pick-bg: #1d2a47; --checker: #2a2a32; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+       font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel);
+         border-bottom: 1px solid var(--line); padding: 10px 16px; }
+header h1 { font-size: 17px; margin: 0 0 6px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tabs button, .bar button { border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+.tabs button.on { border-color: var(--pick); background: var(--pick-bg); }
+.bar .primary { background: var(--pick); border-color: var(--pick); color: #fff; }
+#status { color: var(--muted); margin-left: auto; }
+main { padding: 16px; max-width: 1500px; margin: 0 auto; }
+.help { color: var(--muted); margin: 0 0 14px; }
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+         margin: 0 0 16px; padding: 12px; }
+.group h2 { font-size: 15px; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group h2 .all { font-weight: normal; font-size: 12px; }
+.tex { border-top: 1px solid var(--line); padding: 10px 0; }
+.tex:first-of-type { border-top: 0; }
+.key { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); margin-bottom: 6px; word-break: break-all; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; }
+.opt { width: 196px; border: 2px solid var(--line); border-radius: 8px; padding: 6px; cursor: pointer;
+       background: var(--panel); }
+.opt.on { border-color: var(--pick); background: var(--pick-bg); }
+.opt.ref { cursor: default; border-style: dashed; }
+.img { width: 176px; height: 176px; display: flex; align-items: center; justify-content: center;
+       background: repeating-conic-gradient(var(--checker) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+       border-radius: 4px; overflow: hidden; }
+.img img { max-width: 100%; max-height: 100%; image-rendering: auto; }
+.cap { display: flex; gap: 6px; align-items: flex-start; margin-top: 6px; font-size: 12px; }
+.cap input { margin: 2px 0 0; }
+.cap small { color: var(--muted); display: block; }
+.cap a { color: var(--muted); }
+.costume .row.strip { gap: 4px; }
+.costume .pickrow { display: flex; gap: 10px; align-items: flex-start; border: 2px solid var(--line);
+  border-radius: 8px; padding: 8px; margin: 0 0 8px; cursor: pointer; }
+.costume .pickrow.on { border-color: var(--pick); background: var(--pick-bg); }
+.costume .pickrow .who { width: 170px; flex: none; font-size: 13px; }
+.costume .mini { width: 112px; height: 112px; }
+.mixed { color: var(--muted); font-size: 12px; }
+details summary { cursor: pointer; color: var(--pick); margin: 4px 0; }
+#more { display: block; margin: 0 auto 30px; }
+@media (max-width: 600px) { .opt { width: calc(50% - 5px); } .img { width: 100%; height: 140px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Melee 4K texture choices</h1>
+  <div class="bar">
+    <div class="tabs" id="tabs"></div>
+    <button class="primary" id="save">Save choices</button>
+    <button id="load">Load choices…</button>
+    <input type="file" id="file" accept=".json" hidden>
+    <span id="status"></span>
+  </div>
+</header>
+<main>
+  <p class="help">Each box is one version of a texture; tick the one you want. The dashed box is
+  the original GameCube texture, for reference. Click a picture to open it full size. Choices
+  start at what the current build uses and are kept in this browser as you go. When you're done,
+  press <b>Save choices</b> and send back <code>melee4k-texture-choices.json</code>.</p>
+  <div id="view"></div>
+  <button id="more" hidden>Show more</button>
+</main>
+<script>
+const DATA = /*DATA*/null;
+const STORE = "m4k-texture-choices-v1";
+let picks = {};
+try { picks = JSON.parse(localStorage.getItem(STORE) || "{}"); } catch (e) { picks = {}; }
+const T = DATA.textures;
+const pick = k => picks[k] ?? T[k].default;
+function persist() {
+  try { localStorage.setItem(STORE, JSON.stringify(picks)); } catch (e) {}
+  status();
+}
+function setPick(k, id) {
+  if (id === T[k].default) delete picks[k]; else picks[k] = id;
+}
+function status() {
+  const n = Object.keys(picks).filter(k => T[k]).length;
+  document.getElementById("status").textContent =
+    `${Object.keys(T).length} textures · ${n} changed from the starting choice`;
+}
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
+function img(src, cls) {
+  const box = el("div", "img" + (cls ? " " + cls : ""));
+  if (src) { const i = el("img"); i.loading = "lazy"; i.src = src; i.alt = ""; box.append(i); }
+  else box.append(el("span", "mixed", "no HD version"));
+  return box;
+}
+function fileLink(path) {
+  const a = el("a", null, "full size");
+  a.href = "file://" + encodeURI(path); a.target = "_blank";
+  a.addEventListener("click", e => e.stopPropagation());
+  return a;
+}
+function optLabel(o) {
+  if (o.id === "Original") return "Original (no HD texture, as the GameCube draws it)";
+  return o.id;
+}
+function texCard(k, onChange) {
+  const t = T[k], card = el("div", "tex");
+  card.append(el("div", "key", `${k} · ${t.file}`));
+  const row = el("div", "row");
+  if (t.orig && !t.options.some(o => o.id === "Original")) {
+    const ref = el("div", "opt ref");
+    ref.append(img(`t/o_${k}.webp`));
+    const cap = el("div", "cap"); cap.append(el("span", null, "Original GameCube texture"));
+    ref.append(cap); row.append(ref);
+  }
+  const boxes = [];
+  for (const o of t.options) {
+    const box = el("label", "opt");
+    box.append(img(o.t ? `t/${o.t}.webp` : null));
+    const cap = el("div", "cap"), cb = el("input");
+    cb.type = "checkbox";
+    const txt = el("div");
+    txt.append(el("span", null, optLabel(o)));
+    if (o.also.length) txt.append(el("small", null, "same as " + o.also.join(", ")));
+    if (o.size) { const s = el("small", null, `${o.size[0]}×${o.size[1]} `); s.append(fileLink(o.file)); txt.append(s); }
+    cap.append(cb, txt); box.append(cap);
+    cb.addEventListener("change", () => {
+      setPick(k, o.id); persist(); sync(); if (onChange) onChange();
+    });
+    boxes.push([o.id, box, cb]); row.append(box);
+  }
+  function sync() {
+    const p = pick(k);
+    for (const [id, box, cb] of boxes) { cb.checked = id === p; box.classList.toggle("on", id === p); }
+  }
+  card.sync = sync; sync();
+  card.append(row);
+  return card;
+}
+function labelsOf(keys) {
+  const seen = [];
+  for (const k of keys) for (const o of T[k].options) if (!seen.includes(o.id)) seen.push(o.id);
+  return seen;
+}
+function applyAll(keys, id) {
+  for (const k of keys) if (T[k].options.some(o => o.id === id)) setPick(k, id);
+  persist();
+}
+function groupCard(sec, g) {
+  const card = el("section", "group");
+  const h = el("h2", null, g.name);
+  const cards = [];
+  const refresh = () => cards.forEach(c => c.sync());
+  for (const id of labelsOf(g.keys)) {
+    const b = el("button", "all", `All ${id}`);
+    b.addEventListener("click", () => { applyAll(g.keys, id); refresh(); });
+    h.append(b);
+  }
+  card.append(h);
+  for (const k of g.keys) { const c = texCard(k); cards.push(c); card.append(c); }
+  return card;
+}
+function costumeCard(g) {
+  const card = el("section", "group costume");
+  card.append(el("h2", null, `${g.name} · ${g.keys.length} textures`));
+  const rows = [];
+  let perTex = null;
+  function sync() {
+    for (const [id, r, cb] of rows) {
+      const all = g.keys.filter(k => T[k].options.some(o => o.id === id));
+      const on = all.length > 0 && all.every(k => pick(k) === id);
+      r.classList.toggle("on", on);
+      cb.checked = on;
+    }
+    if (perTex) perTex.forEach(c => c.sync());
+  }
+  for (const id of labelsOf(g.keys)) {
+    const r = el("div", "pickrow");
+    const who = el("div", "who"), cb = el("input");
+    cb.type = "radio"; cb.name = "c_" + g.name;
+    const n = g.keys.filter(k => T[k].options.some(o => o.id === id)).length;
+    who.append(cb, document.createTextNode(` Use ${id}`), el("small", "mixed", ` (${n} of ${g.keys.length})`));
+    const strip = el("div", "row strip");
+    for (const k of g.keys) {
+      const o = T[k].options.find(o => o.id === id);
+      strip.append(img(o && o.t ? `t/${o.t}.webp` : null, "mini"));
+    }
+    r.append(who, strip);
+    r.addEventListener("click", () => { applyAll(g.keys, id); sync(); });
+    rows.push([id, r, cb]); card.append(r);
+  }
+  const d = el("details"); d.append(el("summary", null, "Choose per texture"));
+  d.addEventListener("toggle", () => {
+    if (d.open && !perTex) { perTex = g.keys.map(k => texCard(k, sync)); perTex.forEach(c => d.append(c)); }
+  });
+  card.append(d);
+  sync();
+  return card;
+}
+let current = null, shown = 0;
+const PAGE = 40;
+function renderMore() {
+  const view = document.getElementById("view");
+  const groups = current.groups.slice(shown, shown + PAGE);
+  for (const g of groups) view.append(current.per_group ? costumeCard(g) : groupCard(current, g));
+  shown += groups.length;
+  document.getElementById("more").hidden = shown >= current.groups.length;
+}
+function show(sec) {
+  current = sec; shown = 0;
+  document.getElementById("view").replaceChildren();
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.id === sec.id));
+  renderMore();
+  try { localStorage.setItem(STORE + "-tab", sec.id); } catch (e) {}
+  window.scrollTo(0, 0);
+}
+const tabs = document.getElementById("tabs");
+for (const sec of DATA.sections) {
+  const n = sec.groups.reduce((a, g) => a + g.keys.length, 0);
+  const b = el("button", null, `${sec.title} (${n})`); b.dataset.id = sec.id;
+  b.addEventListener("click", () => show(sec)); tabs.append(b);
+}
+document.getElementById("more").addEventListener("click", renderMore);
+document.getElementById("save").addEventListener("click", () => {
+  const choices = {};
+  for (const k of Object.keys(T)) choices[k] = pick(k);
+  const blob = new Blob([JSON.stringify({ version: 1, choices, changed: Object.keys(picks) }, null, 1)],
+                        { type: "application/json" });
+  const a = el("a"); a.href = URL.createObjectURL(blob); a.download = "melee4k-texture-choices.json";
+  document.body.append(a); a.click(); a.remove();
+});
+document.getElementById("load").addEventListener("click", () => document.getElementById("file").click());
+document.getElementById("file").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    picks = {};
+    for (const [k, id] of Object.entries(j.choices || {})) if (T[k] && id !== T[k].default) picks[k] = id;
+    persist(); show(current);
+  } catch (err) { alert("That file isn't a choices file."); }
+});
+let first = DATA.sections[0];
+try { const t = localStorage.getItem(STORE + "-tab"); first = DATA.sections.find(s => s.id === t) || first; } catch (e) {}
+status(); show(first);
+</script>
+</body>
+</html>

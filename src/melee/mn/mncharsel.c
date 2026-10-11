@@ -5665,3 +5665,12 @@ void mnCharSel_Scene_OnExit(void* unused)
     lbAudioAx_8002702C(4, tmp);
     lbAudioAx_80027168();
 }
+
+#ifdef TARGET_PC
+StaticModelDesc* mnCharSel_PcHandModel(HSD_Archive* archive)
+{
+    MnSelectChrDataTable* table =
+        HSD_ArchiveGetPublicAddress(archive, "MnSelectChrDataTable");
+    return table != NULL ? &table->models.hand : NULL;
+}
+#endif

@@ -400,8 +400,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
                 prefs.hud_mode = value;
         } else if (key == "interp") {
             int value;
-            if (row >> value && value >= 0 && value <= 2)
-                prefs.interp = value;
+            if (row >> value && value >= 0 && value <= 5)
+                prefs.interp = value == 1 ? 0 : value;
         } else if (key == "stock_style") {
             // A folder name under textures/stocks: no separators or dots.
             std::string value;

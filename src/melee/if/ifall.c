@@ -77,6 +77,95 @@ Vec3* ifAll_GetPlayerHUDPosition(int idx)
     return &ifAll_804A0FD8.x18[idx];
 }
 
+#ifdef TARGET_PC
+/* PORT: the wide HUD spreads the timer and player positions toward the
+ * screen edges (pc_widescreen_hud_*). Each HUD element copies its position
+ * once, when it is made, so a change of aspect or HUD mode mid-match moves
+ * the elements already on screen as well as the positions
+ * (ifAll_PcRelayoutHud). */
+static struct {
+    bool valid;
+    bool timer;  /* the timer position is widened too */
+    int count;   /* players spread out: 2..4, else none */
+    float offset; /* the pc_widescreen_hud_offset() applied */
+} pc_hud;
+
+static void pc_hud_widen(int count, bool timer)
+{
+    int i;
+    const float offset = pc_widescreen_hud_offset();
+    if (timer) {
+        ifAll_804A0FD8.xC.x += pc_widescreen_hud_dx(-1, 0, offset);
+    }
+    if (count >= 2 && count <= 4) {
+        for (i = 0; i < count; i++) {
+            ifAll_804A0FD8.x18[i].x += pc_widescreen_hud_dx(i, count, offset);
+        }
+    }
+    pc_hud.valid = true;
+    pc_hud.timer = pc_hud.timer || timer;
+    pc_hud.count = count;
+    pc_hud.offset = offset;
+}
+
+/* Move a HUD element placed at `pos` by dx. Within a unit, for a damage
+ * counter shaking from a hit; the slots are 13+ units apart. */
+static void pc_hud_move(const Vec3* pos, float dx)
+{
+    HSD_GObj* gobj;
+    if (dx == 0.0f) {
+        return;
+    }
+    for (gobj = HSD_GObjGXLinkHead[11]; gobj != NULL; gobj = gobj->next_gx) {
+        HSD_JObj* jobj;
+        if (gobj->obj_kind != HSD_GObj_JObjKind || gobj->hsd_obj == NULL) {
+            continue;
+        }
+        jobj = gobj->hsd_obj;
+        if (fabsf(HSD_JObjGetTranslationX(jobj) - pos->x) < 1.0f &&
+            fabsf(HSD_JObjGetTranslationY(jobj) - pos->y) < 1.0f)
+        {
+            HSD_JObjSetTranslateX(jobj, HSD_JObjGetTranslationX(jobj) + dx);
+        }
+    }
+}
+
+void ifAll_PcRelayoutHud(void)
+{
+    int i;
+    float offset;
+    if (!pc_hud.valid) {
+        return;
+    }
+    offset = pc_widescreen_hud_offset();
+    if (offset == pc_hud.offset) {
+        return;
+    }
+    if (pc_hud.timer) {
+        const float dx = pc_widescreen_hud_dx(-1, 0, offset) -
+                         pc_widescreen_hud_dx(-1, 0, pc_hud.offset);
+        pc_hud_move(&ifAll_804A0FD8.xC, dx);
+        ifAll_804A0FD8.xC.x += dx;
+    }
+    if (pc_hud.count >= 2 && pc_hud.count <= 4) {
+        for (i = 0; i < pc_hud.count; i++) {
+            const float dx = pc_widescreen_hud_dx(i, pc_hud.count, offset) -
+                             pc_widescreen_hud_dx(i, pc_hud.count, pc_hud.offset);
+            pc_hud_move(&ifAll_804A0FD8.x18[i], dx);
+            ifAll_804A0FD8.x18[i].x += dx;
+        }
+    }
+    pc_hud.offset = offset;
+}
+
+void ifAll_PcForgetHud(void)
+{
+    pc_hud.valid = false;
+    pc_hud.timer = false;
+    pc_hud.count = 0;
+}
+#endif
+
 static inline void ifAll_802F343C_inline(int i)
 {
     ifAll_804A0FD8.x18[i].x *= 0.65F;
@@ -130,24 +219,9 @@ void ifAll_802F343C(int count)
         break;
     }
 
-    if (pc_get_hud_mode() == 1) {
-        if (count == 4) {
-            for (i = 0; i < 4; i++) {
-                ifAll_804A0FD8.x18[i].x =
-                    pc_widescreen_hud_player_x(i, 4, ifAll_804A0FD8.x18[i].x);
-            }
-        } else if (count == 2) {
-            for (i = 0; i < 2; i++) {
-                ifAll_804A0FD8.x18[i].x =
-                    pc_widescreen_hud_player_x(i, 2, ifAll_804A0FD8.x18[i].x);
-            }
-        } else if (count == 3) {
-            for (i = 0; i < 3; i++) {
-                ifAll_804A0FD8.x18[i].x =
-                    pc_widescreen_hud_player_x(i, 3, ifAll_804A0FD8.x18[i].x);
-            }
-        }
-    }
+#ifdef TARGET_PC
+    pc_hud_widen(count, false);
+#endif
 }
 
 HSD_Archive** ifAll_GetArchive(void)
@@ -218,13 +292,9 @@ static void ifAll_802F370C(SceneDesc* scene)
     }
     HSD_GObjFree(gobj);
 
-    if (pc_get_hud_mode() == 1) {
-        ifAll_804A0FD8.xC.x = pc_widescreen_hud_timer_x(ifAll_804A0FD8.xC.x);
-        for (i = 0; i < 4; i++) {
-            ifAll_804A0FD8.x18[i].x =
-                pc_widescreen_hud_player_x(i, 4, ifAll_804A0FD8.x18[i].x);
-        }
-    }
+#ifdef TARGET_PC
+    pc_hud_widen(4, true);
+#endif
 }
 
 static inline HSD_GObj* createCamera(HSD_CObjDesc* desc)

@@ -2,7 +2,10 @@
 #include "compat.h"
 #include "widescreen.h"
 #include "pc.h"
+#include <dolphin/vi.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <dolphin/gx/GXAurora.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/initialize.h>
@@ -54,6 +57,17 @@ void pc_widescreen_set_scene(bool supported) {
 }
 
 void pc_widescreen_update(void) {
+    /* MELEE_ASPECT_AT=<frame>:<mode>: switch aspect mode at a frame, as the
+     * settings would mid-match (test only). */
+    static int at = -1, mode;
+    if (at < 0) {
+        const char* e = getenv("MELEE_ASPECT_AT");
+        at = e != NULL && sscanf(e, "%d:%d", &at, &mode) == 2 ? at : 0;
+    }
+    if (at > 0 && VIGetRetraceCount() >= (u32)at) {
+        at = 0; /* set_mode comes back through here */
+        pc_widescreen_set_mode(mode);
+    }
     AuroraSetPresentationAspect(pc_widescreen_target());
 }
 
@@ -77,10 +91,17 @@ float pc_widescreen_cobj_scale(struct HSD_CObj* cobj) {
 }
 
 float pc_widescreen_hud_offset(void) {
+    u32 width, height;
     if (pc_get_hud_mode() != 1) {
         return 0.0f;
     }
-    float scale = pc_widescreen_scale();
+    /* The framebuffer's shape, whatever pass is current: the HUD is laid
+     * out between frames (ifAll_PcRelayoutHud), outside the screen pass. */
+    AuroraGetRenderSize(&width, &height);
+    if (!width || !height) {
+        return 0.0f;
+    }
+    float scale = ((float)width / height) / ORIGINAL_ASPECT;
     if (scale <= 1.0f) {
         return 0.0f;
     }
@@ -92,21 +113,26 @@ float pc_widescreen_hud_offset(void) {
  * (GameCube NTSC PAR 73:80, matching ifmagnify.c). */
 #define PC_HUD_WORLD_SCALE 0.09125f
 
-float pc_widescreen_hud_timer_x(float original_x) {
-    float offset = pc_widescreen_hud_offset();
+float pc_widescreen_hud_dx(int player_idx, int total_players, float offset) {
     if (offset <= 0.0f) {
-        return original_x;
+        return 0.0f;
     }
-    return original_x + offset * PC_HUD_WORLD_SCALE;
+    if (player_idx < 0) { /* the timer */
+        return offset * PC_HUD_WORLD_SCALE;
+    }
+    if (total_players <= 1 || player_idx >= total_players) {
+        return 0.0f;
+    }
+    float t = -1.0f + 2.0f * (float)player_idx / (float)(total_players - 1);
+    return t * (offset * PC_HUD_WORLD_SCALE);
+}
+
+float pc_widescreen_hud_timer_x(float original_x) {
+    return original_x + pc_widescreen_hud_dx(-1, 0, pc_widescreen_hud_offset());
 }
 
 float pc_widescreen_hud_player_x(int player_idx, int total_players, float original_x) {
-    float offset = pc_widescreen_hud_offset();
-    if (offset <= 0.0f || total_players <= 1 || player_idx < 0 || player_idx >= total_players) {
-        return original_x;
-    }
-    float t = -1.0f + 2.0f * (float)player_idx / (float)(total_players - 1);
-    return original_x + t * (offset * PC_HUD_WORLD_SCALE);
+    return original_x + pc_widescreen_hud_dx(player_idx, total_players, pc_widescreen_hud_offset());
 }
 
 void pc_widescreen_copy_efb(

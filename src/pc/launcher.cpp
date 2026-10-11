@@ -81,7 +81,17 @@ bool change_online(Rml::Event& event) {
 }
 
 const char* smooth_name(int mode) {
-    return mode == 1 ? "On" : mode == 2 ? "Off" : "Auto";
+    return mode == 2 ? "60" : mode == 3 ? "30" : mode == 4 ? "120" : mode == 5 ? "144" : "Auto";
+}
+
+/* The frame rate setting (prefs.interp) after `mode`, `dir` steps along
+ * Auto, 30, 60, 120, 144. */
+int next_frame_rate(int mode, int dir) {
+    static const int order[5] = {0, 3, 2, 4, 5};
+    int at = 0;
+    while (at < 4 && order[at] != mode)
+        at++;
+    return order[(at + 5 + (dir < 0 ? -1 : 1)) % 5];
 }
 
 std::string stock_style_name(const std::string& style) {
@@ -629,7 +639,7 @@ class Launcher final : public Rml::EventListener {
             refresh_settings();
             element("stock-style")->Focus();
         } else if (id == "smooth") {
-            prefs.interp = (prefs.interp + 1) % 3;
+            prefs.interp = next_frame_rate(prefs.interp, 1);
             save();
             refresh_settings();
             element("smooth")->Focus();
@@ -867,10 +877,10 @@ public:
                         step_slider(-1);
                     else if (button == SDL_GAMEPAD_BUTTON_DPAD_RIGHT)
                         step_slider(1);
-                    else if (button == SDL_GAMEPAD_BUTTON_SOUTH ||
+                    else if (button == SDL_GAMEPAD_BUTTON_EAST ||
                              button == SDL_GAMEPAD_BUTTON_START)
                         activate_focus();
-                    else if (button == SDL_GAMEPAD_BUTTON_EAST) {
+                    else if (button == SDL_GAMEPAD_BUTTON_SOUTH) {
                         if (settings)
                             show_settings(false);
                         else if (verification.valid())
@@ -1639,7 +1649,7 @@ public:
             prefs.stock_style = next_stock_style(prefs.stock_style);
             pc_textures_reload();
         } else if (id == "smooth") {
-            prefs.interp = (prefs.interp + 1) % 3;
+            prefs.interp = next_frame_rate(prefs.interp, 1);
         } else if (id == "frozen-stadium") {
             prefs.frozen_stadium = !prefs.frozen_stadium;
         } else if (id == "free-camera") {
@@ -1776,10 +1786,10 @@ public:
             case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
                 show_tab(tab + 1);
                 break;
-            case SDL_GAMEPAD_BUTTON_SOUTH:
+            case SDL_GAMEPAD_BUTTON_EAST:
                 activate_focus();
                 break;
-            case SDL_GAMEPAD_BUTTON_EAST:
+            case SDL_GAMEPAD_BUTTON_SOUTH:
             case SDL_GAMEPAD_BUTTON_START:
                 toggle();
                 break;
@@ -2037,7 +2047,7 @@ enum {
     M4K_ASPECT,
     M4K_HUD,
     M4K_RESOLUTION,
-    M4K_SMOOTH,
+    M4K_FRAME_RATE,
     M4K_TEXTURES,
     M4K_STOCKS,
     M4K_FPS,
@@ -2068,11 +2078,11 @@ extern "C" void pc_m4k_label(int row, char* out, int size) {
         else
             snprintf(out, size, "Resolution %dx", int(prefs.render_scale));
         return;
-    case M4K_SMOOTH:
-        snprintf(out, size, "Smooth Motion %s",
-            prefs.interp == 1 ? "On" :
-            prefs.interp == 2 ? "Off" :
-                                "Auto");
+    case M4K_FRAME_RATE:
+        if (prefs.interp == 0 || prefs.interp == 1)
+            snprintf(out, size, "Frame Rate Auto");
+        else
+            snprintf(out, size, "Frame Rate %s fps", smooth_name(prefs.interp));
         return;
     case M4K_TEXTURES:
         snprintf(out, size, "HD Textures %s", prefs.custom_textures ? "On" : "Off");
@@ -2098,7 +2108,7 @@ extern "C" const char* pc_m4k_description(int row) {
         "Widescreen 16:9, or the original 4:3.",
         "Wide moves the HUD out to the screen edges.",
         "Rendering resolution. Auto fits the window.",
-        "Extra frames on 120 Hz and faster screens.",
+        "Auto matches your screen. Game speed is 60.",
         "Use the HD texture pack.",
         "The style of the stock icons in a match.",
         "Show the frame rate in the corner.",
@@ -2127,8 +2137,8 @@ extern "C" void pc_m4k_step(int row, int dir) {
         prefs.render_scale = (int(prefs.render_scale) + 11 + d) % 11; /* 0 = Auto .. 10x */
         VISetFrameBufferScale(prefs.render_scale);
         break;
-    case M4K_SMOOTH:
-        prefs.interp = (prefs.interp + 3 + d) % 3;
+    case M4K_FRAME_RATE:
+        prefs.interp = next_frame_rate(prefs.interp, d);
         break;
     case M4K_TEXTURES:
         prefs.custom_textures = !prefs.custom_textures;

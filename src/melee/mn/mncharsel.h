@@ -25,6 +25,10 @@
 /* 264070 */ void mnCharSel_80264070(void);
 /* 26407C */ void fn_8026407C(HSD_GObj*);
 /* 2640A0 */ s32 mnCharSel_802640A0(void);
+#ifdef TARGET_PC
+/// The hand cursor's model in a loaded MnSlChr archive (pc/menu_hand.c).
+struct StaticModelDesc* mnCharSel_PcHandModel(HSD_Archive* archive);
+#endif
 /* 26688C */ void mnCharSel_Scene_OnEnter(void*);
 /* 2669F4 */ void mnCharSel_Scene_OnFrame(void);
 /* 266D70 */ void mnCharSel_Scene_OnExit(void*);

@@ -102,6 +102,8 @@ char* pc_user_dir(void);
  * menu as wanting the mouse, so clicks press A/B. */
 bool pc_mouse_menu(float* u, float* v);
 void pc_mouse_menu_stick_moved(void);
+void pc_mouse_show_pointer(bool show);
+int pc_mouse_take_wheel(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */

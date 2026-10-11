@@ -52,5 +52,7 @@ list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/interp.c")
 list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/menu_label.c")
 # Reads HSD cameras for the menu mouse pointer.
 list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/mouse_menu.c")
+# Builds the menu hand cursor's HSD camera and model.
+list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/menu_hand.c")
 # PowerPC/MetroTRK debugger integration; no PC equivalent.
 list(FILTER GAME_SOURCES EXCLUDE REGEX "baselib/debugconsole_main\\.c$")
