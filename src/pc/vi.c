@@ -276,8 +276,8 @@ void pc_frame_boundary(void) {
             pc_log_line("fps %.1f ticks %.1f present %.1f worst %.1fms late>20ms %u late>33ms %u "
                         "sleep_overshoot %.1fms",
                 fps_n * 1000.0 / (double)(now - fps_t0), ticks * 1000.0 / (double)(now - fps_t0),
-                (fps_n + s_interp_presents) * 1000.0 / (double)(now - fps_t0),
-                frame_worst_ns / 1e6, frame_late_20, frame_late_33, sleep_worst_over_ns / 1e6);
+                (fps_n + s_interp_presents) * 1000.0 / (double)(now - fps_t0), frame_worst_ns / 1e6,
+                frame_late_20, frame_late_33, sleep_worst_over_ns / 1e6);
             if (s_interp_presents != 0 && s_begin_n > 1) {
                 const double mean = s_begin_sum / s_begin_n;
                 const double var = s_begin_sq / s_begin_n - mean * mean;
