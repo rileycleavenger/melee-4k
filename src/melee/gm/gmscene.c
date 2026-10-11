@@ -201,12 +201,16 @@ void gm_801A4B88(struct GameSceneInfo* info)
         OSReport("[scene] kind 0x%02x\n", info->scene_kind);
     }
     /* Every scene is widened except the pre-rendered movies, which are
-     * pillarboxed at their authored aspect. Menus and HUD cameras are
-     * orthographic: widening them keeps their art at its proportions and
-     * shows more to the sides (cobj.c setupNormalCamera). */
+     * pillarboxed at their authored aspect, and the results screen: its
+     * stat tags are parked as stacked pages just past the 4:3 left edge and
+     * slid in, so a wider view shows the parked pages, and its background
+     * is plain black, so pillarboxing it looks the same as widening. Menus
+     * and HUD cameras are orthographic: widening them keeps their art at
+     * its proportions and shows more to the sides (cobj.c
+     * setupNormalCamera). */
     pc_widescreen_set_scene(info && info->scene_kind != GS_MOVIE_OPENING &&
         info->scene_kind != GS_MOVIE_END && info->scene_kind != GS_MOVIE_HOWTO &&
-        info->scene_kind != GS_MOVIE_OMAKE15);
+        info->scene_kind != GS_MOVIE_OMAKE15 && info->scene_kind != GS_RESULTS);
 #endif
 }
 

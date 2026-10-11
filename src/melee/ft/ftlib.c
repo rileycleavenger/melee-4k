@@ -1061,7 +1061,10 @@ void ftLib_LoadKirbyHats(u8 arg0)
     }
 }
 
-void ftLib_IsFramesRemaining(HSD_GObj* gobj)
+/* PORT: declared void, so callers (the results screen's winner portrait,
+ * gm_1798.c) read whatever the last call left in the return register; on PC
+ * that was never 0 and the winner's box stayed black. */
+bool ftLib_IsFramesRemaining(HSD_GObj* gobj)
 {
     return ftAnim_IsFramesRemaining(gobj);
 }

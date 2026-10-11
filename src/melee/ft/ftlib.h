@@ -107,7 +107,7 @@
 /* 087574 */ void ftLib_LoadFighterAllCostumes(s8);
 /// /* 087574 */ void ftLib_LoadFighterAllCostumes(FighterKind);
 /* 087610 */ void ftLib_LoadKirbyHats(u8);
-/* 0876B4 */ void ftLib_IsFramesRemaining(HSD_GObj*);
+/* 0876B4 */ bool ftLib_IsFramesRemaining(HSD_GObj*);
 /* 0876D4 */ bool ftLib_IsChargingSmash(HSD_GObj*);
 /* 0876F4 */ s32 ftLib_GetLastHitSourceType(HSD_GObj*);
 /* 087700 */ s32 ftLib_GetLastHitSourceKind(HSD_GObj*);
