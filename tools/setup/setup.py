@@ -276,6 +276,24 @@ def clear_quarantine(root):
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def desktop_shortcut(game):
+    """Windows: a "Melee 4K" shortcut on the desktop (README step 4)."""
+    if platform.system() != "Windows":
+        return
+    desktop = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Desktop")
+    link = os.path.join(desktop, "Melee 4K.lnk")
+    script = ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:M4K_LINK); "
+              "$s.TargetPath = $env:M4K_GAME; $s.WorkingDirectory = $env:M4K_DIR; "
+              "$s.IconLocation = $env:M4K_GAME; $s.Save()")
+    env = dict(os.environ, M4K_LINK=link, M4K_GAME=game, M4K_DIR=os.path.dirname(game))
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                       env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        say("    Added a \"Melee 4K\" shortcut to your desktop.")
+    except (OSError, subprocess.CalledProcessError) as e:
+        log(f"shortcut: {e}")  # optional; the game still runs from its folder
+
+
 def launch(root, game):
     if platform.system() == "Darwin" and os.path.isdir(os.path.join(root, "Melee4K.app")):
         subprocess.Popen(["open", os.path.join(root, "Melee4K.app")])
@@ -314,11 +332,13 @@ def main():
             install_textures(args.manifest, root)
         say("[4/4] Starting the game...")
         clear_quarantine(root)
+        desktop_shortcut(game)
         if not args.no_launch:
             launch(root, game)
         say("")
         say("Done. Next time, just open " +
-            ("Melee4K.app." if platform.system() == "Darwin" else "Melee4K\\melee.exe."))
+            ("Melee4K.app." if platform.system() == "Darwin"
+             else "the Melee 4K shortcut on your desktop."))
         return 0
     except SetupError as e:
         say("")
