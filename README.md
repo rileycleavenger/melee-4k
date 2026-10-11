@@ -12,16 +12,18 @@ comes with this project.
 
 ### macOS (Apple Silicon: M1 or newer)
 
-1. Download **Melee4K-macOS-arm64.zip** from the
-   [latest release](https://github.com/rileycleavenger/melee-4k/releases/latest)
-   and double-click it to unzip.
-2. Drag your Melee disc image into the **PUT-YOUR-ROM-HERE** folder.
-3. **Right-click Setup.command, choose Open, then click Open again.** macOS
-   asks once because the app isn't from the App Store.
-4. Wait for **Done**. The first run downloads the HD textures (about 2.3 GB,
-   a few minutes), then the game starts.
+1. Open **Terminal** (Spotlight: type "Terminal"), paste this line and press
+   Return:
 
-After that, just open **Melee4K.app** and press Play.
+   ```
+   curl -fsSL https://raw.githubusercontent.com/rileycleavenger/melee-4k/v1-pc/install.sh | bash
+   ```
+2. A Finder window opens: drag your Melee disc image into it.
+3. Wait for **Installed**. The first run downloads the HD textures (about
+   2.3 GB, a few minutes), then the game starts.
+
+After that, open **Melee 4K** from Launchpad or Spotlight. Running the same
+line again updates it.
 
 ### Windows (10 or 11, 64-bit)
 
@@ -43,9 +45,15 @@ After that, use the **Melee 4K** shortcut Setup put on your desktop.
   shows your port colour.
 - **Keyboard:** arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
   Enter = Start.
+- **Mouse:** on the character and stage select screens, the mouse moves the
+  hand; left click is A, right click is B.
+- **Online:** VS Mode > Online. One player picks **Host Lobby** and shares the
+  code it shows; the other picks **Join Lobby** and types it. Mac and PC can
+  play each other, over the internet or on the same Wi-Fi.
 - **Settings:** in the game's main menu, go to **Options > Melee 4K** for
   screen (16:9 or the original 4:3), HUD, resolution, smooth motion, HD
-  textures and stock icon style: Left/Right changes a setting. During a match,
+  textures, stock icons, FPS counter and Unlock All: Left/Right changes a
+  setting. During a match,
   **F1** (or Back/Select/Create on a controller) opens the same settings plus
   the rest (controls, audio, graphics).
 
@@ -55,7 +63,8 @@ After that, use the **Melee 4K** shortcut Setup put on your desktop.
   that and run Setup again; it picks up where it left off.
 - **"Disc not recognized":** use a full dump of the USA 1.02 disc. Zipped
   images must be unzipped first; NKit images aren't supported.
-- **The game won't open on a Mac:** do step 3 again (right-click > Open).
+- **Mac "could not verify" dialog:** that appears for the downloaded zip, not
+  the Terminal install; use the Terminal line above.
 - **Textures didn't download:** check your internet connection and run Setup
   again; finished parts aren't downloaded twice.
 - Setup writes **setup-log.txt** next to itself; attach it to a
@@ -63,9 +72,10 @@ After that, use the **Melee 4K** shortcut Setup put on your desktop.
 
 ### Updating
 
-Unzip the new release, move your disc image into its PUT-YOUR-ROM-HERE folder
-and run Setup. Your saves, settings and textures are kept; newer textures
-are downloaded only if there are any.
+macOS: run the Terminal line again. Windows: unzip the new release, move your
+disc image into its PUT-YOUR-ROM-HERE folder and run Setup. Your saves,
+settings and textures are kept; newer textures are downloaded only if there
+are any.
 
 ---
 

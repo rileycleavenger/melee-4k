@@ -8,9 +8,15 @@ Super Smash Bros. Melee (USA, version 1.02): .iso, .gcm, .ciso or .rvz.
 
 INSTALL AND PLAY (macOS)
 ------------------------
+Easiest: open Terminal and paste
+  curl -fsSL https://raw.githubusercontent.com/rileycleavenger/melee-4k/v1-pc/install.sh | bash
+then drag your disc image into the Finder window it opens.
+
+From this zip instead:
 1. Drag your Melee disc image into the PUT-YOUR-ROM-HERE folder.
-2. Right-click Setup.command, choose Open, then Open again.
-   (macOS asks once because this app is not from the App Store.)
+2. Right-click Setup.command and choose Open. If macOS says it could not
+   verify it, open System Settings > Privacy & Security and click
+   "Open Anyway" next to Setup.command.
 3. Wait for "Done". The first run downloads the HD textures (a few
    minutes), then the game starts.
 4. From then on, open Melee4K.app to play.
@@ -32,6 +38,12 @@ PLAYING
 Controllers: DualSense, Switch Pro, Xbox and GameCube adapters work out of
 the box. Keyboard: arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
 Enter = Start.
+
+Online: VS Mode > Online. One player picks Host Lobby and shares the code;
+the other picks Join Lobby and types it. Works Mac <-> PC.
+
+Mouse: moves the hand on character and stage select (left click A,
+right click B).
 
 Settings: main menu > Options > Melee 4K (screen 16:9 or 4:3, HUD,
 resolution, smooth motion, HD textures, stock icons; Left/Right changes a
