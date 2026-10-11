@@ -340,8 +340,7 @@ static AnimLoopSettings mn_803EB48C[] = {
 
 #ifdef TARGET_PC
 /* MENU_KIND_ONLINE preview pane: the Melee (CSS) preview for every item */
-static AnimLoopSettings mn_OnlinePreview[5] = {
-    { 700, 749, 720 }, { 700, 749, 720 }, { 700, 749, 720 },
+static AnimLoopSettings mn_OnlinePreview[2] = {
     { 700, 749, 720 }, { 700, 749, 720 },
 };
 #endif

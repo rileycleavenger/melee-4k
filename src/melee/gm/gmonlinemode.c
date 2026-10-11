@@ -438,6 +438,7 @@ static int direct_row_kind[ONLINE_LOBBY_MENU_ROWS];
 static int direct_row_arg[ONLINE_LOBBY_MENU_ROWS];
 static int direct_rows;
 static char direct_calling[18]; /* who the current call is to, "" hosting */
+static OnlineDirectRole direct_role;
 static bool direct_copied;
 
 static void directHubBuild(void)
@@ -460,8 +461,25 @@ static void directHubBuild(void)
     }
 }
 
+void gmOnline_SetDirectRole(OnlineDirectRole role)
+{
+    direct_role = role;
+}
+
+static void directKeysBegin(void)
+{
+    direct_screen = DIRECT_KEYS;
+    direct_suffix[0] = '\0';
+    direct_key = 0;
+    direct_error[0] = '\0';
+}
+
 static void directEntryBegin(void)
 {
+    if (direct_role == ONLINE_DIRECT_JOIN) {
+        directKeysBegin();
+        return;
+    }
     direct_screen = DIRECT_HUB;
     direct_cursor = 0;
     direct_error[0] = '\0';
@@ -621,6 +639,11 @@ static bool directEntryFrame(OnlineLobbyView* view, u64 input)
         if (len > 0) {
             direct_suffix[--len] = '\0';
             sfxBack();
+        } else if (direct_role == ONLINE_DIRECT_JOIN) {
+            /* Join opened straight on the keyboard: B on an empty code
+             * leaves the lobby (the caller sees B and goes back). */
+            direct_screen = DIRECT_OFF;
+            return false;
         } else {
             direct_screen = DIRECT_HUB; /* B on an empty code goes back a step */
             sfxBack();
@@ -666,9 +689,23 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
     if (online_kind == ONLINE_KIND_PROFILE) {
         profileRefresh();
     } else if (internetLobby() && online_kind == ONLINE_KIND_DIRECT) {
-        /* Ask for the code first: starting on a stale launcher pref is how
-         * two players both ended up hosting their own codes forever. */
-        directEntryBegin();
+        /* Same-network discovery runs alongside: a host advertises its code
+         * and a caller rings that address too (net_match.c). */
+        pc_lan_start();
+        if (direct_role == ONLINE_DIRECT_HOST) {
+            pc_lan_set_code(pc_net_match_local_code());
+            directCall(NULL);
+        } else {
+            /* Ask for the code first: starting on a stale launcher pref is
+             * how two players both ended up hosting their own codes forever. */
+            pc_lan_set_code(NULL);
+            directEntryBegin();
+            /* MELEE_ONLINE_JOIN=<code>: type it, for two-instance tests. */
+            const char* join = getenv("MELEE_ONLINE_JOIN");
+            if (direct_role == ONLINE_DIRECT_JOIN && join != NULL && join[0] != '\0') {
+                directCall(join);
+            }
+        }
     } else if (internetLobby() && !awaiting_rank_result &&
                (online_kind != ONLINE_KIND_RANKED ||
                                   pc_net_match_publication(NULL) == 0)) {
@@ -683,6 +720,12 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
 void gm_Scene_OnlineLobby_OnExit(UNUSED void* unused)
 {
     mnOnlineLobby_Destroy();
+#ifdef TARGET_PC
+    if (online_kind == ONLINE_KIND_DIRECT && internetLobby()) {
+        pc_lan_set_code(NULL);
+        pc_lan_stop();
+    }
+#endif
 }
 
 #ifdef TARGET_PC
@@ -817,7 +860,12 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         memset(&view, 0, sizeof view);
         view.title = online_kind == ONLINE_KIND_PROFILE ? "PROFILE" :
                      online_kind == ONLINE_KIND_UNRANKED ? "UNRANKED" :
-                     online_kind == ONLINE_KIND_RANKED ? "RANKED" : "DIRECT CONNECT";
+                     online_kind == ONLINE_KIND_RANKED ? "RANKED" :
+                     direct_role == ONLINE_DIRECT_HOST ? "HOST LOBBY" :
+                     direct_role == ONLINE_DIRECT_JOIN ? "JOIN LOBBY" : "DIRECT CONNECT";
+        if (online_kind == ONLINE_KIND_DIRECT) {
+            pc_lan_poll(); /* same-network discovery (OnEnter) */
+        }
         view.player_count = 1;
         view.players[0].is_local = true;
         view.players[0].ping_ms = -1;
@@ -892,6 +940,10 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                              secs < 45 ? "Calling %s  %u:%02u" :
                                          "%s isn't answering yet. Still calling  %u:%02u",
                              who, secs / 60, secs % 60);
+                } else if (online_kind == ONLINE_KIND_DIRECT && direct_role == ONLINE_DIRECT_HOST) {
+                    snprintf(view.message, sizeof view.message,
+                             "Lobby open. Your friend picks Join Lobby and types your code  %u:%02u",
+                             secs / 60, secs % 60);
                 } else if (online_kind == ONLINE_KIND_DIRECT) {
                     snprintf(view.message, sizeof view.message,
                              "Waiting for a friend to call you  %u:%02u", secs / 60, secs % 60);
@@ -928,7 +980,9 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                 pc_net_peer_status_clear();
                 /* Retry the mode we are actually in: a direct session used to
                  * restart as public matchmaking, dropping the friend's code. */
-                if (online_kind == ONLINE_KIND_DIRECT) {
+                if (online_kind == ONLINE_KIND_DIRECT && direct_role == ONLINE_DIRECT_HOST) {
+                    directCall(NULL);
+                } else if (online_kind == ONLINE_KIND_DIRECT) {
                     directEntryBegin();
                 } else {
                     pc_net_match_start(online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED :

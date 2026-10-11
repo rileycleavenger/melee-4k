@@ -236,6 +236,22 @@ const char* pc_lan_disc_id(void) {
     return id;
 }
 
+/* The connect-code suffix of a hosted Online lobby (pc_lan_set_code), so a
+ * player joining by code on the same network is sent straight here instead
+ * of through the internet (net_match.c). "" when not hosting. */
+static char s_code[PC_LAN_CODE_LEN];
+
+void pc_lan_set_code(const char* code) {
+    const char* hash = code != NULL ? strchr(code, '#') : NULL;
+    const char* suffix = hash != NULL ? hash + 1 : code;
+    s_code[0] = '\0';
+    if (suffix != NULL && strlen(suffix) < sizeof s_code &&
+        strspn(suffix, "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") == strlen(suffix))
+    {
+        strcpy(s_code, suffix);
+    }
+}
+
 static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
     char port[8], id[20], peer[20], host[64], gen[12];
     snprintf(port, sizeof port, "%u", s_port);
@@ -252,8 +268,8 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
     {                                                                                              \
         .name = MSTR(s_instance), .type = MDNS_RECORDTYPE_TXT, .data.txt = { MSTR(k), MSTR(v) }    \
     }
-    mdns_record_t extra[14] = {
-        /* SRV + 8 TXT + host/peer/offer + A + AAAA */
+    mdns_record_t extra[15] = {
+        /* SRV + 8 TXT + host/peer/offer + code + A + AAAA */
         {.name = MSTR(s_instance),
             .type = MDNS_RECORDTYPE_SRV,
             .data.srv = {0, 0, s_port, MSTR(s_hostname)}},
@@ -273,6 +289,9 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
     }
     if (strcmp(state, "joining") == 0) {
         extra[n++] = (mdns_record_t)TXT("offer", offer);
+    }
+    if (s_code[0] != '\0') {
+        extra[n++] = (mdns_record_t)TXT("code", s_code);
     }
 #undef TXT
     if (s_self4.s_addr != 0) {
@@ -374,7 +393,21 @@ static void drop(int i) {
  * build that adds a key still shows up in the lobby with a reason instead of
  * vanishing from it (RFC 6763 §6.6). A peer claiming our version must send
  * exactly our key set: the TXT layout is part of PC_NET_PROTO_VERSION. */
-enum { K_V, K_REV, K_DISC, K_ID, K_NAME, K_PORT, K_STATE, K_GEN, K_HOST, K_PEER, K_OFFER, K_N };
+enum {
+    K_V,
+    K_REV,
+    K_DISC,
+    K_ID,
+    K_NAME,
+    K_PORT,
+    K_STATE,
+    K_GEN,
+    K_HOST,
+    K_PEER,
+    K_OFFER,
+    K_CODE,
+    K_N
+};
 /* Pinned: see the note on MSTR above. */
 /* clang-format off */
 #define KEY(s) { s, sizeof s - 1 }
@@ -394,10 +427,11 @@ static const struct {
     KEY("host"),
     KEY("peer"),
     KEY("offer"),
+    KEY("code"),
 };
 #undef KEY
 #define KBIT(k) (1u << (k))
-#define TXT_MAX_PAIRS 12 /* 8 keys in lobby, 10 starting, 11 joining */
+#define TXT_MAX_PAIRS 13 /* 8 keys in lobby, 10 starting, 11 joining, +1 code */
 
 /* Rejection classes, one per reason: a bad announcer repeats once a second,
  * so each is logged once per session (pc_lan_start clears them) and each is
@@ -563,6 +597,11 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     }
     out->e.p.port = (uint16_t)u;
     strcpy(out->e.p.name, val[K_NAME]);
+    if ((seen & KBIT(K_CODE)) && strlen(val[K_CODE]) < sizeof out->e.p.code &&
+        strspn(val[K_CODE], "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") == strlen(val[K_CODE]))
+    {
+        strcpy(out->e.p.code, val[K_CODE]);
+    }
     strcpy(out->v, val[K_V]);
     /* Truncated to fit rather than rejected while the version differs: only
      * the incompatible-peer log line reads them then. */

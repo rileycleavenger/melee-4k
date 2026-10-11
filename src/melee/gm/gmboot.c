@@ -86,6 +86,8 @@ static const struct {
     {"special-lightning", GM_LIGHTNING_VS},
     {"special-slomo", GM_SLOMO_VS},
     {"opening", GM_OPENING_MV},
+    {"host", GM_ONLINE},
+    {"join", GM_ONLINE},
     {"unranked", GM_ONLINE},
     {"direct", GM_ONLINE},
     {"ranked", GM_ONLINE},
@@ -124,7 +126,10 @@ u8 pc_boot_scene(void)
                 scene = boot_scenes[i].mode;
             }
         }
-        if (strcmp(want, "unranked") == 0) {
+        if (strcmp(want, "host") == 0 || strcmp(want, "join") == 0) {
+            gmOnline_SetKind(ONLINE_KIND_DIRECT);
+            gmOnline_SetDirectRole(want[0] == 'h' ? ONLINE_DIRECT_HOST : ONLINE_DIRECT_JOIN);
+        } else if (strcmp(want, "unranked") == 0) {
             gmOnline_SetKind(ONLINE_KIND_UNRANKED);
         } else if (strcmp(want, "direct") == 0) {
             gmOnline_SetKind(ONLINE_KIND_DIRECT);

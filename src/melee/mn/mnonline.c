@@ -13,17 +13,18 @@
 
 /* VS Mode > Online. Each entry selects its GM_ONLINE lobby mode. */
 
+/* Two entries, both Direct Connect (gmonlinemode.c): Host shows your code,
+ * Join types a friend's. Works over the internet and on one network. LAN,
+ * Ranked, Unranked and Profile are still in gmonlinemode.c, unreachable. */
 static const char* const online_labels[] = {
-    "LAN PLAY", "DIRECT CONNECT", "RANKED", "UNRANKED", "PROFILE",
+    "Host Lobby",
+    "Join Lobby",
 };
 
 /* <= 44 chars: that is what fits the bottom bar at mnmain.c's font size */
 static const char* const online_descriptions[] = {
-    "Play another player on your local network.",
-    "Connect to a friend using a connect code.",
-    "Play a rated best-of-three set.",
-    "Find an opponent over the internet.",
-    "View your player identity and connect code.",
+    "Open a lobby and share your code.",
+    "Type a friend's code to join their lobby.",
 };
 
 static const char* notice;
@@ -52,7 +53,7 @@ const char* mnOnline_Description(MenuKind kind, int selection)
         return m4k;
     }
     if (kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
-        return "Play against other players over the network.";
+        return "Play a friend online, on Mac or PC.";
     }
     if (kind == MENU_KIND_ONLINE && selection >= 0 &&
         selection < (int) ARRAY_SIZE(online_descriptions))
@@ -86,25 +87,9 @@ void mnOnline_Think(HSD_GObj* gp)
 
     mn_804A04F0.buttons = buttons;
     if (buttons & MenuInput_Confirm) {
-        switch (mn_804A04F0.hovered_selection) {
-        case SEL_ONLINE_LAN:
-            enterOnline(ONLINE_KIND_LAN);
-            break;
-        case SEL_ONLINE_DIRECT:
-            enterOnline(ONLINE_KIND_DIRECT);
-            break;
-        case SEL_ONLINE_UNRANKED:
-            enterOnline(ONLINE_KIND_UNRANKED);
-            break;
-        case SEL_ONLINE_RANKED:
-            enterOnline(ONLINE_KIND_RANKED);
-            break;
-        case SEL_ONLINE_PROFILE:
-            enterOnline(ONLINE_KIND_PROFILE);
-            break;
-        default:
-            break;
-        }
+        gmOnline_SetDirectRole(mn_804A04F0.hovered_selection == 0 ? ONLINE_DIRECT_HOST
+                                                                  : ONLINE_DIRECT_JOIN);
+        enterOnline(ONLINE_KIND_DIRECT);
     } else if (buttons & MenuInput_Back) {
         sfxBack();
         mn_804A04F0.entering_menu = 0;

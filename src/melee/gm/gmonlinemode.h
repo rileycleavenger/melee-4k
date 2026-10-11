@@ -19,6 +19,15 @@ typedef enum OnlineKind {
 } OnlineKind;
 
 void gmOnline_SetKind(OnlineKind kind);
+
+/* VS Mode > Online's two entries, both ONLINE_KIND_DIRECT: Host waits on
+ * this player's connect code, Join asks for a friend's. */
+typedef enum OnlineDirectRole {
+    ONLINE_DIRECT_HUB = 0, /* the older hub (contacts, clipboard, wait) */
+    ONLINE_DIRECT_HOST = 1,
+    ONLINE_DIRECT_JOIN = 2,
+} OnlineDirectRole;
+void gmOnline_SetDirectRole(OnlineDirectRole role);
 OnlineKind gmOnline_GetKind(void);
 
 void gm_Scene_OnlineLobby_OnFrame(void);

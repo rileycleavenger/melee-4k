@@ -19,6 +19,8 @@ extern "C" {
 #define PC_LAN_MAX_PEERS 8
 #define PC_LAN_NAME_LEN 16
 
+#define PC_LAN_CODE_LEN 12
+
 typedef struct PcLanPeer {
     char name[PC_LAN_NAME_LEN]; /* display name (hostname by default) */
     char ip[46];                /* dotted IPv4 or IPv6 text */
@@ -29,11 +31,17 @@ typedef struct PcLanPeer {
      * elected, so a region/revision/modified-ISO mismatch is caught in the
      * lobby instead of desyncing in the match (src/pc/net_lan.c:156-193). */
     bool compatible;
+    char code[PC_LAN_CODE_LEN]; /* hosted Online lobby's code suffix, or "" */
 } PcLanPeer;
 
 /* Start/stop announcing + browsing. Idempotent. */
 void pc_lan_start(void);
 void pc_lan_stop(void);
+
+/* Advertise this connect code ("NAME#XXXXXXXX" or the suffix) with our
+ * announce, so a same-network join by code reaches us directly. NULL or ""
+ * stops advertising it. */
+void pc_lan_set_code(const char* code);
 
 /* Poll from the game thread once per frame; services sockets. */
 void pc_lan_poll(void);

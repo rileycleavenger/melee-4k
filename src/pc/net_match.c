@@ -83,6 +83,7 @@ static bool have_peer, host;
 static uint32_t seed;
 static int32_t start_frame = -1;
 static MatchHello hello;
+static uint64_t next_lan_ring; /* next same-network ring (direct, calling) */
 static MatchOffer offer;
 static MatchAck ack;
 static bool identity_loaded;
@@ -719,6 +720,29 @@ void pc_net_match_poll(void) {
                 (cip >> 16) & 0xFF, (cip >> 8) & 0xFF, cip & 0xFF, ep.port, target);
             for (int p = 0; p < 3; p++) {
                 send_packet(&hello, sizeof hello, &ep);
+            }
+        }
+        /* Same network: a host advertises its code over mDNS (net_lan.c), so
+         * a caller rings it at its LAN address too. Two players behind one
+         * router share a public address, and reaching it from inside needs
+         * the router to loop traffic back, which many do not. */
+        if (!have_peer && mode == PC_MATCH_DIRECT && target_suffix[0] && now >= next_lan_ring) {
+            PcLanPeer lan[PC_LAN_MAX_PEERS];
+            int found = pc_lan_peers(lan, PC_LAN_MAX_PEERS);
+            next_lan_ring = now + 1000;
+            for (int i = 0; i < found; i++) {
+                struct in_addr a;
+                if (!lan[i].compatible || strcmp(lan[i].code, target_suffix) != 0 ||
+                    inet_pton(AF_INET, lan[i].ip, &a) != 1)
+                {
+                    continue;
+                }
+                struct pc_dht_endpoint ep = {.address = a.s_addr, .port = lan[i].port};
+                pc_log_line("match: sending MatchHello to %s:%u on this network (target=%s)",
+                    lan[i].ip, lan[i].port, target);
+                for (int k = 0; k < 3; k++) {
+                    send_packet(&hello, sizeof hello, &ep);
+                }
             }
         }
         if (have_peer && now >= next_send) {
