@@ -1,10 +1,9 @@
 name: Build
 
-# Private fork: Actions minutes are limited (macOS runners count 10x), so the
-# full matrix runs on release tags and on demand, not on every push.
+# The full platform matrix runs on demand only. Melee 4K releases carry the
+# player zips from tools/package_release_macos.sh and release-windows.yml,
+# published by hand; a tag must not trigger upstream's release job below.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
 
 # Build jobs are read-only; only the release job needs to write.
