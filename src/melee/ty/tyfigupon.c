@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 #include "tyfigupon.h"
 
 #include <Runtime/platform.h>
@@ -1144,6 +1147,19 @@ void _tyFigupon_80316C24(HSD_GObj* arg0)
         }
     }
 }
+#ifdef TARGET_PC
+/* PORT: the lottery's brick wall is authored for 4:3. Stretch it across the
+ * widened camera after its animation has set the frame's scale, so the sides
+ * are not bare. */
+static void tyFigupon_WideBgProc(HSD_GObj* gobj)
+{
+    /* The root is authored at scale 1; set, not multiply, so a frame the
+     * animation leaves alone cannot compound it. */
+    Toy_80306BB8(gobj);
+    HSD_JObjSetScaleX(gobj->hsd_obj, pc_widescreen_scale());
+}
+#endif
+
 
 /* 3B8974 */ static const TyFiguponDigitInit tyFigupon_DigitInit = { { 0, 0, 0,
                                                                        0 } };
@@ -1201,7 +1217,11 @@ void _tyFigupon_8031753C(void)
         _tyFigupon_80314AA8(jobj, "ToyFigurePonBg_Top_animjoint",
                             "ToyFigurePonBg_Top_matanim_joint",
                             "ToyFigurePonBg_Top_shapeanim_joint");
+#ifdef TARGET_PC
+        HSD_GObj_SetupProc(ef4->unk4, tyFigupon_WideBgProc, 0);
+#else
         HSD_GObj_SetupProc(ef4->unk4, Toy_80306BB8, 0);
+#endif
         HSD_GObj_80390CD4(ef4->unk4);
         jobj = HSD_JObjLoadJoint(HSD_ArchiveGetPublicAddress(
             ef4->archive, "ToyFigurePonCoin_Top_joint"));

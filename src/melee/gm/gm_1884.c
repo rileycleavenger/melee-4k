@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 #include "gm_1884.h"
 
 #include <melee/it/forward.h>
@@ -448,6 +451,26 @@ void fn_80188EE8(HSD_GObj* gobj)
     HSD_JObjAnimAll(sub->jobjs[22]);
     HSD_JObjReqAnimAll(sub->jobjs[1], (f32) (u32) sub->anim_frames[1]);
     HSD_JObjAnimAll(sub->jobjs[1]);
+#ifdef TARGET_PC
+    {
+        /* PORT: the closed menu parks just past the 4:3 left edge, which a
+         * widened HUD camera shows. Slide it out by the extra margin too, in
+         * step with the animation (frames 0-10 open, 20-30 close; 30 is
+         * closed). 12 logical pixels per unit, as the text placement below. */
+        u32 frame = sub->anim_frames[22];
+        float hidden = frame >= 30 ? 1.0f
+                     : frame >= 20 ? (frame - 20) / 10.0f
+                     : frame < 10  ? 1.0f - frame / 10.0f
+                                   : 0.0f;
+        float extra = -hidden * (pc_widescreen_scale() - 1.0f) * 320.0f / 12.0f;
+        if (extra != 0.0f) {
+            HSD_JObjSetTranslateX(sub->jobjs[22],
+                                  HSD_JObjGetTranslationX(sub->jobjs[22]) + extra);
+            HSD_JObjSetTranslateX(sub->jobjs[1],
+                                  HSD_JObjGetTranslationX(sub->jobjs[1]) + extra);
+        }
+    }
+#endif
 
     sub->text->pos_x =
         (12.0f * (9.798828f + HSD_JObjGetTranslationX(jobj = sub->jobjs[1]))) +
