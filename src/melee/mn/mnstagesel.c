@@ -1,3 +1,7 @@
+#ifdef TARGET_PC
+#include "pc/mouse_menu.h"
+#include "pc/pc.h"
+#endif
 #include "mnstagesel.h"
 
 #include <placeholder.h>
@@ -571,6 +575,19 @@ void fn_8025A310(HSD_GObj* gobj)
         sp1C.y = 19.0F;
     }
 
+#ifdef TARGET_PC
+    /* The mouse pointer drives the cursor while it moves; a stick hands
+     * control back (pc_mouse_menu). */
+    if (mnStageSel_804D6CAC != 0 || mnStageSel_804D6CAD != 0) {
+        pc_mouse_menu_stick_moved();
+    } else if (mnStageSel_804D6C9C != NULL) {
+        float mx, my;
+        if (pc_mouse_menu_world(GET_COBJ(mnStageSel_804D6C9C), sp1C.z, &mx, &my)) {
+            sp1C.x = mx < -27.0F ? -27.0F : mx > 27.0F ? 27.0F : mx;
+            sp1C.y = my < -19.0F ? -19.0F : my > 19.0F ? 19.0F : my;
+        }
+    }
+#endif
     HSD_JObjSetTranslate(jobj, &sp1C);
     lb_8000B1CC(jobj, NULL, &sp1C);
     for (i = 0; i < 0x1E; i++) {

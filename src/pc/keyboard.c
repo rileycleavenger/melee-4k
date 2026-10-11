@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dolphin/pad.h>
+#include <dolphin/gx/GXAurora.h>
 
 #include "pc/pc.h"
 #include "pc/touch.h"
@@ -153,7 +154,88 @@ static void unlock_keys(void) {
     }
 }
 
+/* Mouse in the menus (pc_mouse_menu, used by character and stage select):
+ * the pointer drives port 0's hand while it is the last thing that moved,
+ * and left/right click press A/B on the keyboard's pad. Only while a menu
+ * asked for the mouse in the last half second, so clicks never reach a
+ * match. */
+static float s_mouse_x, s_mouse_y; /* window points */
+static bool s_mouse_moved;         /* since a stick last moved */
+static bool s_mouse_button[2];     /* left, right */
+static atomic_uint_fast64_t s_mouse_wanted_ms;
+
+static bool mouse_menu_live(void) {
+    const uint64_t wanted = atomic_load_explicit(&s_mouse_wanted_ms, memory_order_relaxed);
+    return wanted != 0 && SDL_GetTicks() - wanted < 500;
+}
+
+/* `u`, `v` in [0,1] across the game image (letterboxing removed). True when
+ * the pointer is over it and is driving the hand. */
+bool pc_mouse_menu(float* u, float* v) {
+    atomic_store_explicit(&s_mouse_wanted_ms, SDL_GetTicks(), memory_order_relaxed);
+    const char* test = getenv("MELEE_MOUSE_TEST"); /* "u,v": a fixed pointer, for tests */
+    if (test != NULL && test[0] != '\0') {
+        return sscanf(test, "%f,%f", u, v) == 2;
+    }
+    SDL_Window* window = SDL_GetMouseFocus();
+    int ww = 0, wh = 0;
+    u32 fw = 0, fh = 0;
+    if (window == NULL || !s_mouse_moved) {
+        return false;
+    }
+    SDL_GetWindowSize(window, &ww, &wh);
+    AuroraGetRenderSize(&fw, &fh);
+    if (ww <= 0 || wh <= 0 || fw == 0 || fh == 0) {
+        return false;
+    }
+    /* Aurora fits the framebuffer into the window at its own aspect. */
+    float iw = (float)ww, ih = (float)wh;
+    const float aspect = (float)fw / (float)fh;
+    if (iw / ih > aspect) {
+        iw = ih * aspect;
+    } else {
+        ih = iw / aspect;
+    }
+    lock_keys();
+    const float mx = s_mouse_x, my = s_mouse_y;
+    unlock_keys();
+    *u = (mx - 0.5f * (ww - iw)) / iw;
+    *v = (my - 0.5f * (wh - ih)) / ih;
+    return *u >= 0.0f && *u <= 1.0f && *v >= 0.0f && *v <= 1.0f;
+}
+
+/* A stick or d-pad hands the cursor back to the controller. */
+void pc_mouse_menu_stick_moved(void) {
+    s_mouse_moved = false;
+}
+
 void pc_keyboard_event(const SDL_Event* e) {
+    if (e->type == SDL_EVENT_MOUSE_MOTION) {
+        lock_keys();
+        s_mouse_x = e->motion.x;
+        s_mouse_y = e->motion.y;
+        s_mouse_moved = true;
+        unlock_keys();
+        return;
+    }
+    if ((e->type == SDL_EVENT_MOUSE_BUTTON_DOWN || e->type == SDL_EVENT_MOUSE_BUTTON_UP) &&
+        (e->button.button == SDL_BUTTON_LEFT || e->button.button == SDL_BUTTON_RIGHT))
+    {
+        const bool down = e->type == SDL_EVENT_MOUSE_BUTTON_DOWN;
+        const int b = e->button.button == SDL_BUTTON_LEFT ? 0 : 1;
+        if (down && !mouse_menu_live()) {
+            return;
+        }
+        const SDL_Scancode key = b == 0 ? SDL_SCANCODE_X : SDL_SCANCODE_Z; /* A, B */
+        lock_keys();
+        s_mouse_button[b] = down;
+        if (down) {
+            s_key_latched[key] = true;
+            s_active = true;
+        }
+        unlock_keys();
+        return;
+    }
     if (e->type != SDL_EVENT_KEY_DOWN && e->type != SDL_EVENT_KEY_UP) {
         return;
     }
@@ -241,6 +323,8 @@ static void publish_locked(void) {
         for (i = 0; i < SDL_SCANCODE_COUNT; i++) {
             s_key[i] |= s_fifo_key[i];
         }
+        s_key[SDL_SCANCODE_X] |= s_mouse_button[0];
+        s_key[SDL_SCANCODE_Z] |= s_mouse_button[1];
         for (i = 0; i < SDL_SCANCODE_COUNT; i++) {
             if (pc_menu_is_open())
                 s_suppressed[i] = s_key[i];

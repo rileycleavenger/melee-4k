@@ -97,6 +97,11 @@ const char* pc_get_stock_style(void);
 /* The settings/textures/music folder: MELEE_USER_DIR when set (tests, Setup's
  * own checks), else SDL_GetPrefPath(NULL, "melee-pc"). SDL_free the result. */
 char* pc_user_dir(void);
+/* Mouse in the menus (keyboard.c): pointer position over the game image in
+ * [0,1], true while it is driving port 0's cursor. Calling it marks the
+ * menu as wanting the mouse, so clicks press A/B. */
+bool pc_mouse_menu(float* u, float* v);
+void pc_mouse_menu_stick_moved(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */

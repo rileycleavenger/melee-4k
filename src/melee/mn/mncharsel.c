@@ -1,3 +1,7 @@
+#ifdef TARGET_PC
+#include "pc/mouse_menu.h"
+#include "pc/pc.h"
+#endif
 #include "mncharsel.h"
 
 #include <melee/ft/forward.h>
@@ -2572,6 +2576,24 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
             }
         }
 
+#ifdef TARGET_PC
+        /* The keyboard's port follows the mouse pointer while it moves; a
+         * stick or d-pad hands control back (pc_mouse_menu). */
+        if (cursor->x4 == 0) {
+            float mx, my;
+            if (dx != 0.0f || dy != 0.0f) {
+                pc_mouse_menu_stick_moved();
+            } else if (mnCharSel_804D6CB8 != NULL &&
+                       pc_mouse_menu_world(GET_COBJ(mnCharSel_804D6CB8), 0.0f, &mx, &my))
+            {
+                /* Melee picks with the coin the hand holds, 2.7 right and
+                 * 2.0 below the hand (the held coin, below): put the coin
+                 * under the pointer. */
+                cursor->xC = mx - 2.7f;
+                cursor->x10 = my + 2.0f;
+            }
+        }
+#endif
         cursor->xC = (f32) ((0.0002f * dx) + cursor->xC);
         cursor->x10 = (f32) ((0.0002f * dy) + cursor->x10);
 
