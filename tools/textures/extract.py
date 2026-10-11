@@ -290,7 +290,7 @@ def particle_textures(data, body, slots):
             for i in range(n_pal):
                 rel = u32(tg + 0x18 + 4 * (num + i))
                 if rel and bank + rel + entries * 2 <= size:
-                    pals.append((tg, bank + rel, tlutfmt, entries))
+                    pals.append((tg, bank + rel, tlutfmt & 0xFF, entries))  # (u8), as psdisp.c
             # The particle picks the palette (palNum, poseNum or 0), so
             # every image can meet every palette of its group.
             out += [(im, tl) for im in imgs for tl in pals]
@@ -399,7 +399,7 @@ def decode(body, im, tl):
         _, lptr, lfmt, n = tl
         lut = np.frombuffer(body[lptr:lptr + n * 2], ">u2").astype(np.uint32)
         pal = {0: _from_ia8, 1: _from565, 2: _from5a3}[lfmt](lut)
-        idx = (v & 0x3FFF) if fmt == 10 else v
+        idx = ((v & 0x3FFF) if fmt == 10 else v).astype(np.int64)
         idx = np.minimum(idx, len(pal) - 1)
         px = pal[idx]
     elif fmt == 14:
@@ -455,6 +455,8 @@ def main():
     ap.add_argument("disc")
     ap.add_argument("out")
     ap.add_argument("--keys-only", action="store_true")
+    ap.add_argument("--missing-from", nargs="*", default=[],
+                    help="write only textures that none of these pack dirs replaces")
     ap.add_argument("--match", help="write only textures whose \"KEY<TAB>FILE\" matches this regex")
     ap.add_argument("--compare", nargs="*", default=[])
     ap.add_argument("--validate", help="runtime dump dir (MELEE_TEXTURE_DUMP): decode every "
@@ -466,6 +468,10 @@ def main():
             if n.startswith("tex1_") and n.endswith(".dds") and "_mip" not in n:
                 validate[n[:-4]] = os.path.join(args.validate, n)
     worst = {}
+    have = set()
+    for d in args.missing_from:
+        for root_dir, _, names in os.walk(d, followlinks=True):
+            have.update(n.rsplit(".", 1)[0] for n in names if n.startswith("tex1_") and "_mip" not in n)
 
     disc = Disc(args.disc)
     os.makedirs(args.out, exist_ok=True)
@@ -486,7 +492,8 @@ def main():
             keys[key] = path
             if key in validate:
                 check_decode(key, decode(body, im, tl), validate[key], worst)
-            if not args.keys_only and (not args.match or re.search(args.match, f"{key}\t{path}")):
+            if not args.keys_only and (not args.match or re.search(args.match, f"{key}\t{path}")) \
+                    and key not in have:
                 from PIL import Image
                 Image.fromarray(decode(body, im, tl), "RGBA").save(os.path.join(args.out, key + ".png"))
     with open(os.path.join(args.out, "KEYS.txt"), "w") as f:
