@@ -36,6 +36,7 @@ from texpack import parse_name  # noqa: E402
 
 SCALE = 4
 FLAT_FORMATS = {0, 2, 8, 9, 10}  # I4 IA4 C4 C8 C14X2
+INTENSITY_FORMATS = {0, 1}  # I4 I8: one channel, read as both colour and alpha
 MODELS = {"flat": "realesrgan-x4plus-anime", "painted": "realesrgan-x4plus"}
 
 
@@ -149,8 +150,14 @@ def main():
                     alpha = im.convert("L").crop(box)
             else:
                 alpha = Image.new("L", rgb.size, 255)
-            out = rgb.copy()
-            out.putalpha(alpha)
+            if parse_name(key + ".png").fmt in INTENSITY_FORMATS and has_alpha:
+                # I4/I8 hold one value that GX reads as colour and as alpha;
+                # the colour bled under transparent texels would otherwise
+                # turn glyphs drawn by their colour into boxes.
+                out = Image.merge("RGBA", (alpha, alpha, alpha, alpha))
+            else:
+                out = rgb.copy()
+                out.putalpha(alpha)
             out.save(os.path.join(args.out, key + ".png"))
 
     print(f"{len(meta)} textures upscaled {SCALE}x -> {args.out}")
