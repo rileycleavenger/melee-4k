@@ -36,7 +36,7 @@ After that, open **Melee 4K** from Launchpad or Spotlight.
 ### Windows (10 or 11, 64-bit)
 
 1. Download **Melee4K-Windows-x86_64.zip** from the
-   [newest release](https://github.com/rileycleavenger/melee-4k/releases),
+   [latest release](https://github.com/rileycleavenger/melee-4k/releases/latest),
    right-click it and choose **Extract All**.
 2. Drag your Melee disc image into the **PUT-YOUR-ROM-HERE** folder.
 3. Double-click **Setup.exe**. If Windows says "Windows protected your PC",
