@@ -1,21 +1,73 @@
 # Melee 4K
 
-Super Smash Bros. Melee running natively on macOS and Windows at 4K, with HD
-textures and smooth motion on high-refresh displays. A fork of
-[melee-pc](https://github.com/999sian/melee-pc), following the approach of
-dusklight for Twilight Princess.
+Super Smash Bros. Melee running natively on your Mac or Windows PC at up to
+4K, in widescreen, with HD textures and smooth motion on high-refresh
+displays. Built on [melee-pc](https://github.com/999sian/melee-pc).
 
-> **Status: in development, not a release yet.** V1 targets a finished
-> macOS + Windows build that installs by dropping your ROM in a folder and
-> running Setup. That installer doesn't exist yet: today the game builds from
-> source, and HD textures are set up by hand with the tools below. A PS5 port
-> is planned for V2.
+You need your own copy of the game: a disc image of **Super Smash Bros. Melee
+(USA, version 1.02)**, as `.iso`, `.gcm`, `.ciso` or `.rvz`. No game data
+comes with this project.
 
-You need your own disc image: **Melee USA revision 2 (NTSC-U 1.02, GALE01)**,
-as `.iso`, `.gcm`, `.ciso` or `.rvz`. No game data or texture packs ship in
-this repository.
+## Install & play
 
-## What works today
+### macOS (Apple Silicon: M1 or newer)
+
+1. Download **Melee4K-macOS-arm64.zip** from the
+   [latest release](https://github.com/rileycleavenger/melee-4k/releases/latest)
+   and double-click it to unzip.
+2. Drag your Melee disc image into the **PUT-YOUR-ROM-HERE** folder.
+3. **Right-click Setup.command, choose Open, then click Open again.** macOS
+   asks once because the app isn't from the App Store.
+4. Wait for **Done**. The first run downloads the HD textures (about 2.3 GB,
+   a few minutes), then the game starts.
+
+After that, just open **Melee4K.app** and press Play.
+
+### Windows (10 or 11, 64-bit)
+
+1. Download **Melee4K-Windows-x86_64.zip** from the
+   [latest release](https://github.com/rileycleavenger/melee-4k/releases/latest),
+   right-click it and choose **Extract All**.
+2. Drag your Melee disc image into the **PUT-YOUR-ROM-HERE** folder.
+3. Double-click **Setup.exe**. If Windows says "Windows protected your PC",
+   click **More info**, then **Run anyway**.
+4. Wait for **Done**. The first run downloads the HD textures (about 2.3 GB,
+   a few minutes), then the game starts.
+
+After that, use the **Melee 4K** shortcut Setup put on your desktop.
+
+### Playing
+
+- **Controllers:** DualSense, Switch Pro, Xbox and GameCube controllers (with
+  an adapter) work as soon as they're plugged in. A DualSense's light bar
+  shows your port colour.
+- **Keyboard:** arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
+  Enter = Start.
+- **Settings:** press **F1** (or Back/Select/Create on a controller) for
+  aspect ratio (16:9 or the original 4:3), resolution, smooth motion, HD
+  textures and stock icon style.
+
+### Troubleshooting
+
+- **Setup tells you what to do** in one sentence when something's wrong. Fix
+  that and run Setup again; it picks up where it left off.
+- **"Disc not recognized":** use a full dump of the USA 1.02 disc. Zipped
+  images must be unzipped first; NKit images aren't supported.
+- **The game won't open on a Mac:** do step 3 again (right-click > Open).
+- **Textures didn't download:** check your internet connection and run Setup
+  again; finished parts aren't downloaded twice.
+- Setup writes **setup-log.txt** next to itself; attach it to a
+  [bug report](https://github.com/rileycleavenger/melee-4k/issues).
+
+### Updating
+
+Unzip the new release, move your disc image into its PUT-YOUR-ROM-HERE folder
+and run Setup. Your saves, settings and textures are kept; newer textures
+are downloaded only if there are any.
+
+---
+
+## What's in it
 
 | Area | State |
 |---|---|
@@ -24,12 +76,12 @@ this repository.
 | Smooth motion | On 100 Hz+ displays, frames are presented at the display's refresh rate and blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails). The simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. Settings: Auto / On / Off. |
 | HD textures | Community packs (HD Remix base plus gap-fills) merged and BC7-encoded with mipmaps; every texture they miss is AI-upscaled (Real-ESRGAN). The character select icons and hover portraits use the **original art, AI-upscaled**. Selectable stock-icon styles. |
 | Text | Glyph spacing in all in-game text (menus, names, headers) reads the right metrics; it was garbled in melee-pc. |
-| Stability | A soak test plays every stage with every costume, plus every 1P mode and menu, with heap canaries and render audits on: 52/52 pass, steady 60 ticks/s. Fixes so far: Big Blue, Pichu's Thunder, star KOs, Kirby's copy hat, a heap race between disc loading and the game. |
+| Stability | A soak test plays every stage with every costume, plus every 1P mode and menu, with heap canaries and render audits on: 52/52 pass, steady 60 ticks/s. Fixes so far: Big Blue, Pichu's Thunder, star KOs, Kirby's copy hat, a heap race between disc loading and the game, off-screen damage timing. |
 | Settings (F1) | Aspect, HUD layout, resolution, smooth motion, HD textures, stock icon style, plus everything melee-pc already had. |
 
 Known issues: see [docs/melee-4k.md](docs/melee-4k.md#known-issues).
 
-## Building and running (current, developer setup)
+## Building from source
 
 macOS (Apple Silicon tested), with Homebrew:
 
@@ -43,7 +95,7 @@ build/macos/melee "/path/to/Super Smash Bros. Melee (USA) (Rev 2).iso"
 Windows and Linux builds follow [docs/building.md](docs/building.md); the
 Windows build is being tested for V1.
 
-## HD textures (current, manual setup)
+## HD textures (how the pack is made)
 
 Textures load from the `textures` folder in the settings directory
 (`~/Library/Application Support/melee-pc/textures` on macOS,
@@ -79,15 +131,16 @@ Setup will download a prebuilt pack instead.
 
 - [x] Settings and defaults (16:9, smooth motion, stock styles, pack layout)
 - [x] Smooth motion at 120/144 Hz
-- [x] Soak test across every stage, character and mode; crashes found so far fixed
-- [x] Offline texture extractor (99.9% coverage, bit-exact decoding) and original character select art
+- [x] Soak test across every stage, character and mode; crashes found fixed
+- [x] Determinism: smooth motion on/off replay identically (9/9 seeds x stages)
+- [x] Complete HD texture pack: community packs, original character select
+      art and AI upscales of every other disc texture (0 uncovered on screen)
 - [x] In-game text spacing fixed (was garbled on every SisLib string)
-- [ ] Widescreen polish, screen by screen
-- [ ] Determinism check: smooth motion on/off replays identically
-- [ ] Menu walker covering every screen; texture review pass
-- [ ] Controllers: DualSense and Switch Pro, checked on macOS and Windows
-- [ ] Prebuilt HD texture download, one-step Setup (`PUT-YOUR-ROM-HERE` + Setup.command / Setup.exe), packaging and CI
-- [ ] Install-and-play README, release
+- [x] Widescreen pass over every mode's screens (training menu, lottery fixed)
+- [x] One-step Setup, packaged macOS and Windows releases, install README
+- [ ] Hands-on checks: 144 Hz watch test, DualSense and Switch Pro on both
+      systems, Windows install test, texture review
+- [ ] v1.0.0 release
 
 ## Testing tools
 
