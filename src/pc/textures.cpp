@@ -46,10 +46,10 @@ std::filesystem::path resolve_texture_directory() {
         return std::filesystem::path(env);
     }
 
-    // 1. On Linux/Windows, user data dir is SDL_GetPrefPath("", "melee-pc").
+    // 1. The user data dir (pc_user_dir: MELEE_USER_DIR, else SDL's pref path).
     //    Use a "textures" subdirectory there: <prefPath>/textures
     std::filesystem::path user_dir;
-    char* pref = SDL_GetPrefPath("", "melee-pc");
+    char* pref = pc_user_dir();
     if (pref != nullptr) {
         user_dir = std::filesystem::path(pref) / "textures";
         SDL_free(pref);

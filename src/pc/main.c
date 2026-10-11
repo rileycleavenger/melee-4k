@@ -279,6 +279,22 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info) {
 }
 #endif
 
+char* pc_user_dir(void) {
+    const char* env = getenv("MELEE_USER_DIR");
+    if (env != NULL && env[0] != '\0') {
+        size_t n = strlen(env);
+        char* out = SDL_malloc(n + 2);
+        if (out != NULL) {
+            memcpy(out, env, n);
+            out[n] = (env[n - 1] == '/' || env[n - 1] == '\\') ? '\0' : '/';
+            out[n + 1] = '\0';
+            SDL_CreateDirectory(out);
+        }
+        return out;
+    }
+    return SDL_GetPrefPath(NULL, "melee-pc");
+}
+
 static void usage(const char* argv0) {
     fprintf(stderr,
         "usage: %s [--no-card] [--dvd] [disc image (iso/gcm/ciso/rvz/...)]\n"
@@ -486,7 +502,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
                 fprintf(stderr, "%s: --verify-disc needs a disc path\n", argv[0]);
                 usage(argv[0]);
             }
-            return pc_verify_disc_cli(argv[i + 1], SDL_GetPrefPath(NULL, "melee-pc"));
+            return pc_verify_disc_cli(argv[i + 1], pc_user_dir());
         } else if (strcmp(argv[i], "--version") == 0) {
             printf("melee-pc %s\n", pc_app_version());
             return 0;
@@ -548,12 +564,12 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         /* appName doubles as the window title; the save/cache dirs stay
          * pinned so a renamed test window still uses the same memory card. */
         .appName = getenv("MELEE_WINDOW_TITLE") ? getenv("MELEE_WINDOW_TITLE") : "melee-pc",
-        .userPath = SDL_GetPrefPath(NULL, "melee-pc"),
+        .userPath = pc_user_dir(),
         .resourcesPath = resources_path[0] != '\0' ? resources_path : NULL,
         /* MELEE_CACHE_DIR: two instances on one machine (netplay testing)
          * must not share the pipeline-cache SQLite file. */
         .cachePath = getenv("MELEE_CACHE_DIR") ? getenv("MELEE_CACHE_DIR") :
-                                                 SDL_GetPrefPath(NULL, "melee-pc"),
+                                                 pc_user_dir(),
         .msaa = 1,
         .maxTextureAnisotropy = 16,
         /* MELEE_VSYNC=0 picks Mailbox/Immediate instead of FifoRelaxed; some

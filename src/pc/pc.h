@@ -94,6 +94,9 @@ int pc_get_hud_mode(void);
 int pc_get_interp_mode(void);
 /// Stock-icon overlay folder under textures/stocks, or "default" for none.
 const char* pc_get_stock_style(void);
+/* The settings/textures/music folder: MELEE_USER_DIR when set (tests, Setup's
+ * own checks), else SDL_GetPrefPath(NULL, "melee-pc"). SDL_free the result. */
+char* pc_user_dir(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */

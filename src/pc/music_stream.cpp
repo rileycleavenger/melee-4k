@@ -34,7 +34,7 @@ static std::vector<std::filesystem::path> get_search_directories() {
     std::error_code ec;
 
     // 1. User preferences directory: ~/.local/share/melee-pc/music/
-    char* pref = SDL_GetPrefPath("", "melee-pc");
+    char* pref = pc_user_dir();
     if (pref != nullptr) {
         dirs.push_back(std::filesystem::path(pref) / "music");
         SDL_free(pref);

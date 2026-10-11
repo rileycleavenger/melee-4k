@@ -228,7 +228,7 @@ static void publication_result(const PcDhtItemResult* r, void* context) {
 static bool load_identity(void) {
     if (identity_loaded)
         return true;
-    char* dir = SDL_GetPrefPath(NULL, "melee-pc");
+    char* dir = pc_user_dir();
     const char* name = pc_get_net_name();
     bool ok = dir && pc_identity_load(&identity, dir, name && *name ? name : "PLAYER");
     if (dir && ok)
