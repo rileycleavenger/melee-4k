@@ -11,6 +11,12 @@
 #include "gmresult.h"
 #include "gmresultplayer.h"
 #include "gmvsmode.h"
+#ifdef TARGET_PC
+#include "gm_1601.h"
+#include "gmboot.h"
+#include <melee/lb/types.h>
+#include <string.h>
+#endif
 #include "types.h"
 #include <melee/lb/inlines.h>
 #include <melee/lb/lb_00B0.h>
@@ -112,6 +118,45 @@ void gmVsMelee_ResetKOCounts(void)
 void gmVsMelee_Mode_OnLoad(void)
 {
     gmVsMelee_ResetKOCounts();
+#ifdef TARGET_PC
+    {
+        /* MELEE_BOOT_SCENE=vs-sss: state 1 (stage select) takes its cast
+         * from VsModeData, so a human Mario and a CPU Fox seeded here reach
+         * it with no character select input. Once per boot. */
+        static bool seeded;
+        if (!seeded && pc_boot_scene() == GM_VS &&
+            strcmp(pc_boot_scene_name(), "vs-sss") == 0)
+        {
+            VsModeData* vs = &gmMainLib_804D3EE0->modes.table[GmVsMode_Melee];
+            int i;
+            seeded = true;
+            gm_SetupAllPlayerDefaults(vs->start.players);
+            vs->start.players[0].ckind = CKind_Mario;
+            vs->start.players[0].slot_type = Gm_PKind_Human;
+            vs->start.players[1].ckind = CKind_Fox;
+            vs->start.players[1].slot_type = Gm_PKind_Cpu;
+            for (i = 2; i < 4; i++) {
+                vs->start.players[i].ckind = ChKind_None;
+                vs->start.players[i].slot_type = Gm_PKind_NA;
+            }
+            {
+                /* Publish the cast to the preload region the way the CSS
+                 * would (see the training hook in gmtrainingmode.c), or the
+                 * fighters have no room when the match loads. */
+                struct GameCache* cache =
+                    &lbDvd_GetPreloadCacheScene()->game_cache;
+                lbDvd_80018C6C();
+                for (i = 0; i < 4; i++) {
+                    cache->entries[i].char_id = vs->start.players[i].ckind;
+                    cache->entries[i].color = vs->start.players[i].color;
+                }
+                cache->stkind = vs->start.rules.stkind;
+                lbDvd_80018254();
+            }
+            gm_SetGameModeStateId(1);
+        }
+    }
+#endif
 }
 
 void gm_Mode_Vs_OnUnload(void) {}

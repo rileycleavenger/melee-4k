@@ -47,7 +47,8 @@ static struct leaveData leave_data;
  * training open on a character-select state, so their on_load hooks seed the
  * pick and jump past it. Every other mode starts on its own first screen
  * (usually its character select), which is what screen and texture sweeps
- * need; tools/soak.py picks a character through MELEE_KEY_FIFO. */
+ * need; tools/soak.py picks a character through MELEE_KEY_FIFO. vs-sss seeds
+ * a two-player VS and opens on its stage select (gmvsmelee.c). */
 static const struct {
     const char* name;
     u8 mode;
@@ -56,6 +57,7 @@ static const struct {
     {"menu", GM_MENU},
     {"vs", GM_DEBUG_VS},
     {"vs-css", GM_VS},
+    {"vs-sss", GM_VS},
     {"classic", GM_CLASSIC},
     {"adventure", GM_ADVENTURE},
     {"allstar", GM_ALLSTAR},
@@ -89,6 +91,15 @@ static const struct {
     {"ranked", GM_ONLINE},
 };
 
+static const char* boot_scene_name;
+
+/* The MELEE_BOOT_SCENE name, for modes with more than one entry point. */
+const char* pc_boot_scene_name(void)
+{
+    pc_boot_scene();
+    return boot_scene_name != NULL ? boot_scene_name : "";
+}
+
 u8 pc_boot_scene(void)
 {
     static int done;
@@ -98,6 +109,7 @@ u8 pc_boot_scene(void)
         const char* want = getenv("MELEE_BOOT_SCENE");
         size_t i;
         done = 1;
+        boot_scene_name = want;
         if (want == NULL || want[0] == '\0') {
             return scene;
         }

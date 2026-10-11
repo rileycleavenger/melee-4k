@@ -7,6 +7,7 @@
 /// MELEE_BOOT_SCENE=<name|mode:N> (gmboot.c lists the names): the
 /// GameModeKind to boot straight into, or GM_COUNT when unset.
 u8 pc_boot_scene(void);
+const char* pc_boot_scene_name(void);
 #endif
 
 #endif
