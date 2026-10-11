@@ -45,6 +45,17 @@ MELEE_USER_DIR=/tmp/m4k-user python3 tools/setup/setup.py --root RELEASE_DIR \
     --manifest /path/to/manifest.json --no-launch
 ```
 
+## The macOS one-line installer
+
+`install.sh` (run as `curl -fsSL .../install.sh | bash`) fetches the newest
+release zip with curl, so nothing carries the quarantine flag and Gatekeeper
+never shows its "could not verify" dialog (macOS 15 removed right-click >
+Open for unsigned downloads). It installs to `~/Melee4K`, waits for a disc in
+`PUT-YOUR-ROM-HERE`, runs Setup, and moves the app to
+`~/Applications/Melee 4K.app` (a symlink stays in `~/Melee4K` for Setup).
+Re-running it updates in place. `MELEE4K_DIR` and `MELEE4K_NO_LAUNCH` exist
+for tests.
+
 ## The texture pack
 
 `tools/setup/make_pack.py TEXTURES OUT --version V --url-base URL` zips a
