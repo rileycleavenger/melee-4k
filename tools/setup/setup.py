@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -38,25 +39,53 @@ DEFAULT_MANIFEST = os.environ.get(
 PACK_VERSION_FILE = ".melee4k-pack"
 
 
-def trust_os_certificates():
-    """Verify HTTPS the way the system does. A frozen Setup carries its own
-    OpenSSL, which on Windows does not see the certificate store the way the
-    browser does (CERTIFICATE_VERIFY_FAILED on github.com); truststore hands
-    verification to the OS, certifi's bundle is the fallback."""
+def ssl_contexts():
+    """HTTPS verification methods, most portable first. A frozen Setup
+    carries its own OpenSSL, which on Windows does not see the system store
+    (CERTIFICATE_VERIFY_FAILED on github.com); truststore's Windows path
+    crashed inside the frozen Setup.exe ("access violation"). certifi's
+    bundle is a plain file and works everywhere, so it goes first; the OS
+    verifier and Python's default are fallbacks."""
+    import ssl
+    out = []
     try:
-        import truststore
-        truststore.inject_into_ssl()
-        return "system"
+        import certifi
+        out.append(("certifi", lambda: ssl.create_default_context(cafile=certifi.where())))
     except ImportError:
         pass
     try:
-        import ssl
-        import certifi
-        cafile = certifi.where()
-        ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=cafile)
-        return "certifi"
+        import truststore
+        out.append(("system", lambda: truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)))
     except ImportError:
-        return "python default"
+        pass
+    out.append(("python default", ssl.create_default_context))
+    return out
+
+
+_working_context = None
+
+
+def urlopen(req, timeout):
+    """urllib.request.urlopen with the first verification method that works,
+    remembered for the rest of the run."""
+    global _working_context
+    if _working_context is not None:
+        return urllib.request.urlopen(req, timeout=timeout, context=_working_context)
+    last = None
+    for name, make in ssl_contexts():
+        try:
+            ctx = make()
+            resp = urllib.request.urlopen(req, timeout=timeout, context=ctx)
+        except Exception as e:  # a broken method must not end Setup
+            log(f"https via {name}: {e}")
+            last = e
+            if isinstance(e, urllib.error.HTTPError):
+                raise
+            continue
+        log(f"https via {name}: ok")
+        _working_context = ctx
+        return resp
+    raise last if isinstance(last, OSError) else OSError(str(last))
 
 
 class SetupError(Exception):
@@ -180,7 +209,7 @@ def fetch(url, dest):
     req = urllib.request.Request(url, headers={"User-Agent": "Melee4K-Setup"})
     if have:
         req.add_header("Range", f"bytes={have}-")
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urlopen(req, timeout=60) as resp:
         mode = "ab" if have and resp.status == 206 else "wb"
         total = int(resp.headers.get("Content-Length") or 0) + (have if mode == "ab" else 0)
         done = have if mode == "ab" else 0
@@ -211,13 +240,14 @@ def sha256(path):
 def load_manifest(where):
     try:
         if where.startswith(("http://", "https://")):
-            with urllib.request.urlopen(where, timeout=60) as resp:
+            req = urllib.request.Request(where, headers={"User-Agent": "Melee4K-Setup"})
+            with urlopen(req, timeout=60) as resp:
                 return json.load(resp)
         with open(where[7:] if where.startswith("file://") else where) as f:
             return json.load(f)
     except (OSError, ValueError) as e:
         log(f"manifest {where}: {e}")
-        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+        if "CERTIFICATE_VERIFY_FAILED" in str(e) or "access violation" in str(e):
             raise SetupError("Could not make a secure connection to GitHub to download the HD "
                              "textures; please report this with setup-log.txt attached.")
         raise SetupError("Could not download the HD texture list; check your internet "
@@ -341,7 +371,6 @@ def main():
     root = os.path.abspath(args.root or app_root())
     log_file = open(os.path.join(root, "setup-log.txt"), "a")
     log(f"--- Setup {time.strftime('%Y-%m-%d %H:%M:%S')} on {platform.platform()}")
-    log(f"certificates: {trust_os_certificates()}")
     try:
         say("Melee 4K Setup")
         say("")

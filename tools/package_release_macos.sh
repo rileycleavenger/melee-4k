@@ -28,7 +28,7 @@ echo "=== Freezing Setup ==="
 SETUP_WORK="${BUILD_DIR}/setup-freeze"
 rm -rf "${SETUP_WORK}"
 SETUP_SRC="${ROOT_DIR}/tools/setup/setup.py"
-"${PY}" -m PyInstaller --onefile --console --name melee4k-setup \
+"${PY}" -m PyInstaller --onefile --console --collect-data certifi --name melee4k-setup \
     --distpath "${SETUP_WORK}/dist" --workpath "${SETUP_WORK}/build" \
     --specpath "${SETUP_WORK}" "${SETUP_SRC}"
 
