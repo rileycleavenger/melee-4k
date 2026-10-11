@@ -32,6 +32,7 @@
 #include <sysdolphin/baselib/wobj.h>
 #ifdef TARGET_PC
 #include "pc/widescreen.h"
+#include <stdlib.h>
 #include "pc/net.h"
 #endif
 
@@ -318,12 +319,29 @@ void ifMagnify_802FBBDC(HSD_GObj* gobj, intptr_t code)
         for (i = 0; i < 6; i++) {
             player = &magnify->player[i];
             fighter_gobj = Player_GetEntity(i);
+#ifdef TARGET_PC
+            /* MELEE_MAGNIFY_TEST=1: draw player 1's bubble every frame, so
+             * screenshot tests see it without staging an off-screen moment. */
+            static int magnify_test = -1;
+            if (magnify_test < 0) {
+                const char* e = getenv("MELEE_MAGNIFY_TEST");
+                magnify_test = e != NULL && e[0] == '1';
+            }
+            if (!(magnify_test && i == 0 && fighter_gobj != NULL) &&
+                (player->state.ignore_offscreen || fighter_gobj == NULL ||
+                 !ftLib_IsOffscreen(fighter_gobj) ||
+                 !ftLib_CanBeMagnified(fighter_gobj)))
+            {
+                continue;
+            }
+#else
             if (player->state.ignore_offscreen || fighter_gobj == NULL ||
                 !ftLib_IsOffscreen(fighter_gobj) ||
                 !ftLib_CanBeMagnified(fighter_gobj))
             {
                 continue;
             }
+#endif
 
             scale = ftLib_80086B80(fighter_gobj) / 8.0f;
             HSD_CObjSetOrtho(cobj, top * scale, bottom * scale, left * scale,
@@ -332,7 +350,19 @@ void ifMagnify_802FBBDC(HSD_GObj* gobj, intptr_t code)
             HSD_CObjSetInterest(cobj, &interest_pos);
             interest_pos.z = 300.0f;
             HSD_CObjSetEyePosition(cobj, &interest_pos);
+#ifdef TARGET_PC
+            /* The fighter is drawn into a viewport that is then copied to
+             * the bubble's texture: draw it unwidened, so the copy is a plain
+             * one at the texture's own size. (A widened draw needed a copy
+             * of a narrowed rect, which registered the copy at another width
+             * than the bubble samples, and the bubble came out black in
+             * 16:9.) The HUD pass above keeps the widened camera. */
+            HSD_CObjSetFlags(cobj, PC_COBJ_FILL_FRAME);
+#endif
             if (HSD_CObjSetCurrent(cobj) == 0) {
+#ifdef TARGET_PC
+                HSD_CObjClearFlags(cobj, PC_COBJ_FILL_FRAME);
+#endif
                 continue;
             }
 
@@ -438,17 +468,11 @@ void ifMagnify_802FBBDC(HSD_GObj* gobj, intptr_t code)
             ftDrawCommon_80080C28(fighter_gobj, 1);
             ftDrawCommon_80080C28(fighter_gobj, 2);
             HSD_GObj_804D7814 = NULL;
-#ifdef TARGET_PC
-            /* The widening keeps the fighter's pixel aspect correct inside a
-             * physically wider viewport, so it is the copy that has to be
-             * narrowed: only the centred 1/s of this viewport holds the image
-             * the bubble's fixed UVs will stretch back over. */
-            pc_widescreen_copy_efb(player->idesc, 0, 0,
-                                   0.5f * player->idesc->width, true);
-#else
             lb_800122C8(player->idesc, 0, 0, true);
-#endif
             HSD_CObjEndCurrent();
+#ifdef TARGET_PC
+            HSD_CObjClearFlags(cobj, PC_COBJ_FILL_FRAME);
+#endif
             player->state.is_offscreen = 1;
         }
 

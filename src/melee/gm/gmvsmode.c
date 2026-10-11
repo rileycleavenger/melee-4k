@@ -196,6 +196,12 @@ void onEnterDebugVs(GameModeState* state)
             start->rules.stkind = (StKind) st;
         }
     }
+    /* MELEE_DEBUG_VS_ITEMS=1: items at the default (medium) frequency, so a
+     * test match sees item-driven stage events (Yoshi's Story's Shy Guys
+     * only carry food when items are on). */
+    if (getenv("MELEE_DEBUG_VS_ITEMS") != NULL && getenv("MELEE_DEBUG_VS_ITEMS")[0] == '1') {
+        start->rules.item_freq = 2;
+    }
     if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu") == 0) {
         start->players[1].slot_type = Gm_PKind_Cpu;
     } else if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu4") == 0) {

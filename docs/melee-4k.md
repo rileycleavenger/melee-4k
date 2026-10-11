@@ -62,6 +62,12 @@ install the result as `textures/packs/10-community` (or point
    character select icons and hover portraits decoded from the disc,
    upscaled and encoded, which outranks the community pack.
 
+8. **`restore_alpha.py MERGED ORIGINALS`**: run on the merged pack before
+   encoding. A few community textures were saved without their alpha (HD
+   Remix's item foods are opaque on black, which drew a black box around
+   every food a Shy Guy carries); this applies the original's cut-out,
+   upscaled, to the HD art.
+
 Colour stored under zero alpha is kept by both `encode.py` and `upscale.py`:
 Melee draws some textures with an alpha test (the character select slot wipe
 animates an alpha threshold over art held under alpha 0), so blacking it out
