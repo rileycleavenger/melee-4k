@@ -337,8 +337,23 @@ static void publish_locked(void) {
  * depended on thread interleaving. The latch is consumed here instead: PADRead
  * happens once per pad-alarm period (1/60 s cap, lb_0195.c:84-86), so a press
  * shorter than a frame survives to exactly one read and no further. */
+/* Light bars (DualSense, DualShock 4) in Melee's port colours: P1 red, P2
+ * blue, P3 yellow, P4 green. Re-sent once a second so a controller plugged
+ * in mid-game picks it up; aurora skips pads without an RGB LED. */
+static void port_lights(void) {
+    static const u8 colors[4][3] = {{255, 0, 0}, {0, 64, 255}, {255, 200, 0}, {0, 200, 0}};
+    static unsigned calls;
+    if (calls++ % 60 != 0) {
+        return;
+    }
+    for (u32 port = 0; port < 4; port++) {
+        PADSetColor(port, colors[port][0], colors[port][1], colors[port][2]);
+    }
+}
+
 void pc_keyboard_apply(void) {
     pc_gcadapter_apply();
+    port_lights();
     const bool focused = SDL_GetKeyboardFocus() != NULL;
     lock_keys();
     if (atomic_exchange_explicit(&s_focused, focused, memory_order_relaxed) && !focused) {
