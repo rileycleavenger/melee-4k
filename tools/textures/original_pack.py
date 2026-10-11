@@ -18,12 +18,18 @@ import subprocess
 import sys
 import tempfile
 
+# name -> (pack folder, [(texture regex over "KEY<TAB>FILE", upscale.py model)])
 PRESETS = {
-    # MnSlChr: the 64x56 grid icons and the 136x188 hover portraits, every
-    # costume (C8, format 9). MnSlMap's stage icons are the same size and are
-    # left to the community pack.
-    "css-characters": ("05-css-original",
-                       r"^tex1_(136x188|64x56)_[^\t]*_9\tMnSlChr\.(dat|usd)$"),
+    # MnSlChr, every costume (C8, format 9). The 136x188 hover portraits use
+    # the anime model (clean, like the art they replace). The 64x56 grid
+    # icons use the general model: the anime model flattened their shading
+    # and redrew their name plates, and they read as AI art next to the
+    # originals. MnSlMap's stage icons are the same size and are left to the
+    # community pack.
+    "css-characters": ("05-css-original", [
+        (r"^tex1_136x188_[^\t]*_9\tMnSlChr\.(dat|usd)$", "flat"),
+        (r"^tex1_64x56_[^\t]*_9\tMnSlChr\.(dat|usd)$", "painted"),
+    ]),
 }
 
 
@@ -35,17 +41,22 @@ def main():
     ap.add_argument("--esrgan", default=".deps/realesrgan")
     args = ap.parse_args()
 
-    name, match = PRESETS[args.preset]
+    name, groups = PRESETS[args.preset]
     here = os.path.dirname(os.path.abspath(__file__))
     py = sys.executable
     out = os.path.join(args.packs, name)
     with tempfile.TemporaryDirectory() as tmp:
-        src, up = os.path.join(tmp, "src"), os.path.join(tmp, "up")
-        subprocess.run([py, os.path.join(here, "extract.py"), args.disc, src, "--match", match],
-                       check=True)
-        os.remove(os.path.join(src, "KEYS.txt"))
-        subprocess.run([py, os.path.join(here, "upscale.py"), src, up, "--esrgan", args.esrgan],
-                       check=True)
+        up = os.path.join(tmp, "up")
+        os.makedirs(up)
+        for i, (match, model) in enumerate(groups):
+            src, part = os.path.join(tmp, f"src{i}"), os.path.join(tmp, f"up{i}")
+            subprocess.run([py, os.path.join(here, "extract.py"), args.disc, src, "--match", match],
+                           check=True)
+            os.remove(os.path.join(src, "KEYS.txt"))
+            subprocess.run([py, os.path.join(here, "upscale.py"), src, part, "--esrgan", args.esrgan,
+                            "--model", model], check=True)
+            for f in os.listdir(part):
+                shutil.move(os.path.join(part, f), os.path.join(up, f))
         staged = os.path.join(tmp, "enc")
         subprocess.run([py, os.path.join(here, "encode.py"), up, staged], check=True)
         if os.path.exists(out):
