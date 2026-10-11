@@ -5,10 +5,9 @@ Install steps are in the [README](../README.md#install).
 ## Controls
 
 - **Controllers:** DualSense, Switch Pro, Xbox and GameCube controllers (with
-  an adapter) work as soon as they're plugged in. On every controller but a
-  GameCube one, **A is the right face button and B the bottom one** (Circle
-  and Cross on a DualSense, A and B on a Switch Pro). A DualSense's light bar
-  shows your port colour. F1 > Controls remaps any button.
+  an adapter) work as soon as they're plugged in. The bottom face button is
+  A and the right one is B (Cross and Circle on a DualSense). A DualSense's
+  light bar shows your port colour. F1 > Controls remaps any button.
 - **Keyboard:** arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
   Enter = Start.
 - **Mouse:** move the mouse and the character select hand follows it, in the
@@ -33,9 +32,9 @@ setting:
 | Screen | 16:9, the original 4:3, or Auto (fit the window). Changes take effect at once, mid-match too. |
 | HUD | Wide (out to the 16:9 edges) or Classic. |
 | Resolution | Auto (your display's: 4K on a 4K screen) or 1x to 10x. |
-| Frame Rate | Auto, 30, 60, 120 or 144 fps. The game itself always runs at 60; above 60, in-between frames are drawn. Auto draws them on 100 Hz+ displays. |
+| Frame Rate | 30, 60 (the default), 120 or 144 fps. The game itself always runs at 60; above 60, in-between frames are drawn, so pick 120 or 144 only on a display that fast. |
 | HD Textures | On or off. |
-| Stocks | The stock icon style. |
+| Stocks | The stock icon style: Melee HD (the default), Circle, Smash 4 or Classic pixel. |
 | FPS Counter | The frame rate, top right. |
 | Unlock All | Every character, stage and mode (on by default). |
 

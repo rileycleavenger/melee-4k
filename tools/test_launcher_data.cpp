@@ -54,9 +54,9 @@ int main(int argc, char** argv) {
     auto prefs = load_preferences(config);
     assert(prefs.disc.empty() && prefs.vsync && !prefs.fullscreen && prefs.scale == 1.0f &&
            !prefs.free_camera);
-    // V1 defaults: widescreen 16:9 with the wide HUD, smooth motion on auto,
+    // V1 defaults: widescreen 16:9 with the wide HUD, 60 fps,
     // the pack's own stock icons, no update checks against upstream.
-    assert(prefs.widescreen == 1 && prefs.hud_mode == 1 && prefs.interp == 0 &&
+    assert(prefs.widescreen == 1 && prefs.hud_mode == 1 && prefs.interp == 2 &&
            prefs.stock_style == "default" && !prefs.check_updates);
     prefs.disc = (dir / "quoted \"disc\".iso").string();
     prefs.net_name = "ALICE";
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
         assert(saved.find("unlock_all 1\n") != std::string::npos);
         assert(saved.find("hud_mode 1\n") != std::string::npos);
         assert(saved.find("widescreen 1\n") != std::string::npos);
-        assert(saved.find("interp 0\n") != std::string::npos);
+        assert(saved.find("interp 2\n") != std::string::npos);
         assert(saved.find("stock_style \"default\"\n") != std::string::npos);
         assert(saved.find("frozen_stadium 0\n") != std::string::npos);
         assert(saved.find("free_camera 0\n") != std::string::npos);
@@ -123,18 +123,23 @@ int main(int argc, char** argv) {
     }
     assert(load_preferences(config).interp == 3);
     {
-        // The retired "in-between frames forced on" reads as auto.
+        // The retired auto and "in-between frames forced on" read as 60 fps.
         std::ofstream f(config);
         f << "interp 1\n";
     }
-    assert(load_preferences(config).interp == 0);
+    assert(load_preferences(config).interp == 2);
+    {
+        std::ofstream f(config);
+        f << "interp 0\n";
+    }
+    assert(load_preferences(config).interp == 2);
     {
         // Out of range, and a style that would escape textures/stocks.
         std::ofstream f(config);
         f << "interp 6\nstock_style \"../evil\"\n";
     }
     loaded = load_preferences(config);
-    assert(loaded.interp == 0 && loaded.stock_style == "default");
+    assert(loaded.interp == 2 && loaded.stock_style == "default");
     {
         std::ofstream f(config);
         f << "custom_textures 0\nunlock_all 1\nhud_mode 1\nfrozen_stadium 1\nfree_camera "

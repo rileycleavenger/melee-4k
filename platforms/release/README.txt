@@ -36,8 +36,7 @@ INSTALL AND PLAY (Windows)
 PLAYING
 -------
 Controllers: DualSense, Switch Pro, Xbox and GameCube adapters work out of
-the box. A is the right face button and B the bottom one (Circle and Cross
-on a DualSense). Keyboard: arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
+the box (bottom face button A, right one B). Keyboard: arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
 Enter = Start.
 
 Online: VS Mode > Online. One player picks Host Lobby and shares the code;

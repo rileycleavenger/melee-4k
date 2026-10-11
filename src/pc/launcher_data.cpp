@@ -401,7 +401,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
         } else if (key == "interp") {
             int value;
             if (row >> value && value >= 0 && value <= 5)
-                prefs.interp = value == 1 ? 0 : value;
+                prefs.interp = value <= 1 ? 2 : value;
         } else if (key == "stock_style") {
             // A folder name under textures/stocks: no separators or dots.
             std::string value;

@@ -107,8 +107,8 @@
               <button id="stock-style">Default</button>
             </div>
             <div class="setting">
-              <div class="description"><h3>Frame rate</h3><p>Frames drawn per second: 30, 60, 120 or 144. The game itself always runs at 60. Auto adds in-between frames on 100 Hz+ displays.</p></div>
-              <button id="smooth">Auto</button>
+              <div class="description"><h3>Frame rate</h3><p>Frames drawn per second: 30, 60, 120 or 144. The game itself always runs at 60.</p></div>
+              <button id="smooth">60</button>
             </div>
             <div class="setting">
               <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Auto, or a specific API this platform provides.</p></div>

@@ -29,7 +29,7 @@ with Melee 4K.
    ```
 2. A Finder window opens: drag your Melee disc image into it.
 3. Wait for **Installed**. The first run downloads the HD textures (about
-   2.2 GB, a few minutes), then the game starts.
+   2.5 GB, a few minutes), then the game starts.
 
 After that, open **Melee 4K** from Launchpad or Spotlight.
 
@@ -41,7 +41,7 @@ After that, open **Melee 4K** from Launchpad or Spotlight.
 2. Drag your Melee disc image into the **PUT-YOUR-ROM-HERE** folder.
 3. Double-click **Setup.exe**. If Windows says "Windows protected your PC",
    click **More info**, then **Run anyway**.
-4. Wait for **Done**. The first run downloads the HD textures (about 2.2 GB,
+4. Wait for **Done**. The first run downloads the HD textures (about 2.5 GB,
    a few minutes), then the game starts.
 
 After that, use the **Melee 4K** shortcut Setup put on your desktop.

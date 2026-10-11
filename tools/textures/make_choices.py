@@ -2,13 +2,14 @@
 """Lay out the community and AI texture layers from the choices page.
 
     python3 tools/textures/make_choices.py OUT --plan PAGE/plan.json
-        [--choices melee4k-texture-choices.json] --base MERGED_DIR
+        [--choices melee4k-texture-choices.json] [--prefer LABEL ...] --base MERGED_DIR
         [--base-ai DIR ...] [--ai DIR ...]
 
 PAGE/plan.json (choices_page.py) lists every texture that has a community
 version, with its versions and the page's starting choice; --choices is the
 file the page saves, and textures it does not name keep that starting
-choice. OUT gets two merged packs, hard-linked like merge.py's:
+choice, or with --prefer the first version from those packs, in order (the
+release prefers Melee HD 2023 everywhere it has a texture). OUT gets two merged packs, hard-linked like merge.py's:
 
   OUT/community  the chosen version of every planned texture, plus whatever
                  the current merged pack (--base, merge.py output with its
@@ -47,6 +48,8 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--plan", required=True)
     ap.add_argument("--choices")
+    ap.add_argument("--prefer", action="append", default=[],
+                    help="a page label to choose wherever it has a version (in order)")
     ap.add_argument("--base", required=True, help="the current merged pack (merge.py output)")
     ap.add_argument("--base-ai", action="append", default=[],
                     help="a source directory of --base that is AI output")
@@ -60,7 +63,14 @@ def main():
     unknown = [k for k in choices if k not in plan]
     community, excluded, came = {}, set(), collections.Counter()
     for key, entry in plan.items():
-        want = choices.get(key, entry["default"])
+        want = choices.get(key)
+        for label in args.prefer:
+            if want is not None:
+                break
+            want = next((o["id"] for o in entry["options"]
+                         if o["file"] is not None and (o["id"] == label or label in o["also"])),
+                        None)
+        want = want or entry["default"]
         option = next((o for o in entry["options"] if o["id"] == want), None)
         if option is None:
             option = next(o for o in entry["options"] if o["id"] == entry["default"])

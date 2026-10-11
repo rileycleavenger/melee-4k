@@ -15,9 +15,9 @@ them.
 |---|---|
 | 4K rendering | Internal resolution up to 10x native; Auto renders at the display's resolution (4K on a 4K display). |
 | Widescreen | 16:9 by default, in every scene except the pre-rendered movies; 4:3 ("Original") in settings, switchable mid-match (the HUD moves with it). |
-| Frame rate | Auto, 30, 60, 120 or 144 fps. Above 60, frames are blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails); the simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. |
-| HD textures | Community packs only wherever one has the texture (Melee HD 2023, HD Remix and its gap-fills), picked texture by texture on the choices page; AI upscales (Real-ESRGAN) only where no community version exists. Selectable stock-icon styles. |
-| Input | A on the right face button, B on the bottom, for modern controllers. The mouse drives the character select hand, which also appears in the main menus and VS Rules. |
+| Frame rate | 30, 60 (default), 120 or 144 fps. Above 60, frames are blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails); the simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. |
+| HD textures | The Melee HD 2023 pack wherever it has a texture, then HD Remix and the other community packs; AI upscales (Real-ESRGAN) only where no community version exists. Selectable stock-icon styles. |
+| Input | The mouse drives the character select hand, which also appears in the main menus and VS Rules. |
 | Online | Host Lobby / Join Lobby by code, Mac and PC together; same-network players connect directly. |
 | Text | Glyph spacing in all in-game text (menus, names, headers) reads the right metrics; it was garbled in melee-pc. Melee 4K's own menu entries are rendered in Melee's label style (`src/pc/menu_label.c`). |
 | Stability | A soak test plays every stage with every costume, plus every 1P mode and menu, with heap canaries and render audits on: 52/52 pass, steady 60 ticks/s. Fixes so far: Big Blue, Pichu's Thunder, star KOs, Kirby's copy hat, a heap race between disc loading and the game, off-screen damage timing, the off-screen bubble, the results screen. |

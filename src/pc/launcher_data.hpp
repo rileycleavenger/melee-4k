@@ -39,10 +39,10 @@ struct Preferences {
     bool custom_textures = true;
     bool unlock_all = true;  // Melee 4K: every character, stage and mode from the start
     int hud_mode = 1;        // 0 classic, 1 wide (anchored to the 16:9 edges)
-    // Frame rate (src/pc/vi.c): 0 auto (in-between frames on a display >= 100 Hz),
-    // 2 60 fps, 3 30 fps, 4 120 fps, 5 144 fps. The game itself always runs at 60.
-    // 1 (in-between frames forced on) is from older configs and reads as auto.
-    int interp = 0;
+    // Frame rate (src/pc/vi.c): 2 60 fps, 3 30 fps, 4 120 fps, 5 144 fps. The game
+    // itself always runs at 60. 0 (auto) and 1 (in-between frames on) are from older
+    // configs and read as 60.
+    int interp = 2;
     std::string stock_style = "default";  // texture overlay folder under textures/stocks
     bool frozen_stadium = false;
     bool free_camera = false;

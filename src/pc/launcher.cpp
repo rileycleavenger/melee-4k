@@ -81,17 +81,18 @@ bool change_online(Rml::Event& event) {
 }
 
 const char* smooth_name(int mode) {
-    return mode == 2 ? "60" : mode == 3 ? "30" : mode == 4 ? "120" : mode == 5 ? "144" : "Auto";
+    return mode == 3 ? "30" : mode == 4 ? "120" : mode == 5 ? "144" : "60";
 }
 
 /* The frame rate setting (prefs.interp) after `mode`, `dir` steps along
- * Auto, 30, 60, 120, 144. */
+ * 30, 60, 120, 144. */
 int next_frame_rate(int mode, int dir) {
-    static const int order[5] = {0, 3, 2, 4, 5};
-    int at = 0;
-    while (at < 4 && order[at] != mode)
-        at++;
-    return order[(at + 5 + (dir < 0 ? -1 : 1)) % 5];
+    static const int order[4] = {3, 2, 4, 5};
+    int at = 1; /* 60 for anything else */
+    for (int i = 0; i < 4; i++)
+        if (order[i] == mode)
+            at = i;
+    return order[(at + 4 + (dir < 0 ? -1 : 1)) % 4];
 }
 
 std::string stock_style_name(const std::string& style) {
@@ -877,10 +878,10 @@ public:
                         step_slider(-1);
                     else if (button == SDL_GAMEPAD_BUTTON_DPAD_RIGHT)
                         step_slider(1);
-                    else if (button == SDL_GAMEPAD_BUTTON_EAST ||
+                    else if (button == SDL_GAMEPAD_BUTTON_SOUTH ||
                              button == SDL_GAMEPAD_BUTTON_START)
                         activate_focus();
-                    else if (button == SDL_GAMEPAD_BUTTON_SOUTH) {
+                    else if (button == SDL_GAMEPAD_BUTTON_EAST) {
                         if (settings)
                             show_settings(false);
                         else if (verification.valid())
@@ -1786,10 +1787,10 @@ public:
             case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
                 show_tab(tab + 1);
                 break;
-            case SDL_GAMEPAD_BUTTON_EAST:
+            case SDL_GAMEPAD_BUTTON_SOUTH:
                 activate_focus();
                 break;
-            case SDL_GAMEPAD_BUTTON_SOUTH:
+            case SDL_GAMEPAD_BUTTON_EAST:
             case SDL_GAMEPAD_BUTTON_START:
                 toggle();
                 break;
@@ -2079,16 +2080,13 @@ extern "C" void pc_m4k_label(int row, char* out, int size) {
             snprintf(out, size, "Resolution %dx", int(prefs.render_scale));
         return;
     case M4K_FRAME_RATE:
-        if (prefs.interp == 0 || prefs.interp == 1)
-            snprintf(out, size, "Frame Rate Auto");
-        else
-            snprintf(out, size, "Frame Rate %s fps", smooth_name(prefs.interp));
+        snprintf(out, size, "Frame Rate %s fps", smooth_name(prefs.interp));
         return;
     case M4K_TEXTURES:
         snprintf(out, size, "HD Textures %s", prefs.custom_textures ? "On" : "Off");
         return;
     case M4K_STOCKS:
-        value = prefs.stock_style == "default" ? "HD Remix" : prefs.stock_style;
+        value = prefs.stock_style == "default" ? "Melee HD" : prefs.stock_style;
         snprintf(out, size, "Stocks %s", value.c_str());
         return;
     case M4K_FPS:
@@ -2108,7 +2106,7 @@ extern "C" const char* pc_m4k_description(int row) {
         "Widescreen 16:9, or the original 4:3.",
         "Wide moves the HUD out to the screen edges.",
         "Rendering resolution. Auto fits the window.",
-        "Auto matches your screen. Game speed is 60.",
+        "Frames drawn a second. Game speed stays 60.",
         "Use the HD texture pack.",
         "The style of the stock icons in a match.",
         "Show the frame rate in the corner.",
