@@ -18,6 +18,9 @@
                                          int* formBank, int* newCmdBank,
                                          int* newTexBank, int* newFormBank);
 /* 398A08 */ void hsd_80398A08(u32);
+#ifdef TARGET_PC
+extern bool pc_particles_live;
+#endif
 /* 398C04 */ HSD_Particle*
 psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
                     u16 texGroup, u8* list, int life, int palflag, f32 x,

@@ -127,6 +127,7 @@ static bool s_gcam_restored;
 
 /* Live particle lists, one per link (src/sysdolphin/baselib/particle.c). */
 extern HSD_Particle* hsd_804D0908[16];
+extern bool pc_particles_live; /* particle.c */
 
 static unsigned hash_ptr(const void* p) {
     uintptr_t v = (uintptr_t)p;
@@ -512,7 +513,8 @@ void pc_interp_capture(void) {
             }
         }
     }
-    for (int link = 0; link < 16; link++) {
+    /* Only a scene that set up particles has live lists (particle.c). */
+    for (int link = 0; link < 16 && pc_particles_live; link++) {
         for (HSD_Particle* pp = hsd_804D0908[link]; pp != NULL; pp = pp->next) {
             PState st = {pp, pp->pos, pp->kind, pp->life, pp->bank};
             ptable_add(&s_ptcl[s_cur], &st);

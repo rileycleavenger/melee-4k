@@ -15,7 +15,7 @@ them.
 |---|---|
 | 4K rendering | Internal resolution up to 10x native; Auto renders at the display's resolution (4K on a 4K display). |
 | Widescreen | 16:9 by default, in every scene except the pre-rendered movies; 4:3 ("Original") in settings, switchable mid-match (the HUD moves with it). |
-| Frame rate | 30, 60 (default), 120 or 144 fps. Above 60, frames are blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails); the simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. |
+| Frame rate | 60 (default), 120 or 144 fps. Above 60, frames are blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails); the simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. |
 | HD textures | The Melee HD 2023 pack wherever it has a texture, then HD Remix and the other community packs; AI upscales (Real-ESRGAN) only where no community version exists. Selectable stock-icon styles. |
 | Input | The mouse drives the character select hand, which also appears in the main menus and VS Rules. |
 | Online | Host Lobby / Join Lobby by code, Mac and PC together; same-network players connect directly. |

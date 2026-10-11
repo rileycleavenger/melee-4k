@@ -58,6 +58,13 @@ typedef struct {
 /* 4D78F4 */ HSD_SList* hsd_804D78F4 = NULL;
 static HSD_JObj* hsd_804D08E8[8];
 /* 4D0908 */ HSD_Particle* hsd_804D0908[16];
+#ifdef TARGET_PC
+/* hsd_804D0908 lists this scene's particles: set by hsd_80398A08, cleared
+ * when a scene ends (gmscene.c). A scene that never initializes particles
+ * (a menu after a match) keeps the last match's heads, which point into its
+ * freed heap; only pc/interp.c reads them there. */
+bool pc_particles_live;
+#endif
 /* 4D0948 */ DiscU32* hsd_804D0948[65];
 /* 4D0A4C */ int psFormGroupArray[65];
 /* 4D0B50 */ DiscU32* psTexGroupArray[65];
@@ -304,6 +311,9 @@ void hsd_80398A08(u32 unused)
     for (i = 0; i < 16; i++) {
         hsd_804D0908[i] = NULL;
     }
+#ifdef TARGET_PC
+    pc_particles_live = true;
+#endif
     hsd_804D78E2 = 0;
     numPeakParticles = 0;
     for (i = 0; i < 0x41; i++) {

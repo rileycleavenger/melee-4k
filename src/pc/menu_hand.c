@@ -28,8 +28,10 @@
 #include <sysdolphin/baselib/wobj.h>
 
 /* The hand's size on screen, in 640x480 canvas units per character select
- * world unit (that screen's camera shows about 64 units across 640). */
-#define HAND_SCALE 10.0f
+ * world unit (that screen's camera shows about 64 units across 640, so 10
+ * would match character select): half that, so it covers less of the text
+ * it points at. */
+#define HAND_SCALE 5.0f
 /* From the hand's origin to its fingertips, in the same world units: the
  * fingertips are where it points. */
 #define TIP_X 3.0f

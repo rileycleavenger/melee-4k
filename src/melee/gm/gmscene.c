@@ -2,6 +2,7 @@
 #ifdef TARGET_PC
 #include "pc/interp.h"
 #include "pc/menu_hand.h"
+#include <sysdolphin/baselib/particle.h>
 #include "pc/net.h"
 #include "pc/pc.h"
 #include "pc/slp.h"
@@ -540,6 +541,7 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
      * its loop starts. */
     ifAll_PcForgetHud();
     pc_menu_hand_forget();
+    pc_particles_live = false;
 #endif
     HSD_VIWaitXFBFlush();
 }

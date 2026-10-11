@@ -117,11 +117,16 @@ int main(int argc, char** argv) {
     loaded = load_preferences(config);
     assert(loaded.interp == 2 && loaded.stock_style == "Smash 4");
     {
-        // Frame rate 30 fps.
+        // Frame rate 144 fps; the retired 30 fps reads as 60.
+        std::ofstream f(config);
+        f << "interp 5\n";
+    }
+    assert(load_preferences(config).interp == 5);
+    {
         std::ofstream f(config);
         f << "interp 3\n";
     }
-    assert(load_preferences(config).interp == 3);
+    assert(load_preferences(config).interp == 2);
     {
         // The retired auto and "in-between frames forced on" read as 60 fps.
         std::ofstream f(config);

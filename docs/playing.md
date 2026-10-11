@@ -32,7 +32,7 @@ setting:
 | Screen | 16:9, the original 4:3, or Auto (fit the window). Changes take effect at once, mid-match too. |
 | HUD | Wide (out to the 16:9 edges) or Classic. |
 | Resolution | Auto (your display's: 4K on a 4K screen) or 1x to 10x. |
-| Frame Rate | 30, 60 (the default), 120 or 144 fps. The game itself always runs at 60; above 60, in-between frames are drawn, so pick 120 or 144 only on a display that fast. |
+| Frame Rate | 60 (the default), 120 or 144 fps. The game itself always runs at 60; above 60, in-between frames are drawn, so pick 120 or 144 only on a display that fast. |
 | HD Textures | On or off. |
 | Stocks | The stock icon style: Melee HD (the default), Circle, Smash 4 or Classic pixel. |
 | FPS Counter | The frame rate, top right. |

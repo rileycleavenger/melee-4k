@@ -46,7 +46,7 @@ Mouse: moves the character select hand, in the menus too (point to
 select, left click A, right click B, wheel changes a value).
 
 Settings: main menu > Options > Melee 4K (screen 16:9 or 4:3, HUD,
-resolution, frame rate 30 to 144 fps, HD textures, stock icons, FPS
+resolution, frame rate 60 to 144 fps, HD textures, stock icons, FPS
 counter, Unlock All; Left/Right changes a setting). During a match, F1 (or Back/Select/Create on a controller) opens
 the same settings plus controls, audio and graphics.
 

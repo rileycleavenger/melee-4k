@@ -16,7 +16,7 @@
 <div class="setting"><div class="description"><h3>Post-processing filter</h3><p>Off presents the frame as rendered.</p></div><button id="filter-mode">Off</button></div>
 <div class="setting"><div class="description"><h3>Custom HD textures</h3><p>Load replacement textures from the textures directory.</p></div><button id="custom-textures">Enabled</button></div>
 <div class="setting"><div class="description"><h3>Stock icons</h3><p>Style of the stock icons in HD texture packs.</p></div><button id="stock-style">Default</button></div>
-<div class="setting"><div class="description"><h3>Frame rate</h3><p>30, 60, 120 or 144 frames a second; gameplay stays 60 Hz.</p></div><button id="smooth">60</button></div>
+<div class="setting"><div class="description"><h3>Frame rate</h3><p>60, 120 or 144 frames a second; gameplay stays 60 Hz.</p></div><button id="smooth">60</button></div>
 <div class="setting"><div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3></div><button id="backend">Auto</button></div>
 </div>
 <div id="page-cheats" class="page">

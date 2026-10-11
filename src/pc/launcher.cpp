@@ -81,18 +81,18 @@ bool change_online(Rml::Event& event) {
 }
 
 const char* smooth_name(int mode) {
-    return mode == 3 ? "30" : mode == 4 ? "120" : mode == 5 ? "144" : "60";
+    return mode == 4 ? "120" : mode == 5 ? "144" : "60";
 }
 
 /* The frame rate setting (prefs.interp) after `mode`, `dir` steps along
- * 30, 60, 120, 144. */
+ * 60, 120, 144. */
 int next_frame_rate(int mode, int dir) {
-    static const int order[4] = {3, 2, 4, 5};
-    int at = 1; /* 60 for anything else */
-    for (int i = 0; i < 4; i++)
+    static const int order[3] = {2, 4, 5};
+    int at = 0; /* 60 for anything else */
+    for (int i = 0; i < 3; i++)
         if (order[i] == mode)
             at = i;
-    return order[(at + 4 + (dir < 0 ? -1 : 1)) % 4];
+    return order[(at + 3 + (dir < 0 ? -1 : 1)) % 3];
 }
 
 std::string stock_style_name(const std::string& style) {

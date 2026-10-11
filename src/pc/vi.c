@@ -50,8 +50,6 @@ static bool s_in_frame;
 static u64 s_next_sim_ns;
 /* In-between frames presented since the last FPS log line. */
 static u32 s_interp_presents;
-/* Tick frames held open (30 fps) since the last FPS log line. */
-static u32 s_held_frames;
 unsigned pc_sim_ticks;
 /* Frames presented this tick under MELEE_INTERP_TEST_STEPS. */
 static int s_test_frame;
@@ -66,7 +64,6 @@ static u32 s_begin_n;
 
 static u64 refresh_period_ns(void);
 static u64 present_period_ns(void);
-static bool hold_frame(void);
 /* The game window (pc_vi_set_window) and the display it was last seen on. */
 static SDL_Window* s_window;
 static SDL_DisplayID s_refresh_display;
@@ -187,12 +184,7 @@ void pc_frame_boundary(void) {
     if (timing_debug < 0)
         timing_debug = getenv("MELEE_NET_DEBUG") != NULL;
     s_test_frame = 0;
-    if (s_in_frame && hold_frame()) {
-        /* 30 fps: this tick's frame stays open and the next tick draws over
-         * it, so one present carries two ticks. The game still runs, and
-         * draws, every tick. */
-        s_held_frames++;
-    } else if (s_in_frame) {
+    if (s_in_frame) {
         u64 started = timing_debug ? SDL_GetTicksNS() : 0;
         aurora_end_frame();
         if (timing_debug) {
@@ -284,7 +276,7 @@ void pc_frame_boundary(void) {
             pc_log_line("fps %.1f ticks %.1f present %.1f worst %.1fms late>20ms %u late>33ms %u "
                         "sleep_overshoot %.1fms",
                 fps_n * 1000.0 / (double)(now - fps_t0), ticks * 1000.0 / (double)(now - fps_t0),
-                (fps_n + s_interp_presents - s_held_frames) * 1000.0 / (double)(now - fps_t0),
+                (fps_n + s_interp_presents) * 1000.0 / (double)(now - fps_t0),
                 frame_worst_ns / 1e6, frame_late_20, frame_late_33, sleep_worst_over_ns / 1e6);
             if (s_interp_presents != 0 && s_begin_n > 1) {
                 const double mean = s_begin_sum / s_begin_n;
@@ -300,7 +292,6 @@ void pc_frame_boundary(void) {
             s_begin_sum = s_begin_sq = 0;
             s_begin_n = 0;
             s_interp_presents = 0;
-            s_held_frames = 0;
             fps_t0 = now;
             fps_n = 0;
             frame_worst_ns = 0;
@@ -437,7 +428,7 @@ void pc_frame_boundary(void) {
             else
                 bad_windows = 0;
             if (bad_windows >= 3 && !s_interp_fell_behind && getenv("MELEE_FRAME_INTERP") == NULL &&
-                pc_get_interp_mode() == 0)
+                pc_get_interp_mode() != 2)
             {
                 s_interp_fell_behind = true;
                 bad_windows = 0;
@@ -465,7 +456,7 @@ void pc_frame_boundary(void) {
     const bool grid_on = pc_interp_enabled();
     if (grid_on)
         pace_to_grid();
-    for (; !s_in_frame;) {
+    for (;;) {
         u64 started = timing_debug ? SDL_GetTicksNS() : 0;
         bool begun = aurora_begin_frame();
         if (timing_debug) {
@@ -592,8 +583,8 @@ static u64 refresh_period_ns(void) {
     return hz >= 30.0f ? (u64)(1e9 / hz) : pc_sim_period_ns() / 2;
 }
 
-/* The frame rate setting (pc_get_interp_mode, launcher_data.hpp): 0 auto,
- * 2 60 fps, 3 30 fps, 4 120 fps, 5 144 fps. */
+/* The frame rate setting (pc_get_interp_mode, launcher_data.hpp): 2 60 fps,
+ * 4 120 fps, 5 144 fps (0, auto, only from MELEE_FRAME_INTERP tests). */
 static int frame_rate_cap(void) {
     const int mode = pc_get_interp_mode();
     return mode == 4 ? 120 : mode == 5 ? 144 : 0;
@@ -606,13 +597,6 @@ static u64 present_period_ns(void) {
     const int cap = frame_rate_cap();
     const u64 c = cap > 0 ? 1000000000ull / (u64)cap : 0;
     return c > r ? c : r;
-}
-
-/* 30 fps: keep every other tick's frame open instead of presenting it.
- * Never in netplay, where frames are paced against the peer. */
-static bool hold_frame(void) {
-    return pc_get_interp_mode() == 3 && !pc_net_active() && !pc_menu_is_open() &&
-           (s_retrace_count & 1) != 0;
 }
 
 /* Blend factor from the frame's grid slot. Frames begin one per display
@@ -693,15 +677,15 @@ void pc_present_interp_frame(void) {
 }
 
 bool pc_interp_enabled(void) {
-    /* MELEE_FRAME_INTERP overrides the Smooth motion setting (interp pref:
-     * 0 auto, 1 on, 2 off). */
+    /* MELEE_FRAME_INTERP overrides the Frame Rate setting: 120 and 144 fps
+     * draw in-between frames, 60 does not. */
     static int env = -2; /* -1 unset, 0 off, 1 on */
     if (env == -2) {
         const char* e = getenv("MELEE_FRAME_INTERP");
         env = e == NULL || e[0] == '\0' ? -1 : e[0] == '0' ? 0 : 1;
     }
     const int pref = pc_get_interp_mode();
-    const int mode = env != -1 ? env : pref == 4 || pref == 5 ? 1 : pref == 2 || pref == 3 ? 0 : -1;
+    const int mode = env != -1 ? env : pref == 4 || pref == 5 ? -1 : 0;
     if (mode == 0 || pc_net_active())
         return false;
     if (mode == 1)
