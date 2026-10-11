@@ -2030,9 +2030,9 @@ extern "C" int pc_get_net_delay(void) {
 }
 
 /* Options > Melee 4K (src/melee/mn/mnm4k.c): the same settings as the F1
- * overlay, drawn in Melee's own menu. Labels use only what the SIS encoder
- * draws (letters, digits, space, ':'). Every change applies and saves at
- * once, so the overlay and this page always agree. */
+ * overlay, drawn in Melee's own menu (labels rendered by menu_label.c).
+ * Every change applies and saves at once, so the overlay and this page
+ * always agree. */
 enum {
     M4K_ASPECT,
     M4K_HUD,
@@ -2050,43 +2050,42 @@ extern "C" int pc_m4k_rows(void) {
 }
 
 extern "C" void pc_m4k_label(int row, char* out, int size) {
+    /* Mixed case, setting then value, like Melee's own labels */
     std::string value;
     switch (row) {
     case M4K_ASPECT:
-        snprintf(out, size, "SCREEN  %s",
+        snprintf(out, size, "Screen %s",
             prefs.widescreen == 0 ? "4:3" :
             prefs.widescreen == 1 ? "16:9" :
-                                    "AUTO");
+                                    "Auto");
         return;
     case M4K_HUD:
-        snprintf(out, size, "HUD  %s", prefs.hud_mode == 0 ? "CLASSIC" : "WIDE");
+        snprintf(out, size, "HUD %s", prefs.hud_mode == 0 ? "Classic" : "Wide");
         return;
     case M4K_RESOLUTION:
         if (prefs.render_scale <= 0)
-            snprintf(out, size, "RESOLUTION  AUTO");
+            snprintf(out, size, "Resolution Auto");
         else
-            snprintf(out, size, "RESOLUTION  %dx", int(prefs.render_scale));
+            snprintf(out, size, "Resolution %dx", int(prefs.render_scale));
         return;
     case M4K_SMOOTH:
-        snprintf(out, size, "SMOOTH MOTION  %s",
-            prefs.interp == 1 ? "ON" :
-            prefs.interp == 2 ? "OFF" :
-                                "AUTO");
+        snprintf(out, size, "Smooth Motion %s",
+            prefs.interp == 1 ? "On" :
+            prefs.interp == 2 ? "Off" :
+                                "Auto");
         return;
     case M4K_TEXTURES:
-        snprintf(out, size, "HD TEXTURES  %s", prefs.custom_textures ? "ON" : "OFF");
+        snprintf(out, size, "HD Textures %s", prefs.custom_textures ? "On" : "Off");
         return;
     case M4K_STOCKS:
-        value = prefs.stock_style == "default" ? "HD REMIX" : prefs.stock_style;
-        for (char& c : value)
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        snprintf(out, size, "STOCKS  %s", value.c_str());
+        value = prefs.stock_style == "default" ? "HD Remix" : prefs.stock_style;
+        snprintf(out, size, "Stocks %s", value.c_str());
         return;
     case M4K_FPS:
-        snprintf(out, size, "FPS COUNTER  %s", prefs.fps ? "ON" : "OFF");
+        snprintf(out, size, "FPS Counter %s", prefs.fps ? "On" : "Off");
         return;
     case M4K_UNLOCK:
-        snprintf(out, size, "UNLOCK ALL  %s", prefs.unlock_all ? "ON" : "OFF");
+        snprintf(out, size, "Unlock All %s", prefs.unlock_all ? "On" : "Off");
         return;
     default:
         snprintf(out, size, "%s", "");

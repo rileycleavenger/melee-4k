@@ -18,6 +18,7 @@
 #include "mnlanguage.h"
 #ifdef TARGET_PC
 #include "mnm4k.h"
+#include "pc/menu_label.h"
 #include <stdio.h>
 #include <string.h>
 #endif
@@ -874,15 +875,13 @@ static inline void mn_80229A7C_dontinline(void* arg0, int arg1, int arg2)
 }
 
 #ifdef TARGET_PC
-/* ponytail: PC-only entries (mnonline.h) have no label texture. mn_8022B3A0
- * hides their slot's matanim label and this draws SIS text over the slot
- * every frame (the tree animates). Freed with the description on slide-out. */
+/* PC-only entries (mnonline.h, mnm4k.h) have no label texture in MnExtAll.
+ * Their label JObj stays, and its TObj is pointed at a label rendered in
+ * Melee's style (menu_label.c) every frame, after the menu's texture
+ * animation has picked its own image: the material still tints it, so it
+ * looks and moves exactly like the stock labels. */
 static void mn_UpdatePcLabels(MainMenuData* data, bool alive)
 {
-    static const GXColor hovered = { 0x28, 0x28, 0x28, 0xFF };
-    static const GXColor idle = { 0xFF, 0xD2, 0x50, 0xFF };
-    const float label_size = 0.033f;
-    static char shown[ARRAY_SIZE(((MainMenuData*) 0)->pc_label)][48];
     int i;
 
     if (alive && data->description != NULL) {
@@ -891,46 +890,20 @@ static void mn_UpdatePcLabels(MainMenuData* data, bool alive)
             HSD_SisLib_803A70A0(data->description, 0, "%s", notice);
         }
     }
-    for (i = 0; i < (int) ARRAY_SIZE(data->pc_label); i++) {
-        const char* label = alive ? mnOnline_Label(data->menu_kind, i) : NULL;
-        HSD_Text* text = data->pc_label[i];
-        Vec3 pos;
+    for (i = 0; i < (int) ARRAY_SIZE(data->pc_label_jobj); i++) {
+        const char* label = mnOnline_Label(data->menu_kind, i);
+        HSD_JObj* jobj = data->pc_label_jobj[i];
+        HSD_ImageDesc* image;
 
-        if (label == NULL) {
-            if (text != NULL) {
-                HSD_SisLib_803A5CC4(text);
-                data->pc_label[i] = NULL;
-            }
+        if (label == NULL || jobj == NULL || jobj->u.dobj == NULL ||
+            jobj->u.dobj->mobj == NULL || jobj->u.dobj->mobj->tobj == NULL)
+        {
             continue;
         }
-        if (text == NULL) {
-            text = HSD_SisLib_803A6754(0, mn_804D6BB4);
-            data->pc_label[i] = text;
-            text->default_alignment = 1;
-            text->default_kerning = 1;
-            text->font_size.x = label_size;
-            text->font_size.y = label_size;
-            if (data->menu_kind == MENU_KIND_M4K) {
-                /* setting and value share one button: condensed, as Melee
-                 * squeezes long names */
-                text->font_size.x = label_size * 0.72f;
-            }
-            HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", label);
-            snprintf(shown[i], sizeof shown[i], "%s", label);
-        } else if (strcmp(shown[i], label) != 0) {
-            /* a Melee 4K row shows its setting's value, which just changed */
-            HSD_SisLib_803A70A0(text, 0, "%s", label);
-            snprintf(shown[i], sizeof shown[i], "%s", label);
+        image = pc_menu_label(label);
+        if (image != NULL) {
+            jobj->u.dobj->mobj->tobj->imagedesc = image;
         }
-        lb_8000B1CC(data->tree[mn_803EAE68[i]], NULL, &pos);
-        text->pos_x = pos.x;
-        /* the entry anchors its top edge; the glyph cell is 32 canvas px */
-        text->pos_y = -pos.y - 16.0f * label_size;
-        text->pos_z = pos.z;
-        HSD_SisLib_803A74F0(text, 0,
-                            (GXColor*) (mn_804A04F0.hovered_selection == i
-                                            ? &hovered
-                                            : &idle));
     }
 }
 #endif
@@ -1597,6 +1570,7 @@ HSD_GObj* mn_8022B3A0(u8 state)
 #ifdef TARGET_PC
     for (idx = 0; idx < (int) ARRAY_SIZE(user_data->pc_label); idx++) {
         user_data->pc_label[idx] = NULL;
+        user_data->pc_label_jobj[idx] = NULL;
     }
 #endif
     for (idx = 0; idx < (int) ARRAY_SIZE(user_data->tree); idx++) {
@@ -1672,9 +1646,9 @@ HSD_GObj* mn_8022B3A0(u8 state)
                 HSD_JObjSetFlagsAll(cursor_parts[4], JOBJ_HIDDEN);
             }
 #ifdef TARGET_PC
-            if (mnOnline_Label(mn_804A04F0.cur_menu, i) != NULL) {
-                /* no label texture; mn_UpdatePcLabels draws SIS text */
-                HSD_JObjSetFlagsAll(cursor_parts[1], JOBJ_HIDDEN);
+            if (i < (int) ARRAY_SIZE(user_data->pc_label_jobj)) {
+                /* mn_UpdatePcLabels gives PC-only entries their texture */
+                user_data->pc_label_jobj[i] = cursor_parts[1];
             }
 #endif
             HSD_JObjAddChild(option_jobjs[unlocked_index], cursor_jobj);

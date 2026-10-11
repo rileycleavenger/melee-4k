@@ -35,7 +35,7 @@ const char* mnOnline_Label(MenuKind kind, int selection)
         return m4k; /* Options > Melee 4K shares this text path */
     }
     if (kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
-        return "ONLINE";
+        return "Online";
     }
     if (kind == MENU_KIND_ONLINE && selection >= 0 &&
         selection < (int) ARRAY_SIZE(online_labels))

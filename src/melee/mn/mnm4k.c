@@ -25,7 +25,7 @@ const char* mnM4K_Label(MenuKind kind, int selection)
     static char labels[M4K_MAX_ROWS][48];
 
     if (kind == MENU_KIND_SETTINGS && selection == SEL_SETTINGS_M4K) {
-        return "MELEE 4K";
+        return "Melee 4K";
     }
     if (kind == MENU_KIND_M4K && selection >= 0 && selection < pc_m4k_rows() &&
         selection < M4K_MAX_ROWS)

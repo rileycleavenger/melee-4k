@@ -21,6 +21,9 @@ typedef struct _MainMenuData {
     /* SIS text over slots whose matanim label is hidden (mnonline.h), one
      * per option slot (mn_803EAE68) */
     HSD_Text* pc_label[10];
+    /* Each entry's label JObj (cursor_parts[1]); for PC-only entries its
+     * texture is pointed at a rendered label every frame (menu_label.c). */
+    HSD_JObj* pc_label_jobj[10];
 #endif
 } MainMenuData;
 
