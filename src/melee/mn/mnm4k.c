@@ -39,7 +39,7 @@ const char* mnM4K_Label(MenuKind kind, int selection)
 const char* mnM4K_Description(MenuKind kind, int selection)
 {
     if (kind == MENU_KIND_SETTINGS && selection == SEL_SETTINGS_M4K) {
-        return "Screen, resolution, smooth motion, textures.";
+        return "Screen, resolution, frame rate, textures.";
     }
     if (kind == MENU_KIND_M4K && selection >= 0 && selection < pc_m4k_rows()) {
         return pc_m4k_description(selection);

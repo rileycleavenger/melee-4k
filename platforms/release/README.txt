@@ -36,18 +36,19 @@ INSTALL AND PLAY (Windows)
 PLAYING
 -------
 Controllers: DualSense, Switch Pro, Xbox and GameCube adapters work out of
-the box. Keyboard: arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
+the box. A is the right face button and B the bottom one (Circle and Cross
+on a DualSense). Keyboard: arrows = stick, X = A, Z = B, C = X, V = Y, Q/E = L/R,
 Enter = Start.
 
 Online: VS Mode > Online. One player picks Host Lobby and shares the code;
 the other picks Join Lobby and types it. Works Mac <-> PC.
 
-Mouse: moves the hand on character and stage select (left click A,
-right click B).
+Mouse: moves the character select hand, in the menus too (point to
+select, left click A, right click B, wheel changes a value).
 
 Settings: main menu > Options > Melee 4K (screen 16:9 or 4:3, HUD,
-resolution, smooth motion, HD textures, stock icons; Left/Right changes a
-setting). During a match, F1 (or Back/Select/Create on a controller) opens
+resolution, frame rate 30 to 144 fps, HD textures, stock icons, FPS
+counter, Unlock All; Left/Right changes a setting). During a match, F1 (or Back/Select/Create on a controller) opens
 the same settings plus controls, audio and graphics.
 
 

@@ -9,6 +9,44 @@ No game data and no texture packs are in this repository. You supply your own
 disc and download the community packs yourself. The tools here only process
 them.
 
+## What's in it
+
+| Area | State |
+|---|---|
+| 4K rendering | Internal resolution up to 10x native; Auto renders at the display's resolution (4K on a 4K display). |
+| Widescreen | 16:9 by default, in every scene except the pre-rendered movies; 4:3 ("Original") in settings, switchable mid-match (the HUD moves with it). |
+| Frame rate | Auto, 30, 60, 120 or 144 fps. Above 60, frames are blended between the game's 60 Hz ticks (fighters, camera and shake, particles, sword trails); the simulation is untouched. Verified at 4K/144 Hz: 60.00 ticks/s, ~143 frames/s. |
+| HD textures | Community packs only wherever one has the texture (Melee HD 2023, HD Remix and its gap-fills), picked texture by texture on the choices page; AI upscales (Real-ESRGAN) only where no community version exists. Selectable stock-icon styles. |
+| Input | A on the right face button, B on the bottom, for modern controllers. The mouse drives the character select hand, which also appears in the main menus and VS Rules. |
+| Online | Host Lobby / Join Lobby by code, Mac and PC together; same-network players connect directly. |
+| Text | Glyph spacing in all in-game text (menus, names, headers) reads the right metrics; it was garbled in melee-pc. Melee 4K's own menu entries are rendered in Melee's label style (`src/pc/menu_label.c`). |
+| Stability | A soak test plays every stage with every costume, plus every 1P mode and menu, with heap canaries and render audits on: 52/52 pass, steady 60 ticks/s. Fixes so far: Big Blue, Pichu's Thunder, star KOs, Kirby's copy hat, a heap race between disc loading and the game, off-screen damage timing, the off-screen bubble, the results screen. |
+
+## Building from source
+
+macOS (Apple Silicon tested), with Homebrew:
+
+```sh
+brew install gcc cmake ninja sdl3 zstd libpng freetype
+cmake --preset macos-default
+ninja -C build/macos
+build/macos/melee "/path/to/Super Smash Bros. Melee (USA) (Rev 2).iso"
+```
+
+Windows and Linux builds follow [building.md](building.md). Release
+packages: `tools/package_release_macos.sh` and the `release-windows.yml`
+workflow (see [setup.md](setup.md)).
+
+## Testing tools
+
+| Tool | What it does |
+|---|---|
+| `tools/soak.py DISC WORK` | Every stage x costume, every 1P mode and menu, with heap checks and render audits; resumable, writes `summary.md`. |
+| `tools/interp_determinism.py DISC WORK` | Records CPU matches, then replays them with smooth motion off and on; any divergence fails. |
+| `MELEE_BOOT_SCENE=<mode>` | Boot straight into a mode (`vs`, `classic`, `training`, `adventure`, `allstar`, `target`, `homerun`, `multiman10`, `vs-css`, `trophies`, ..., or `mode:N`). |
+| `MELEE_KEY_FIFO=<fifo>` | Scripted keyboard input (`"Up 300"`, `"X 150"`), no window focus needed. |
+| `AURORA_SCREENSHOT_FRAMES=<n,...>` | Full-resolution screenshots (TGA) at those frames. |
+
 ## What the fork adds
 
 | Area | Change |
@@ -59,14 +97,27 @@ install the result as `textures/packs/10-community` (or point
    compares against runtime dumps (bit-exact in all ten formats), `--match
    REGEX` writes PNGs of selected textures.
 7. **`original_pack.py DISC PACKS`**: builds `packs/05-css-original`, the
-   character select icons and hover portraits decoded from the disc,
-   upscaled and encoded, which outranks the community pack.
+   character select icons and hover portraits decoded from the disc and
+   AI-upscaled. No longer in the release pack (the Melee HD 2023 character
+   select art replaced it); kept for comparison.
 
 8. **`restore_alpha.py MERGED ORIGINALS`**: run on the merged pack before
    encoding. A few community textures were saved without their alpha (HD
    Remix's item foods are opaque on black, which drew a black box around
    every food a Shy Guy carries); this applies the original's cut-out,
    upscaled, to the HD art.
+9. **`choices_page.py OUT --source Label=DIR ...`**: an interactive page
+   for choosing between the community versions of each texture. Versions
+   that look the same are shown once; characters are chosen per costume.
+   It saves the choices as `melee4k-texture-choices.json` and writes
+   `OUT/plan.json`, every texture with a community version.
+10. **`make_choices.py OUT --plan plan.json --choices FILE --base MERGED`**:
+   lays out the two layers from those choices: `OUT/community` (the chosen
+   versions, plus the stock icons from the current merged pack) and `OUT/ai`
+   (AI upscales, only of textures with no community version). A texture
+   chosen as "Original" is in neither. Then `restore_alpha.py` on the
+   community layer and `encode.py` on both, installed as
+   `packs/10-community` and `packs/20-ai-fill`.
 
 Colour stored under zero alpha is kept by both `encode.py` and `upscale.py`:
 Melee draws some textures with an alpha test (the character select slot wipe
@@ -80,7 +131,10 @@ Dolphin pack directly in `textures/` loads below all of them.
 
 ### Packs used so far
 
-Super Smash Bros. HD Remix Texture Pack (QZ|DOGG) is the base. It already
+Melee HD (the 2023 release by the Melee HD team, a Dolphin `GALE01` folder:
+`main` plus `optional` character textures) and Super Smash Bros. HD Remix
+Texture Pack (QZ|DOGG) are the main sources; the choices page picks between
+them. HD Remix It already
 combines Melee HD, Faster Melee HD, SSBM: HQ and Melee Remastered. Melee HD
 Submissions, the Melee HD "Our Edits" set and the SD Remix 3.3 extras fill
 gaps. "Melee HD Character Select for Dolphin" uses pre-2015 `GALE01_<crc>`

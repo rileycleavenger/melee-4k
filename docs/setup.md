@@ -59,14 +59,15 @@ for tests.
 ## The texture pack
 
 `tools/setup/make_pack.py TEXTURES OUT --version V --url-base URL` zips a
-folder laid out the way the game reads it (`packs/05-css-original`,
-`packs/10-community`, `stocks/<style>`) into parts under GitHub's 2 GB
+folder laid out the way the game reads it (`packs/10-community`,
+`packs/20-ai-fill`, `stocks/<style>`) into parts under GitHub's 2 GB
 release-asset limit and writes `manifest.json`. Parts are stored, not
 deflated: BC7 DDS barely compresses.
 
-Build the folder with the texture tools (see `docs/melee-4k.md`): merge the
-community packs and the AI gap-fill, `encode.py` them into
-`packs/10-community`, and `original_pack.py` for `packs/05-css-original`.
+Build the folder with the texture tools (see `docs/melee-4k.md`):
+`choices_page.py` and `make_choices.py` lay out the community and AI
+layers, `restore_alpha.py` and `encode.py` turn them into
+`packs/10-community` and `packs/20-ai-fill`.
 
 The pack is hosted as release assets of the public
 [melee-4k-textures](https://github.com/rileycleavenger/melee-4k-textures)

@@ -49,7 +49,7 @@ by GameCube word number" and other off-by-pointer-width writes.
 
 These are off by default and cost nothing when unset. They measure or suppress
 only; none of them fixes anything. User-facing knobs (`MELEE_BACKEND`,
-`MELEE_VSYNC`, ...) are in the [README](../README.md#environment-variables).
+`MELEE_VSYNC`, ...) are in the [README](melee-pc.md#environment-variables).
 
 | Variable | Effect |
 |---|---|

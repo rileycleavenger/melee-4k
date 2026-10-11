@@ -3,14 +3,16 @@
 
     python3 tools/setup/make_pack.py TEXTURES_DIR OUT_DIR --version 1.0.0
                                      --url-base https://github.com/OWNER/REPO/releases/download/TAG/
-                                     [--part-size-mb 1900]
+                                     [--part-size-mb 1900] [--retire PACK ...]
 
 TEXTURES_DIR is laid out the way the game reads it (packs/<NN-name>/,
 stocks/<style>/). OUT_DIR gets melee4k-textures-<version>-partN.zip, each
 under GitHub's 2 GB release-asset limit, plus manifest.json listing every
 part's URL, size and SHA-256 (tools/setup/setup.py checks all three). Files
 are stored, not deflated: BC7 DDS barely compresses and storing keeps
-unpacking fast.
+unpacking fast. --retire names a packs/ folder an earlier release installed
+and this one no longer has; Setup deletes it, so it cannot outrank the new
+textures.
 """
 import argparse
 import hashlib
@@ -35,6 +37,8 @@ def main():
     ap.add_argument("--version", required=True)
     ap.add_argument("--url-base", required=True)
     ap.add_argument("--part-size-mb", type=int, default=1900)
+    ap.add_argument("--retire", action="append", default=[],
+                    help="a packs/ folder name earlier releases installed (05-css-original)")
     args = ap.parse_args()
 
     files = []
@@ -62,7 +66,7 @@ def main():
     if current:
         current.close()
 
-    manifest = {"version": args.version, "parts": []}
+    manifest = {"version": args.version, "parts": [], "retired_packs": args.retire}
     for name in parts:
         path = os.path.join(args.out, name)
         manifest["parts"].append({"name": name, "url": args.url_base + name,

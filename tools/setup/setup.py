@@ -305,7 +305,11 @@ def install_textures(manifest_src, root):
                                      "later.")
             z.extractall(staging)
     # Replace only what the pack owns; anything else the player added stays.
+    # Packs an earlier release installed and this one dropped go too.
     os.makedirs(textures, exist_ok=True)
+    for pack in manifest.get("retired_packs", []):
+        if pack and os.sep not in pack and "/" not in pack and not pack.startswith("."):
+            shutil.rmtree(os.path.join(textures, "packs", pack), ignore_errors=True)
     for entry in os.listdir(staging):
         dst = os.path.join(textures, entry)
         if entry == "packs" and os.path.isdir(dst):

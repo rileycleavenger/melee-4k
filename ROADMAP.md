@@ -6,7 +6,7 @@ and modern C11/C++20.
 
 > **This file carries no feature status.** What is done, partly done or not
 > started lives in one place, the status table in
-> [README.md](README.md#status). Everything below is the plan: what each phase
+> [README.md](docs/melee-pc.md#status). Everything below is the plan: what each phase
 > covers and why it is ordered that way. Items stay listed after they ship so
 > the design rationale does not get deleted with them.
 
@@ -115,4 +115,4 @@ Focus: Zero-delay online play with completely decentralized, serverless peer mat
 
 ## Feedback & Community
 
-Discussions, bug reports, and feature proposals are welcome on [GitHub Issues](https://github.com/999sian/melee-pc/issues) and [Discord](https://discord.gg/aurt34svq). The current feature-status table is in the [README](README.md#status).
+Discussions, bug reports, and feature proposals are welcome on [GitHub Issues](https://github.com/999sian/melee-pc/issues) and [Discord](https://discord.gg/aurt34svq). The current feature-status table is in the [README](docs/melee-pc.md#status).

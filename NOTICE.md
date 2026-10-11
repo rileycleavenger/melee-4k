@@ -24,7 +24,7 @@ not affiliated with or endorsed by them.
 ## HD textures
 
 The HD texture download is built from community packs, extended with AI
-upscales of the textures they do not cover. Thank you to everyone whose
+upscales only of the textures none of them covers. Thank you to everyone whose
 work it contains:
 
 - **Super Smash Bros. HD Remix Texture Pack**, organised by
@@ -34,7 +34,15 @@ work it contains:
   Ed94 (Melee Remastered), MrLul (HD Dream Land 64), Ripple (Super Smash
   Bros. HD Remix), Stache, Steelia (SSBM: HQ), Super4ng (stock icons),
   Truckjitsu (Faster Melee, Faster Melee HD), Unclepunch and Warriorknight.
-- **Melee HD** (the Melee HD project; Melee HD Submissions and the Melee HD
+- **Melee HD** (2023 release) by the Melee HD team: David V. Kimball, Alecks,
+  Radzo73, Tyleto, Quarantine_Zone and Kirbeast; playtesters MetalLegacy,
+  Vianny, Liva, Carldacious, Readek, Stache and Zapfy. Its character select
+  portraits come from the Melee Cosmetic Standardization Project (Efisio,
+  with Cjag, Radzo73 and Cahalan). Its credits thank UnclePunch and Stache,
+  the meleehd.boards.net / MeleeHD community, the SD Remix crew, the Faster
+  Melee folks, Karmo1, solidturnip, AlGeorgeRomo and the Smash 2 team (the
+  models the original pack was based on), and Neil and ! C O (fonts).
+- **Melee HD** project submissions (Melee HD Submissions and the Melee HD
   edits).
 - **Faster Melee HD** by Truckjitsu.
 - **SD Remix 3.3 additional HD textures** (SD Remix team).

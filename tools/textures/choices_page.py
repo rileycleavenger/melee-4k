@@ -147,6 +147,9 @@ def main():
                     help="DIR=Label: name a --current source directory as a page label")
     ap.add_argument("--prefer-css", help="default label for the character select screen")
     ap.add_argument("--flagged", help="file of keys whose AI version was rejected")
+    ap.add_argument("--skip-keys", action="append", default=[],
+                    help="DIR: leave the textures in this pack off the page (stock icons, "
+                         "which the Stocks setting chooses)")
     args = ap.parse_args()
 
     sources = [parse_source(s) for s in args.source]
@@ -164,7 +167,10 @@ def main():
         for path, name, _ in walk_pack(root):
             if name is not None and name.mip is None and "Stock Icons" not in path:
                 versions[name.key].append((label, path, alt))
-    versions = {k: v for k, v in versions.items() if k in disc_file}
+    skip = set()
+    for root in args.skip_keys:
+        skip.update(name.key for _, name, _ in walk_pack(root) if name is not None)
+    versions = {k: v for k, v in versions.items() if k in disc_file and k not in skip}
     with Pool() as pool:
         grouped = dict(pool.map(distinct, versions.items(), chunksize=16))
     alt_labels = {label for label, _ in alts}
@@ -181,28 +187,45 @@ def main():
     os.makedirs(os.path.join(args.out, "t"), exist_ok=True)
     jobs = []
     data = {"sections": [], "textures": {}}
-    by_section = collections.defaultdict(lambda: collections.defaultdict(list))
-    for key in sorted(offered, key=lambda k: (disc_file[k], k)):
-        df = disc_file[key]
-        sec = section_of(df, key in flagged)
+    # Every texture with a community version, offered or not: what
+    # make_choices.py builds the pack from.
+    plan = {}
+    for key, groups in grouped.items():
         options = []
-        for g in offered[key]:
+        for g in groups:
             labels = sorted({label for label, _, _ in g},
                             key=lambda lb: order.index(lb) if lb in order else len(order))
             label, path, size = next(x for x in g if x[0] == labels[0])
-            tid = hashlib.sha1(path.encode()).hexdigest()[:16]
-            jobs.append((path, os.path.join(args.out, "t", tid + ".webp"),
-                         CHAR_THUMB if sec == "fighters" else THUMB))
-            options.append({"id": labels[0], "also": labels[1:], "t": tid, "file": path,
-                            "size": size})
+            options.append({"id": labels[0], "also": labels[1:], "file": path, "size": size})
         if key in flagged:
-            options.insert(0, {"id": "Original", "also": [], "t": "o_" + key, "file": None,
-                               "size": None})
+            options.insert(0, {"id": "Original", "also": [], "file": None, "size": None})
+        if all(o["id"] in alt_labels or o["id"] == "Original" for o in options) and \
+                key not in flagged:
+            continue  # only offered-only versions: nothing to build from
+        sec = section_of(disc_file[key], key in flagged)
         ids = [o["id"] for o in options]
         want = (args.prefer_css if sec == "css" else None) or current.get(key)
         default = next((i for i in [want] + order if i in ids), ids[0])
-        if key in flagged:
-            default = "Original" if default in alt_labels else default
+        if key in flagged and default in alt_labels:
+            default = "Original"
+        plan[key] = {"options": options, "default": default}
+    with open(os.path.join(args.out, "plan.json"), "w") as f:
+        json.dump(plan, f, separators=(",", ":"))
+    by_section = collections.defaultdict(lambda: collections.defaultdict(list))
+    for key in sorted(offered, key=lambda k: (disc_file[k], k)):
+        if key not in plan:
+            continue
+        df = disc_file[key]
+        sec = section_of(df, key in flagged)
+        options = []
+        for o in plan[key]["options"]:
+            tid = "o_" + key
+            if o["file"] is not None:
+                tid = hashlib.sha1(o["file"].encode()).hexdigest()[:16]
+                jobs.append((o["file"], os.path.join(args.out, "t", tid + ".webp"),
+                             CHAR_THUMB if sec == "fighters" else THUMB))
+            options.append(dict(o, t=tid))
+        default = plan[key]["default"]
         orig = os.path.join(args.originals, key + ".png")
         if os.path.exists(orig):
             jobs.append((orig, os.path.join(args.out, "t", "o_" + key + ".webp"),
