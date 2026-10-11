@@ -504,7 +504,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
             }
             return pc_verify_disc_cli(argv[i + 1], pc_user_dir());
         } else if (strcmp(argv[i], "--version") == 0) {
-            printf("melee-pc %s\n", pc_app_version());
+            printf("Melee 4K %s\n", pc_app_version());
             return 0;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
