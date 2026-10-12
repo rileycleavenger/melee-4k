@@ -4,7 +4,7 @@
 #include <tuple>
 
 #ifndef MELEE_APP_VERSION
-#define MELEE_APP_VERSION "v1.0.0"
+#define MELEE_APP_VERSION "v1.1.0"
 #endif
 
 namespace pc {
