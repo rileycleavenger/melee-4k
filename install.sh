@@ -24,9 +24,15 @@ fail() { say ""; say "$*"; exit 1; }
 say "Melee 4K installer"
 say ""
 say "[1/4] Finding the newest release..."
-# The newest release, pre-releases included: the API lists newest first.
+# The latest release (not pre-releases), or the one MELEE4K_VERSION names
+# (a tag, e.g. v1.1.0-rc1, for testing a build before it is released).
 # Plain grep/sed, since a fresh Mac has no python3 without developer tools.
-URL="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=10" |
+if [[ -n "${MELEE4K_VERSION:-}" ]]; then
+    API="https://api.github.com/repos/${REPO}/releases/tags/${MELEE4K_VERSION}"
+else
+    API="https://api.github.com/repos/${REPO}/releases/latest"
+fi
+URL="$(curl -fsSL "$API" |
     grep -o "\"browser_download_url\": *\"[^\"]*/${ASSET}\"" | head -n 1 |
     sed -E 's/.*"(https[^"]+)"$/\1/' || true)"
 [[ -n "$URL" ]] || fail "Could not reach GitHub to find the download; check your internet connection and run the command again."
