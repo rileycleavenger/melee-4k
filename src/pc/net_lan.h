@@ -19,7 +19,7 @@ extern "C" {
 #define PC_LAN_MAX_PEERS 8
 #define PC_LAN_NAME_LEN 16
 
-#define PC_LAN_CODE_LEN 12
+#define PC_LAN_CODE_LEN 16 /* a lobby code (net_code.h), 15 characters */
 
 typedef struct PcLanPeer {
     char name[PC_LAN_NAME_LEN]; /* display name (hostname by default) */
@@ -42,6 +42,9 @@ void pc_lan_stop(void);
  * announce, so a same-network join by code reaches us directly. NULL or ""
  * stops advertising it. */
 void pc_lan_set_code(const char* code);
+/* The UDP port to advertise: where the Online lobby's match socket listens
+ * (it is not MELEE_NET_PORT's when the system picked it). */
+void pc_lan_set_port(uint16_t port);
 
 /* Poll from the game thread once per frame; services sockets. */
 void pc_lan_poll(void);

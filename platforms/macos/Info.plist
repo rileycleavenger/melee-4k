@@ -30,6 +30,15 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <!-- macOS 15+: online play finds and talks to players on the same network
+         (mDNS discovery in src/pc/net_lan.c and the match socket). Without
+         these the system can block that traffic without ever asking. -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Melee 4K connects to other players on your network for online matches.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_meleepc._udp</string>
+    </array>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

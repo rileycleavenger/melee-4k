@@ -457,6 +457,15 @@ static void values(void* ctx, int event, const unsigned char* hash, const void* 
         }
     }
 }
+/* pc_dht_set_offline: the socket only, for Host/Join Lobby. No cached or
+ * bootstrap nodes, so no DHT traffic and no searches (pc_dht_ready stays
+ * false); datagrams still reach the callback. */
+static bool offline;
+
+void pc_dht_set_offline(bool on) {
+    offline = on;
+}
+
 bool pc_dht_start(enum pc_dht_mode m, const char* code, int band, uint16_t port) {
     unsigned char id[20], topic[20];
     if (!pc_dht_topic(m, code, band, 0, topic))
@@ -506,6 +515,8 @@ bool pc_dht_start(enum pc_dht_mode m, const char* code, int band, uint16_t port)
     memset(requests, 0, sizeof(requests));
     memset(votes, 0, sizeof(votes));
     request_cursor = vote_cursor = 0;
+    if (offline)
+        return true;
     node_cache(false);
     /* Offline harness disables only DNS bootstrap, never the socket path. */
 #ifndef PC_DHT_TEST_NO_BOOTSTRAP

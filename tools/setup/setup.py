@@ -342,18 +342,52 @@ def desktop_shortcut(game):
     """Windows: a "Melee 4K" shortcut on the desktop (README step 4)."""
     if platform.system() != "Windows":
         return
-    desktop = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Desktop")
-    link = os.path.join(desktop, "Melee 4K.lnk")
-    script = ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:M4K_LINK); "
+    # The real Desktop folder: OneDrive moves it out of %USERPROFILE%.
+    script = ("$d = [Environment]::GetFolderPath('Desktop'); "
+              "$s = (New-Object -ComObject WScript.Shell).CreateShortcut("
+              "(Join-Path $d 'Melee 4K.lnk')); "
               "$s.TargetPath = $env:M4K_GAME; $s.WorkingDirectory = $env:M4K_DIR; "
               "$s.IconLocation = $env:M4K_GAME; $s.Save()")
-    env = dict(os.environ, M4K_LINK=link, M4K_GAME=game, M4K_DIR=os.path.dirname(game))
+    env = dict(os.environ, M4K_GAME=game, M4K_DIR=os.path.dirname(game))
     try:
         subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
                        env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         say("    Added a \"Melee 4K\" shortcut to your desktop.")
     except (OSError, subprocess.CalledProcessError) as e:
         log(f"shortcut: {e}")  # optional; the game still runs from its folder
+
+
+FIREWALL_RULE = "Melee 4K"
+
+
+def firewall_rule(game):
+    """Windows: let online play's UDP traffic in (host lobby, LAN discovery).
+
+    Without a rule, Windows Firewall drops it unless its first-run prompt was
+    answered, which a fullscreen game easily hides, so a friend's call never
+    arrives. Adding a rule needs administrator rights: one UAC prompt, once
+    (an existing rule for this program is left alone)."""
+    if platform.system() != "Windows":
+        return
+    try:
+        shown = subprocess.run(
+            ["netsh", "advfirewall", "firewall", "show", "rule", f"name={FIREWALL_RULE}",
+             "verbose"], capture_output=True, text=True)
+        if shown.returncode == 0 and game.lower() in shown.stdout.lower():
+            return
+        say("    Allowing Melee 4K through Windows Firewall for online play "
+            "(Windows will ask for permission)...")
+        args = (f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow '
+                f'program="{game}" protocol=UDP profile=any enable=yes')
+        script = ("Start-Process -FilePath netsh -Verb RunAs -Wait -WindowStyle Hidden "
+                  "-ArgumentList $env:M4K_ARGS")
+        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                       env=dict(os.environ, M4K_ARGS=args), check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError) as e:
+        # Declined or failed: online still works on the networks where the
+        # game's own firewall prompt was accepted.
+        log(f"firewall rule: {e}")
 
 
 def launch(root, game):
@@ -395,6 +429,7 @@ def main():
         say("[4/4] Finishing..." if args.no_launch else "[4/4] Starting the game...")
         clear_quarantine(root)
         desktop_shortcut(game)
+        firewall_rule(game)
         if not args.no_launch:
             launch(root, game)
         say("")

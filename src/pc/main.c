@@ -9,6 +9,9 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -109,17 +112,29 @@ static void melee_install_crash_handler(void) {}
 
 /* A log file sink, so a double-clicked build still leaves a diagnosable
  * trace after its console disappears. MELEE_LOG_FILE picks the path; an
- * empty value disables it. Windows defaults it on because that is where the
- * console is not a reliable place to read errors from. */
+ * empty value disables it. On the desktop it defaults to melee4k.log in the
+ * settings folder (the previous run's is kept as melee4k-previous.log), so a
+ * player can always send one: ~/Library/Application Support/melee-pc on
+ * macOS, %APPDATA%\melee-pc on Windows. */
 static FILE* log_file(void) {
     static FILE* fp;
     static bool tried;
     if (!tried) {
         tried = true;
         const char* path = getenv("MELEE_LOG_FILE");
-#if defined(_WIN32)
+#if !defined(__ANDROID__) && !defined(__EMSCRIPTEN__) && !(defined(__APPLE__) && TARGET_OS_IPHONE)
+        static char fallback[1024];
         if (path == NULL) {
-            path = "melee-pc.log";
+            char* dir = pc_user_dir();
+            if (dir != NULL) {
+                char previous[1024];
+                snprintf(fallback, sizeof fallback, "%smelee4k.log", dir);
+                snprintf(previous, sizeof previous, "%smelee4k-previous.log", dir);
+                remove(previous);
+                rename(fallback, previous);
+                path = fallback;
+                SDL_free(dir);
+            }
         }
 #endif
         if (path != NULL && path[0] != '\0') {

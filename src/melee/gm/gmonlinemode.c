@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include <time.h>
 #include <melee/lb/forward.h>
@@ -24,7 +25,9 @@
 #include <sysdolphin/baselib/random.h>
 #ifdef TARGET_PC
 #include "pc/net.h"
+#include "pc/net_code.h"
 #include "pc/net_lan.h"
+#include "pc/net_portmap.h"
 #include "pc/net_identity.h"
 #include "pc/net_match.h"
 #include "pc/net_rank_session.h"
@@ -422,7 +425,7 @@ static bool internetLobby(void) {
  *
  * States: HUB -> KEYS -> (call) ; HUB -> (call or wait). The call itself is
  * the internet lobby below, with a progress line and a clock. */
-#define DIRECT_SUFFIX 8
+#define DIRECT_SUFFIX PC_NET_CODE_LEN /* Join Lobby: a lobby code (pc/net_code.h) */
 enum { DIRECT_OFF, DIRECT_HUB, DIRECT_KEYS };
 enum { ROW_PASTE, ROW_CONTACT, ROW_TYPE, ROW_WAIT };
 static const char direct_keys[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -472,6 +475,36 @@ static void directKeysBegin(void)
     direct_suffix[0] = '\0';
     direct_key = 0;
     direct_error[0] = '\0';
+    /* A code copied from a chat is already typed in. */
+    if (pc_net_match_clipboard_lobby_code(direct_suffix)) {
+        snprintf(direct_error, sizeof direct_error,
+                 "Code pasted from your clipboard - press START to join");
+    }
+}
+
+/* One typed character into the code: lower case, and 0/1/8 read as O/I/B,
+ * as the code itself does (net_code.c). */
+static void directType(char ch)
+{
+    int len = (int) strlen(direct_suffix);
+    ch = (char) toupper((unsigned char) ch);
+    ch = ch == '0' ? 'O' : ch == '1' ? 'I' : ch == '8' ? 'B' : ch;
+    if (strchr(direct_keys, ch) != NULL && len < DIRECT_SUFFIX) {
+        direct_suffix[len++] = ch;
+        direct_suffix[len] = '\0';
+        direct_error[0] = '\0';
+    }
+}
+
+static void directPaste(void)
+{
+    char code[PC_NET_CODE_LEN + 1];
+    if (pc_net_match_clipboard_lobby_code(code)) {
+        snprintf(direct_suffix, sizeof direct_suffix, "%s", code);
+        snprintf(direct_error, sizeof direct_error, "Code pasted - press START to join");
+    } else {
+        snprintf(direct_error, sizeof direct_error, "No lobby code on your clipboard");
+    }
 }
 
 static void directEntryBegin(void)
@@ -502,10 +535,15 @@ static void directCall(const char* code)
 }
 
 /* "RYAN#K3XQ2M7A" -> "RYAN #K3X-Q2M-7A": the suffix in groups of three is
- * how a person reads a code aloud and checks it against a friend's. */
+ * how a person reads a code aloud and checks it against a friend's. A lobby
+ * code is grouped in fives (pc_net_code_show). */
 static void directShow(char* out, size_t n, const char* code)
 {
     const char* hash = strchr(code, '#');
+    if (hash == NULL && strlen(code) == PC_NET_CODE_LEN) {
+        pc_net_code_show(code, out, n);
+        return;
+    }
     if (hash == NULL || strlen(hash + 1) != DIRECT_SUFFIX) {
         snprintf(out, n, "%s", code);
         return;
@@ -532,8 +570,12 @@ static bool directEntryFrame(OnlineLobbyView* view, u64 input)
     u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
     char buf[ONLINE_LOBBY_MSG_LEN], shown[40];
 
-    directShow(shown, sizeof shown, pc_net_match_local_code());
-    snprintf(view->subtitle, sizeof view->subtitle, "YOU %s", shown);
+    if (direct_role == ONLINE_DIRECT_JOIN) {
+        view->subtitle[0] = '\0';
+    } else {
+        directShow(shown, sizeof shown, pc_net_match_local_code());
+        snprintf(view->subtitle, sizeof view->subtitle, "YOU %s", shown);
+    }
     view->phase = LOBBY_PHASE_FOUND;
 
     if (direct_screen == DIRECT_HUB) {
@@ -610,9 +652,30 @@ static bool directEntryFrame(OnlineLobbyView* view, u64 input)
         return direct_screen != DIRECT_OFF;
     }
 
-    /* KEYS: eight characters, A-Z and 2-7 (the code alphabet has no 0, 1,
-     * 8 or 9, so there is nothing to mistype them as). The grid wraps, so
-     * any key is at most six moves away. */
+    /* KEYS: the host's fifteen-character code, A-Z and 2-7, on the grid
+     * (it wraps, so any key is at most six moves away), typed on a keyboard
+     * or pasted. */
+    {
+        char typed[64];
+        pc_keyboard_text_want();
+        const int n = pc_keyboard_take_text(typed, sizeof typed);
+        for (int i = 0; i < n; i++) {
+            if (typed[i] == '\b') {
+                const int l = (int) strlen(direct_suffix);
+                if (l > 0) {
+                    direct_suffix[l - 1] = '\0';
+                }
+            } else if (typed[i] == 0x16) {
+                directPaste();
+            } else {
+                directType(typed[i]);
+            }
+        }
+        if (input & HSD_PAD_Y) {
+            directPaste();
+            sfxForward();
+        }
+    }
     int len = (int) strlen(direct_suffix);
     if (repeat & PAD_ANY_LEFT) {
         direct_key = direct_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
@@ -650,14 +713,15 @@ static bool directEntryFrame(OnlineLobbyView* view, u64 input)
             return true;
         }
     } else if (input & HSD_PAD_START) {
-        if (len == DIRECT_SUFFIX) {
-            char code[18];
-            snprintf(code, sizeof code, "#%s", direct_suffix);
+        PcNetLobbyCode code;
+        if (len == DIRECT_SUFFIX && pc_net_code_decode(direct_suffix, &code)) {
             sfxForward();
-            directCall(code);
+            directCall(direct_suffix);
             return false;
         }
-        snprintf(direct_error, sizeof direct_error, "A code has 8 characters after the #");
+        snprintf(direct_error, sizeof direct_error,
+                 len == DIRECT_SUFFIX ? "That code isn't right - check it" :
+                                        "A code has 15 characters");
         sfxBack();
     }
     view->screen = LOBBY_SCREEN_KEYS;
@@ -670,13 +734,13 @@ static bool directEntryFrame(OnlineLobbyView* view, u64 input)
             slots[i] = i < len ? direct_suffix[i] : '_';
         }
         slots[DIRECT_SUFFIX] = '\0';
-        snprintf(buf, sizeof buf, "Friend's code   # %.3s-%.3s-%.2s", slots, slots + 3, slots + 6);
+        snprintf(buf, sizeof buf, "Host's code   %.5s-%.5s-%.5s", slots, slots + 5, slots + 10);
         snprintf(view->menu[0], sizeof view->menu[0], "%s", buf);
     }
     snprintf(view->message, sizeof view->message, "%s",
              direct_error[0] ? direct_error :
-             "Type the 8 characters after the #");
-    view->hint = "A: type   B: delete   START: call";
+             "Type the code the host shows, or paste it");
+    view->hint = "A: type   B: delete   Y: paste   START: join";
     return true;
 }
 #endif
@@ -693,7 +757,9 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
          * and a caller rings that address too (net_match.c). */
         pc_lan_start();
         if (direct_role == ONLINE_DIRECT_HOST) {
-            pc_lan_set_code(pc_net_match_local_code());
+            /* The lobby code goes out over mDNS once the router has
+             * answered (pc_net_match_lobby_code). */
+            pc_lan_set_code(NULL);
             directCall(NULL);
         } else {
             /* Ask for the code first: starting on a stale launcher pref is
@@ -941,9 +1007,24 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                                          "%s isn't answering yet. Still calling  %u:%02u",
                              who, secs / 60, secs % 60);
                 } else if (online_kind == ONLINE_KIND_DIRECT && direct_role == ONLINE_DIRECT_HOST) {
-                    snprintf(view.message, sizeof view.message,
-                             "Lobby open. Your friend joins with your code  %u:%02u",
-                             secs / 60, secs % 60);
+                    /* What the router allowed decides who can use the code. */
+                    char code[PC_NET_CODE_SHOWN_LEN + 1];
+                    int reach = 0;
+                    if (!pc_net_match_lobby_code(code, &reach)) {
+                        snprintf(view.message, sizeof view.message,
+                                 "Opening your lobby...  %u:%02u", secs / 60, secs % 60);
+                    } else if (reach == PC_PORTMAP_OPEN) {
+                        snprintf(view.message, sizeof view.message,
+                                 "Lobby open. Friends join with your code  %u:%02u",
+                                 secs / 60, secs % 60);
+                    } else if (reach == PC_PORTMAP_CLOSED) {
+                        snprintf(view.message, sizeof view.message,
+                                 "Same Wi-Fi only: your router said no. Forward UDP port %u",
+                                 (unsigned) pc_portmap_external_port());
+                    } else {
+                        snprintf(view.message, sizeof view.message,
+                                 "Lobby open on this Wi-Fi only  %u:%02u", secs / 60, secs % 60);
+                    }
                 } else if (online_kind == ONLINE_KIND_DIRECT) {
                     snprintf(view.message, sizeof view.message,
                              "Waiting for a friend to call you  %u:%02u", secs / 60, secs % 60);
@@ -953,11 +1034,18 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                 }
                 if (online_kind == ONLINE_KIND_DIRECT) {
                     char me[40];
-                    directShow(me, sizeof me, pc_net_match_local_code());
-                    snprintf(view.subtitle, sizeof view.subtitle, "YOU %s", me);
+                    if (direct_role == ONLINE_DIRECT_HOST) {
+                        if (!pc_net_match_lobby_code(me, NULL)) {
+                            snprintf(me, sizeof me, "...");
+                        }
+                        snprintf(view.subtitle, sizeof view.subtitle, "CODE %s", me);
+                    } else {
+                        view.subtitle[0] = '\0';
+                    }
                     view.player_count = 0; /* the subtitle already says who we are */
-                    view.hint = "Y: copy my code   B: stop";
-                    if (input & HSD_PAD_Y) {
+                    view.hint = direct_role == ONLINE_DIRECT_HOST ? "Y: copy the code   B: stop" :
+                                                                    "B: stop";
+                    if (direct_role == ONLINE_DIRECT_HOST && (input & HSD_PAD_Y)) {
                         pc_net_match_copy_code();
                         sfxForward();
                     }

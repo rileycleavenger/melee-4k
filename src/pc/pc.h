@@ -104,6 +104,10 @@ bool pc_mouse_menu(float* u, float* v);
 void pc_mouse_menu_stick_moved(void);
 void pc_mouse_show_pointer(bool show);
 int pc_mouse_take_wheel(void);
+/* Text entry: call each frame while a screen takes typing; take what was
+ * typed (letters, digits, '\b' to delete, 0x16 for paste). */
+void pc_keyboard_text_want(void);
+int pc_keyboard_take_text(char* out, int max);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */

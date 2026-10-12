@@ -232,6 +232,60 @@ void pc_mouse_show_pointer(bool show) {
 
 static int s_mouse_wheel; /* notches, + up, while a menu wants the mouse */
 
+/* Text entry (the Join Lobby code): while a screen asks for it, letter and
+ * digit keys type instead of pressing buttons (X would be A), Backspace
+ * deletes and Cmd/Ctrl+V pastes. Arrows, Enter and Escape keep their pad
+ * meaning. pc_keyboard_text_want() each frame keeps it on. */
+static atomic_uint_fast64_t s_text_wanted_ms;
+static char s_text[64]; /* under lock_keys: typed characters, '\b', 0x16 = paste */
+static int s_text_n;
+
+static bool text_live(void) {
+    const uint64_t wanted = atomic_load_explicit(&s_text_wanted_ms, memory_order_relaxed);
+    return wanted != 0 && SDL_GetTicks() - wanted < 300;
+}
+
+void pc_keyboard_text_want(void) {
+    atomic_store_explicit(&s_text_wanted_ms, SDL_GetTicks(), memory_order_relaxed);
+}
+
+int pc_keyboard_take_text(char* out, int max) {
+    lock_keys();
+    const int n = s_text_n < max ? s_text_n : max;
+    memcpy(out, s_text, (size_t)n);
+    s_text_n = 0;
+    unlock_keys();
+    return n;
+}
+
+/* A typing key while text entry is on: true when it was taken as text. */
+static bool text_key(const SDL_KeyboardEvent* k) {
+    char ch = 0;
+    const SDL_Scancode sc = k->scancode;
+    const bool command = (k->mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
+    if (command && sc == SDL_SCANCODE_V) {
+        ch = 0x16;
+    } else if (command) {
+        return false;
+    } else if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z) {
+        ch = (char)('A' + (sc - SDL_SCANCODE_A));
+    } else if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9) {
+        ch = (char)('1' + (sc - SDL_SCANCODE_1));
+    } else if (sc == SDL_SCANCODE_0) {
+        ch = '0';
+    } else if (sc == SDL_SCANCODE_BACKSPACE || sc == SDL_SCANCODE_DELETE) {
+        ch = '\b';
+    } else {
+        return false;
+    }
+    lock_keys();
+    if (s_text_n < (int)sizeof s_text) {
+        s_text[s_text_n++] = ch;
+    }
+    unlock_keys();
+    return true;
+}
+
 int pc_mouse_take_wheel(void) {
     lock_keys();
     const int n = s_mouse_wheel;
@@ -294,6 +348,9 @@ void pc_keyboard_event(const SDL_Event* e) {
                         " (MELEE_KEY_FIFO is unaffected)");
         }
         return;
+    }
+    if (e->type == SDL_EVENT_KEY_DOWN && text_live() && text_key(&e->key)) {
+        return; /* typed, not a button press */
     }
     lock_keys();
     if (e->type == SDL_EVENT_KEY_DOWN) {

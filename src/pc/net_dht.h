@@ -15,6 +15,8 @@ struct pc_dht_endpoint {
 typedef void (*pc_dht_datagram_fn)(const void*, size_t, const struct pc_dht_endpoint*, void*);
 /* Main-thread-only singleton. Port zero requests an ephemeral port. */
 bool pc_dht_start(enum pc_dht_mode mode, const char* code, int band, uint16_t port);
+/* Before pc_dht_start: run as a plain socket, contacting no DHT nodes. */
+void pc_dht_set_offline(bool on);
 void pc_dht_poll(void);
 bool pc_dht_next_candidate(struct pc_dht_endpoint* out);
 void pc_dht_set_datagram_callback(pc_dht_datagram_fn callback, void* context);

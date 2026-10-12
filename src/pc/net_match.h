@@ -26,6 +26,12 @@ typedef struct PcNetMatchProgress {
 int pc_net_match_contacts(PcNetContact* out, int max);
 bool pc_net_match_clipboard_code(char out[18]);
 bool pc_net_match_copy_code(void);
+/* Host Lobby: our lobby code, shown "XXXXX-XXXXX-XXXXX" (18 bytes with the
+ * terminator), once the router has answered or been given up on; `reach`
+ * gets the PcPortmapState that decided what it can do. False while waiting. */
+bool pc_net_match_lobby_code(char out[18], int* reach);
+/* Join Lobby: a valid lobby code on the clipboard (15 characters + NUL). */
+bool pc_net_match_clipboard_lobby_code(char out[16]);
 void pc_net_match_progress(PcNetMatchProgress* progress);
 bool pc_net_match_publish_rank(void);
 void pc_net_match_poll_publication(void);

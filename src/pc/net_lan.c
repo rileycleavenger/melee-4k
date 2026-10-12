@@ -242,13 +242,17 @@ const char* pc_lan_disc_id(void) {
 static char s_code[PC_LAN_CODE_LEN];
 
 void pc_lan_set_code(const char* code) {
-    const char* hash = code != NULL ? strchr(code, '#') : NULL;
-    const char* suffix = hash != NULL ? hash + 1 : code;
     s_code[0] = '\0';
-    if (suffix != NULL && strlen(suffix) < sizeof s_code &&
-        strspn(suffix, "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") == strlen(suffix))
+    if (code != NULL && strlen(code) < sizeof s_code &&
+        strspn(code, "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") == strlen(code))
     {
-        strcpy(s_code, suffix);
+        strcpy(s_code, code);
+    }
+}
+
+void pc_lan_set_port(uint16_t port) {
+    if (port != 0) {
+        s_port = port;
     }
 }
 
@@ -1007,6 +1011,10 @@ static void pick_iface(void) {
 
 void pc_lan_start(void) {
     if (s_started) {
+        return;
+    }
+    /* MELEE_LAN_OFF=1: no mDNS at all, to test the paths that work without it. */
+    if (getenv("MELEE_LAN_OFF") != NULL) {
         return;
     }
     s_started = true;

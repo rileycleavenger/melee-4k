@@ -3,7 +3,9 @@
 #include "net_dht.h"
 #include "net_dht_item.h"
 #include "net.h"
+#include "net_code.h"
 #include "net_lan.h"
+#include "net_portmap.h"
 #include "net_rank_session.h"
 #include "pc.h"
 #include <SDL3/SDL_clipboard.h>
@@ -84,6 +86,16 @@ static uint32_t seed;
 static int32_t start_frame = -1;
 static MatchHello hello;
 static uint64_t next_lan_ring; /* next same-network ring (direct, calling) */
+/* Host Lobby / Join Lobby (direct): a lobby code (net_code.h) instead of the
+ * DHT. The host's code is its router's public address and port plus a token
+ * of its key; a joiner rings that address and, on the same network, the host
+ * found by its code over mDNS. No DHT node is contacted. */
+static bool lobby_target; /* joining: `lobby` is who we call */
+static PcNetLobbyCode lobby;
+static char lobby_code[PC_NET_CODE_LEN + 1]; /* joining: the code; hosting: ours */
+static uint64_t next_wan_ring;
+#define LOBBY_PORT 41000        /* the match socket's port, so a router keeps one mapping */
+#define LOBBY_CODE_WAIT_MS 6000 /* give up on the router after this: same network only */
 static MatchOffer offer;
 static MatchAck ack;
 static bool identity_loaded;
@@ -410,7 +422,53 @@ bool pc_net_match_clipboard_code(char out[18]) {
     return ok;
 }
 
+bool pc_net_match_clipboard_lobby_code(char out[PC_NET_CODE_LEN + 1]) {
+    if (!SDL_HasClipboardText())
+        return false;
+    char* text = SDL_GetClipboardText();
+    PcNetLobbyCode c;
+    const bool ok = text != NULL && pc_net_code_decode(text, &c) &&
+                    pc_net_code_normalize(text, out) && strcmp(out, lobby_code) != 0;
+    SDL_free(text);
+    return ok;
+}
+
+bool pc_net_match_lobby_code(char out[PC_NET_CODE_SHOWN_LEN + 1], int* reach) {
+    if (mode != PC_MATCH_DIRECT || lobby_target || state == PC_MATCH_FAIL || !load_identity())
+        return false;
+    const enum PcPortmapState st = pc_portmap_state();
+    if (reach)
+        *reach = st;
+    if (st == PC_PORTMAP_WORKING && SDL_GetTicks() - started_ms < LOBBY_CODE_WAIT_MS)
+        return false; /* still asking the router */
+    PcNetLobbyCode c = {
+        .address = 0, .port = pc_dht_port(), .token = pc_net_code_token(identity.public_key)};
+    if (st == PC_PORTMAP_OPEN || st == PC_PORTMAP_CLOSED) {
+        /* CLOSED: the router knows its address but would not open the port;
+         * a hand-made forward of this port still makes the code work. */
+        c.address = pc_portmap_external_address();
+        if (st == PC_PORTMAP_OPEN)
+            c.port = pc_portmap_external_port();
+    }
+    char code[PC_NET_CODE_LEN + 1];
+    pc_net_code_encode(&c, code);
+    if (strcmp(code, lobby_code) != 0) {
+        snprintf(lobby_code, sizeof lobby_code, "%s", code);
+        pc_lan_set_code(lobby_code);
+        pc_log_line("match: lobby code %s (%s)", code,
+            st == PC_PORTMAP_OPEN   ? "open to the internet" :
+            st == PC_PORTMAP_CLOSED ? "router refused: forward the port by hand" :
+            st == PC_PORTMAP_SHARED ? "shared internet address: same network only" :
+                                      "no router answer: same network only");
+    }
+    pc_net_code_show(lobby_code, out, PC_NET_CODE_SHOWN_LEN + 1);
+    return true;
+}
+
 bool pc_net_match_copy_code(void) {
+    char shown[PC_NET_CODE_SHOWN_LEN + 1];
+    if (pc_net_match_lobby_code(shown, NULL))
+        return SDL_SetClipboardText(shown);
     const char* code = pc_net_match_local_code();
     return code[0] && SDL_SetClipboardText(code);
 }
@@ -418,10 +476,10 @@ bool pc_net_match_copy_code(void) {
 void pc_net_match_progress(PcNetMatchProgress* p) {
     memset(p, 0, sizeof *p);
     p->elapsed_ms = state == PC_MATCH_SEARCH && started_ms ? SDL_GetTicks() - started_ms : 0;
-    p->network_ready = state != PC_MATCH_SEARCH || pc_dht_ready();
+    p->network_ready = state != PC_MATCH_SEARCH || mode == PC_MATCH_DIRECT || pc_dht_ready();
     p->candidates = candidates_tried;
     p->found = have_peer || state == PC_MATCH_CONNECT || state == PC_MATCH_READY;
-    p->calling = mode == PC_MATCH_DIRECT && target_suffix[0];
+    p->calling = mode == PC_MATCH_DIRECT && (target_suffix[0] || lobby_target);
 }
 
 static void ready(void) {
@@ -493,6 +551,7 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
             !terminator || !key_code_matches(h->public_key, h->code) ||
             (mode == PC_MATCH_DIRECT && target_suffix[0] &&
                 strcmp(pc_identity_code_suffix(h->code), target_suffix)) ||
+            (lobby_target && pc_net_code_token(h->public_key) != lobby.token) ||
             !signed_ok(h->public_key, h->signature, h, sizeof *h))
             return;
         bool fresh = !have_peer;
@@ -620,11 +679,21 @@ bool pc_net_match_start(enum PcNetMatchMode m, const char* code) {
     identity_loaded = false; /* Reload display code from the same persistent key. */
     char name[9];
     target_suffix[0] = 0;
-    if (code && *code && !pc_identity_parse_code(code, target_suffix, name)) {
+    lobby_target = false;
+    lobby_code[0] = 0;
+    next_wan_ring = 0;
+    if (m == PC_MATCH_DIRECT && code && *code) {
+        if (!pc_net_code_decode(code, &lobby)) {
+            fail("That code isn't right - check it");
+            return false;
+        }
+        pc_net_code_normalize(code, lobby_code);
+        lobby_target = true;
+        pc_net_code_show(lobby_code, target, sizeof target);
+    } else if (code && *code && !pc_identity_parse_code(code, target_suffix, name)) {
         fail("invalid connect code");
         return false;
-    }
-    if (target_suffix[0])
+    } else if (target_suffix[0])
         snprintf(target, sizeof target, "%s#%s", name, target_suffix);
     else
         target[0] = 0;
@@ -638,17 +707,42 @@ bool pc_net_match_start(enum PcNetMatchMode m, const char* code) {
         fail("that is your own code");
         return false;
     }
+    if (lobby_target && lobby.token == pc_net_code_token(identity.public_key)) {
+        fail("That is your own code");
+        return false;
+    }
     digest();
     pairing_topic(m, topic);
     /* Direct: the doorbell is the callee's suffix, the caller's target or our
      * own when hosting. A caller also waits on the pair topic, which is where
      * two players who each dialled the other both are. */
     const char* doorbell = target_suffix[0] ? target_suffix : own;
-    if (!pc_dht_start((enum pc_dht_mode)m, doorbell, 0, (uint16_t)pc_get_net_port())) {
-        fail("DHT unavailable");
+    /* Direct is Host Lobby / Join Lobby: a plain socket on a known port
+     * (the one the router maps and mDNS advertises), no DHT. */
+    const bool lobby_mode = m == PC_MATCH_DIRECT;
+    uint16_t port = (uint16_t)pc_get_net_port();
+    if (lobby_mode && port == 0)
+        port = LOBBY_PORT;
+    pc_dht_set_offline(lobby_mode);
+    if (!pc_dht_start((enum pc_dht_mode)m, doorbell, 0, port) &&
+        !(lobby_mode && pc_dht_start((enum pc_dht_mode)m, doorbell, 0, 0)))
+    {
+        fail(lobby_mode ? "Can't open a network port" : "DHT unavailable");
         return false;
     }
-    if (m == PC_MATCH_DIRECT && target_suffix[0]) {
+    if (lobby_mode) {
+        /* A joiner also broadcasts its call on this network (below), which
+         * needs the socket's broadcast permission. */
+        int on = 1;
+        setsockopt(
+            (MatchSocket)pc_dht_socket(), SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof on);
+        pc_lan_set_port(pc_dht_port());
+        pc_log_line("match: lobby socket on udp/%u, %s %s", pc_dht_port(),
+            lobby_target ? "calling" : "hosting", lobby_target ? target : "");
+        if (!lobby_target)
+            pc_portmap_start(pc_dht_port());
+    }
+    if (m == PC_MATCH_DIRECT && target_suffix[0] && !lobby_mode) {
         uint8_t pair[20];
         pair_topic(own, target_suffix, pair);
         pc_dht_add_topic(pair);
@@ -674,6 +768,12 @@ bool pc_net_match_start(enum PcNetMatchMode m, const char* code) {
 }
 void pc_net_match_poll(void) {
     uint64_t now = SDL_GetTicks();
+    if (state == PC_MATCH_SEARCH && mode == PC_MATCH_DIRECT && !lobby_target && lobby_code[0] == 0)
+    {
+        char shown[PC_NET_CODE_SHOWN_LEN + 1];
+        if (pc_net_match_lobby_code(shown, NULL))
+            pc_lan_set_code(lobby_code);
+    }
     if (state == PC_MATCH_SEARCH) {
         pc_dht_poll();
         if (state != PC_MATCH_SEARCH)
@@ -698,8 +798,8 @@ void pc_net_match_poll(void) {
         }
         /* No DHT after 45 s is this side's network, not the friend: say so
          * once rather than showing "Calling" forever (online-ux E40). */
-        if (!pc_dht_ready() && started_ms && now - started_ms > 45000 && !have_peer &&
-            failure == NULL)
+        if (mode != PC_MATCH_DIRECT && !pc_dht_ready() && started_ms && now - started_ms > 45000 &&
+            !have_peer && failure == NULL)
         {
             failure = "Can't reach the online network - check your internet";
         } else if (pc_dht_ready() && failure != NULL && !have_peer &&
@@ -726,15 +826,20 @@ void pc_net_match_poll(void) {
          * a caller rings it at its LAN address too. Two players behind one
          * router share a public address, and reaching it from inside needs
          * the router to loop traffic back, which many do not. */
-        if (!have_peer && mode == PC_MATCH_DIRECT && target_suffix[0] && now >= next_lan_ring) {
+        if (!have_peer && lobby_target && now >= next_lan_ring) {
             PcLanPeer lan[PC_LAN_MAX_PEERS];
             int found = pc_lan_peers(lan, PC_LAN_MAX_PEERS);
             next_lan_ring = now + 1000;
             for (int i = 0; i < found; i++) {
                 struct in_addr a;
-                if (!lan[i].compatible || strcmp(lan[i].code, target_suffix) != 0 ||
-                    inet_pton(AF_INET, lan[i].ip, &a) != 1)
-                {
+                if (strcmp(lan[i].code, lobby_code) != 0) {
+                    continue;
+                }
+                if (!lan[i].compatible) {
+                    failure = "Found the host, but it runs another version of Melee 4K";
+                    continue;
+                }
+                if (inet_pton(AF_INET, lan[i].ip, &a) != 1) {
                     continue;
                 }
                 struct pc_dht_endpoint ep = {.address = a.s_addr, .port = lan[i].port};
@@ -744,6 +849,38 @@ void pc_net_match_poll(void) {
                     send_packet(&hello, sizeof hello, &ep);
                 }
             }
+        }
+        /* The host's router (the address and port in the code), and a
+         * broadcast on this network: a host on the same Wi-Fi answers it
+         * even where mDNS is blocked, and a router seldom loops a call to
+         * its own public address back inside. The answer must carry the
+         * code's key token (receive). */
+        if (!have_peer && lobby_target && now >= next_wan_ring) {
+            struct pc_dht_endpoint wan = {.address = htonl(lobby.address), .port = lobby.port};
+            struct pc_dht_endpoint everyone = {.address = htonl(0xFFFFFFFFu), .port = lobby.port};
+            next_wan_ring = now + 1000;
+            for (int k = 0; k < 3; k++) {
+                if (lobby.address != 0)
+                    send_packet(&hello, sizeof hello, &wan);
+                send_packet(&hello, sizeof hello, &everyone);
+                if (lobby.port != LOBBY_PORT) {
+                    everyone.port = LOBBY_PORT; /* the host's own port, if its router moved it */
+                    send_packet(&hello, sizeof hello, &everyone);
+                    everyone.port = lobby.port;
+                }
+            }
+            if (candidates_tried++ == 0) {
+                pc_log_line("match: calling %u.%u.%u.%u:%u", lobby.address >> 24,
+                    (lobby.address >> 16) & 255, (lobby.address >> 8) & 255, lobby.address & 255,
+                    lobby.port);
+            }
+        }
+        /* Nothing back: say what to check, and keep calling. */
+        if (!have_peer && lobby_target && failure == NULL && started_ms && now - started_ms > 10000)
+        {
+            failure = lobby.address != 0 ?
+                          "No answer from the host yet. Same Melee 4K version? Host still open?" :
+                          "No answer. This code works only on the host's Wi-Fi";
         }
         if (have_peer && now >= next_send) {
             send_packet(
@@ -819,6 +956,7 @@ void pc_net_match_poll(void) {
     }
 }
 void pc_net_match_stop(void) {
+    pc_portmap_stop();
     pc_dht_stop();
     publication = 0;
     publication_reason = NULL;

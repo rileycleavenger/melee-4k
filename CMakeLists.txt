@@ -217,6 +217,7 @@ set(PC_SOURCES
         # loop; the rest are its modules behind src/pc/net_internal.h.
         src/pc/net.c
         src/pc/net_chat.c
+        src/pc/net_code.c
         src/pc/net_dht.c
         src/pc/net_dht_item.c
         src/pc/net_identity.c
@@ -232,6 +233,7 @@ set(PC_SOURCES
         extern/monocypher/monocypher-ed25519.c
         src/pc/net_handshake.c
         src/pc/net_lan.c
+        src/pc/net_portmap.c
         src/pc/net_reliable.c
         src/pc/net_sfx.c
         src/pc/net_sim.c
@@ -452,6 +454,11 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     add_test(NAME launcher_data COMMAND launcher_data_test)
     set_tests_properties(launcher_data PROPERTIES LABELS melee)
     add_dependencies(unit_tests launcher_data_test)
+    add_executable(net_code_test EXCLUDE_FROM_ALL tools/test_net_code.c src/pc/net_code.c)
+    target_include_directories(net_code_test PRIVATE src)
+    add_test(NAME net_code COMMAND net_code_test)
+    set_tests_properties(net_code PROPERTIES LABELS melee)
+    add_dependencies(unit_tests net_code_test)
 
     add_executable(version_test EXCLUDE_FROM_ALL tools/test_version.cpp src/pc/version.cpp)
     target_include_directories(version_test PRIVATE src)
