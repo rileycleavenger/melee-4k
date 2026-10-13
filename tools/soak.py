@@ -19,7 +19,8 @@ Cases:
               their boot hooks seed the pick themselves
   1p/*        Adventure, All-Star, Target Test, Home-Run, Multi-Man: boot to the
               mode's character select and pick through MELEE_KEY_FIFO (the
-              hand starts bottom left; stick time picks the portrait)
+              hand starts at the mouse pointer, so the script pushes it to a corner
+              first; stick time picks the portrait)
   menu/*      menu-only modes (main menu, trophies, tournament, ...)
 
 A case fails on a non-zero exit, a timeout, a failure line in its output
@@ -80,10 +81,10 @@ def cases(frames):
                 "expect": GS_TRAINING})
     for i, mode in enumerate(ONE_P_MODES):
         # Vary the portrait between modes: 7 columns, ~55 ms of stick each,
-        # along the top row (a stick-down nudge can leave the hand between
-        # rows, and the pick never lands).
+        # along the top row. The hand starts wherever the mouse pointer is,
+        # so first push it into the top-left corner, then down onto the row.
         right = 120 + (i * 3 % 7) * 55
-        script = ["Up 420", f"Right {right}", "X 150"] + ["Return 150"] * 4
+        script = ["Up+Left 900", "Down 110", f"Right {right}", "X 150"] + ["Return 150"] * 4
         out.append({"name": f"1p/{mode}", "env": {"MELEE_BOOT_SCENE": mode},
                     "frames": frames * 2, "fifo": script, "fifo_delay": 9.0, "expect": GS_VS})
     for mode in MENU_MODES:
