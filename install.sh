@@ -7,8 +7,9 @@
 # macOS never shows its "could not verify" dialog for them. The script
 # downloads the newest release, opens the PUT-YOUR-ROM-HERE folder, waits for
 # your Melee disc image, runs Setup (which checks the disc and installs the HD
-# textures) and adds Melee 4K to Applications. Running it again updates an
-# existing install and keeps your disc, saves, settings and textures.
+# textures) and adds Melee 4K to Applications and the Desktop. Running it
+# again updates an existing install and keeps your disc, saves, settings and
+# textures.
 set -euo pipefail
 
 REPO="rileycleavenger/melee-4k"
@@ -80,6 +81,14 @@ rm -rf "$APPS/Melee 4K.app"
 mv "$DEST/Melee4K.app" "$APPS/Melee 4K.app"
 ln -s "$APPS/Melee 4K.app" "$DEST/Melee4K.app"
 
+# A Desktop shortcut, made again on every update (a link, so Finder shows the
+# game's icon and opens the app; one the player deleted comes back only when
+# they run the installer again). Never replaces anything that is not ours.
+DESK="$HOME/Desktop/Melee 4K.app"
+if [[ -L "$DESK" || ! -e "$DESK" ]]; then
+    ln -sfn "$APPS/Melee 4K.app" "$DESK"
+fi
+
 say ""
-say "Installed. Next time, open Melee 4K from Launchpad or Spotlight (\"Melee 4K\")."
+say "Installed. Next time, open Melee 4K from the Desktop, Launchpad or Spotlight (\"Melee 4K\")."
 [[ -n "${MELEE4K_NO_LAUNCH:-}" ]] || open "$APPS/Melee 4K.app"

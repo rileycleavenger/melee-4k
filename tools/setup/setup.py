@@ -3,6 +3,7 @@
 
     Setup.command (macOS) / Setup.exe (Windows), or: python3 tools/setup/setup.py
         [--root DIR] [--manifest URL|FILE] [--no-launch] [--skip-textures]
+        [--update [--tag vX.Y.Z] [--wait-pid PID]]
 
 Steps, each safe to repeat (a second run resumes or skips what is done):
   1. find the disc image in ROOT/PUT-YOUR-ROM-HERE
@@ -11,6 +12,12 @@ Steps, each safe to repeat (a second run resumes or skips what is done):
      checked against its SHA-256) and unpack it into the game's textures folder
   4. on macOS, clear the download quarantine from the app
   5. start the game
+
+--update is what the game's Check for Updates runs (src/pc/updater.cpp): wait
+for the game to close, download the newest release (or --tag) for this
+platform, replace the game and Setup in place (the disc, saves, settings and
+textures stay), then do the steps above without checking the disc again and
+start the game.
 
 Standard library plus truststore/certifi (bundled into the frozen Setup), so
 it stays small. Every failure prints
@@ -37,6 +44,11 @@ DEFAULT_MANIFEST = os.environ.get(
     "MELEE4K_MANIFEST",
     "https://github.com/rileycleavenger/melee-4k-textures/releases/latest/download/manifest.json")
 PACK_VERSION_FILE = ".melee4k-pack"
+REPO = "rileycleavenger/melee-4k"
+RELEASE_ASSET = {"Darwin": "Melee4K-macOS-arm64.zip", "Windows": "Melee4K-Windows-x86_64.zip"}
+# Where the game looks for Setup when the player asks for an update: this
+# install's folder, written by every Setup run (src/pc/updater.cpp).
+INSTALL_ROOT_FILE = "melee4k-install-root.txt"
 
 
 def ssl_contexts():
@@ -390,11 +402,202 @@ def firewall_rule(game):
         log(f"firewall rule: {e}")
 
 
+def remember_root(root):
+    """Tell the game where this install is, for Check for Updates."""
+    try:
+        os.makedirs(user_dir(), exist_ok=True)
+        with open(os.path.join(user_dir(), INSTALL_ROOT_FILE), "w") as f:
+            f.write(root + "\n")
+    except OSError as e:
+        log(f"install root: {e}")
+
+
+def mac_desktop_link(root):
+    """macOS: the Desktop shortcut install.sh makes, made again on update."""
+    if platform.system() != "Darwin":
+        return
+    app = os.path.realpath(os.path.join(root, "Melee4K.app"))
+    desk = os.path.expanduser("~/Desktop/Melee 4K.app")
+    if os.path.isdir(app) and (os.path.islink(desk) or not os.path.exists(desk)):
+        try:
+            if os.path.islink(desk):
+                os.remove(desk)
+            os.symlink(app, desk)
+        except OSError as e:
+            log(f"desktop link: {e}")
+
+
+def wait_for_exit(pid, seconds=30):
+    """The game started us and is closing: wait until it has."""
+    end = time.time() + seconds
+    while time.time() < end:
+        if platform.system() == "Windows":
+            out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                                 capture_output=True, text=True).stdout
+            if str(pid) not in out:
+                return
+        else:
+            try:
+                os.kill(pid, 0)
+            except OSError:
+                return
+        time.sleep(0.5)
+    raise SetupError("Melee 4K did not close; close it and choose Check for Updates again.")
+
+
+def release_asset(tag):
+    """(tag, URL) of this platform's zip in the newest release, or in `tag`."""
+    name = RELEASE_ASSET.get(platform.system())
+    if name is None:
+        raise SetupError("Updating is supported on macOS and Windows only.")
+    api = (f"https://api.github.com/repos/{REPO}/releases/tags/{tag}" if tag
+           else f"https://api.github.com/repos/{REPO}/releases/latest")
+    try:
+        req = urllib.request.Request(api, headers={"User-Agent": "Melee4K-Setup",
+                                                   "Accept": "application/vnd.github+json"})
+        with urlopen(req, timeout=60) as resp:
+            release = json.load(resp)
+    except (OSError, ValueError) as e:
+        log(f"release {api}: {e}")
+        raise SetupError("Could not reach GitHub to download the update; check your internet "
+                         "connection and try again.")
+    for asset in release.get("assets", []):
+        if asset.get("name") == name:
+            return release.get("tag_name", "?"), asset["browser_download_url"]
+    raise SetupError(f"The newest release has no {name}; try again later.")
+
+
+def replace_tree(src, dst):
+    """dst becomes a copy of src (an app bundle or the game folder). The copy
+    is made next to dst first and swapped in, so a failure halfway leaves
+    the old version runnable."""
+    staged, old = dst + ".new", dst + ".old"
+    for leftover in (staged, old):
+        shutil.rmtree(leftover, ignore_errors=True)
+    if platform.system() == "Darwin":
+        subprocess.run(["ditto", src, staged], check=True)  # keeps the signature
+    else:
+        shutil.copytree(src, staged, symlinks=True)
+    if os.path.exists(dst):
+        os.replace(dst, old)
+    os.replace(staged, dst)
+    shutil.rmtree(old, ignore_errors=True)
+
+
+def replace_file(src, dst):
+    """Copy over dst, which may be the running Setup: Windows cannot write a
+    running program, but it can rename it out of the way."""
+    staged, old = dst + ".new", dst + ".old"
+    shutil.copy2(src, staged)
+    if os.path.exists(dst):
+        if os.path.exists(old):
+            try:
+                os.remove(old)
+            except OSError:
+                pass  # last update's, still running: harmless
+        if platform.system() == "Windows":
+            os.replace(dst, old)
+    os.replace(staged, dst)
+
+
+def update(root, tag):
+    """Download the release and put it over this install."""
+    version, url = release_asset(tag)
+    say(f"    Downloading Melee 4K {version}...")
+    work = os.path.join(root, "downloads", "update")
+    shutil.rmtree(work, ignore_errors=True)
+    os.makedirs(work)
+    zip_path = os.path.join(work, "release.zip")
+    for attempt in range(3):
+        try:
+            fetch(url, zip_path)
+            with zipfile.ZipFile(zip_path) as z:
+                bad = z.testzip()
+                if bad is not None:
+                    raise zipfile.BadZipFile(bad)
+                for member in z.namelist():
+                    target = os.path.realpath(os.path.join(work, member))
+                    if not target.startswith(os.path.realpath(work) + os.sep):
+                        raise SetupError("The update download is not valid; try again later.")
+            break
+        except (OSError, zipfile.BadZipFile) as e:
+            log(f"update download {url}: {e}")
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            if attempt == 2:
+                raise SetupError("The update download stopped; check your internet connection "
+                                 "and try again.")
+            time.sleep(3)
+    say("    Installing...")
+    if platform.system() == "Darwin":
+        # ditto keeps the app's signature and permissions as packaged.
+        subprocess.run(["ditto", "-x", "-k", zip_path, os.path.join(work, "new")], check=True)
+    else:
+        with zipfile.ZipFile(zip_path) as z:
+            z.extractall(os.path.join(work, "new"))
+    new = os.path.join(work, "new", "Melee4K")
+    if not os.path.isdir(new):
+        raise SetupError("The update download is not valid; try again later.")
+    if platform.system() == "Darwin":
+        # install.sh moves the app to ~/Applications and leaves a link here.
+        app = os.path.realpath(os.path.join(root, "Melee4K.app"))
+        replace_tree(os.path.join(new, "Melee4K.app"), app)
+        replace_file(os.path.join(new, ".setup", "melee4k-setup"),
+                     os.path.join(root, ".setup", "melee4k-setup"))
+        os.chmod(os.path.join(root, ".setup", "melee4k-setup"), 0o755)
+        subprocess.run(["xattr", "-dr", "com.apple.quarantine", app],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        replace_tree(os.path.join(new, "Melee4K"), os.path.join(root, "Melee4K"))
+        replace_file(os.path.join(new, "Setup.exe"), os.path.join(root, "Setup.exe"))
+    for extra in ("README.txt", "Setup.command"):
+        if os.path.exists(os.path.join(new, extra)):
+            shutil.copy2(os.path.join(new, extra), os.path.join(root, extra))
+    shutil.rmtree(work, ignore_errors=True)
+    try:
+        os.rmdir(os.path.join(root, "downloads"))  # only when nothing else is in it
+    except OSError:
+        pass
+    say(f"    Melee 4K {version} installed.")
+
+
 def launch(root, game):
     if platform.system() == "Darwin" and os.path.isdir(os.path.join(root, "Melee4K.app")):
         subprocess.Popen(["open", os.path.join(root, "Melee4K.app")])
     else:
         subprocess.Popen([game], cwd=os.path.dirname(game))
+
+
+def run_update(root, args):
+    """Check for Updates, from the game: replace the game, keep everything
+    else, and start it again. A failure leaves the old version in place
+    where it can, and says so."""
+    say("Melee 4K update")
+    say("")
+    if args.wait_pid:
+        say("[1/3] Waiting for Melee 4K to close...")
+        wait_for_exit(args.wait_pid)
+    else:
+        say("[1/3] Starting...")
+    say("[2/3] Downloading the update...")
+    update(root, args.tag)
+    say("[3/3] Finishing...")
+    game = find_game(root)
+    clear_quarantine(root)
+    desktop_shortcut(game)
+    mac_desktop_link(root)
+    firewall_rule(game)
+    remember_root(root)
+    if args.manifest:
+        try:
+            install_textures(args.manifest, root)  # a newer pack, if there is one
+        except SetupError as e:
+            say("    " + str(e))  # the game still runs on the textures it has
+    if not args.no_launch:
+        launch(root, game)
+    say("")
+    say("Done.")
+    return 0
 
 
 def main():
@@ -404,12 +607,18 @@ def main():
     ap.add_argument("--manifest", default=DEFAULT_MANIFEST, help="texture manifest URL or file")
     ap.add_argument("--no-launch", action="store_true")
     ap.add_argument("--skip-textures", action="store_true")
+    ap.add_argument("--update", action="store_true",
+                    help="download the newest release over this install, then start it")
+    ap.add_argument("--tag", help="--update: this release instead of the newest")
+    ap.add_argument("--wait-pid", type=int, help="--update: wait for this process to exit")
     args = ap.parse_args()
 
     root = os.path.abspath(args.root or app_root())
     log_file = open(os.path.join(root, "setup-log.txt"), "a")
     log(f"--- Setup {time.strftime('%Y-%m-%d %H:%M:%S')} on {platform.platform()}")
     try:
+        if args.update:
+            return run_update(root, args)
         say("Melee 4K Setup")
         say("")
         say("[1/4] Finding your disc image...")
@@ -429,7 +638,9 @@ def main():
         say("[4/4] Finishing..." if args.no_launch else "[4/4] Starting the game...")
         clear_quarantine(root)
         desktop_shortcut(game)
+        mac_desktop_link(root)
         firewall_rule(game)
+        remember_root(root)
         if not args.no_launch:
             launch(root, game)
         say("")
@@ -450,7 +661,8 @@ def main():
             "please attach it to a bug report.")
         return 1
     finally:
-        if getattr(sys, "frozen", False) and platform.system() == "Windows":
+        if getattr(sys, "frozen", False) and platform.system() == "Windows" and \
+                not args.update:
             input("\nPress Enter to close this window.")
 
 

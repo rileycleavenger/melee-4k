@@ -34,6 +34,8 @@
 <div class="setting"><div class="description"><h3>Performance display</h3></div><button id="fps">FPS counter</button></div>
 <div class="setting"><div class="description"><h3>UI scale</h3><p>Scale launcher and overlay elements.</p></div><div class="slider-control"><input type="range" id="scale" min="75" max="150" step="25" value="100" /><span id="scale-val" class="slider-value">100%</span></div></div>
 <div class="setting"><div class="description"><h3>Check for updates</h3><p id="port-update-status">Up to date</p></div><button id="port-check-update">Check now</button></div>
+<div class="setting"><div class="description"><h3>Check when the game starts</h3><p>Look for a newer Melee 4K at startup; it is only installed when you choose to.</p></div><button id="port-auto-update">Off</button></div>
+<div class="setting"><div class="description"><h3>Disc</h3><p id="port-disc-name">-</p></div><button id="port-disc">Choose another</button></div>
 </div>
 <div id="page-online" class="page">
 <div class="setting"><div class="description"><h3>Player name</h3><p>1–8 letters or digits, shown to the others in a lobby.</p></div><input type="text" id="net-name" maxlength="8" value="PLAYER" /></div>

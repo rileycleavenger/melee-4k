@@ -416,7 +416,7 @@ class Launcher final : public Rml::EventListener {
         } else if (ustate.status == pc::updater::Status::Failed) {
             text("check-status", ustate.message);
         } else {
-            text("check-status", "Melee-PC is up to date (" + pc::get_app_version() + ").");
+            text("check-status", "Melee 4K is up to date (" + pc::get_app_version() + ").");
         }
         notice();
         quiet = false;
@@ -719,21 +719,22 @@ class Launcher final : public Rml::EventListener {
             refresh_settings();
             element("check-updates")->Focus();
         } else if (id == "check-now") {
-            pc::updater::check_for_updates_async(true);
+            pc::updater::check_for_updates_async(false);
             status("Checking for updates...");
             text("check-status", "Checking for updates...");
             element("check-now")->Focus();
         } else if (id == "update-action") {
             auto ustate = pc::updater::get_state();
-            if (ustate.status == pc::updater::Status::Downloaded) {
-                std::string err;
-                if (!pc::updater::apply_update_and_restart(err)) {
-                    status(err, true);
-                }
-            } else {
-                pc::updater::start_download_async();
-                text("update-action", "Downloading...");
-                enabled("update-action", false);
+            std::string err;
+            if (ustate.status == pc::updater::Status::UpdateAvailable &&
+                pc::updater::install_update(err))
+            {
+                cancel = true; /* Setup takes it from here and reopens the game */
+                SDL_Event quit{};
+                quit.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&quit);
+            } else if (!err.empty()) {
+                status(err, true);
             }
         } else if (id == "update-browser") {
             pc::updater::open_release_in_browser();
@@ -755,7 +756,7 @@ public:
         text("app-version", pc::get_app_version());
         text("check-status", "Current version: " + pc::get_app_version());
         if (prefs.check_updates) {
-            pc::updater::check_for_updates_async(true);
+            pc::updater::check_for_updates_async(false);
         }
         controls();
         element("choose")->Focus();
@@ -1004,7 +1005,7 @@ public:
                         text("update-title", ustate.latest_release.name.empty() ?
                                                  ustate.latest_release.tag_name :
                                                  ustate.latest_release.name);
-                        std::string desc = "A newer version of Melee PC is available (" +
+                        std::string desc = "A newer version of Melee 4K is available (" +
                                            ustate.latest_release.tag_name + ").";
                         if (!ustate.target_asset_name.empty()) {
                             desc += " Ready to download: " + ustate.target_asset_name;
@@ -1258,6 +1259,20 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
             aurora_dvd_close();
             error = info.supported ? "Could not load the requested disc. Choose another image." :
                                      info.message;
+        } else if (!prefs.disc.empty() && !getenv("MELEE_LAUNCHER")) {
+            /* Straight into the game on the disc chosen before; the launcher
+             * is only the disc picker now (F1 > Audio & interface > Disc
+             * brings it back, as does a disc that has gone missing).
+             * MELEE_LAUNCHER=1 shows it anyway. */
+            auto info = launcher::inspect_disc(prefs.disc);
+            if (info.supported && aurora_dvd_open(prefs.disc.c_str())) {
+                pc_load_disc_fonts(prefs.disc.c_str());
+                if (prefs.check_updates)
+                    pc::updater::check_for_updates_async(false);
+                return 1;
+            }
+            aurora_dvd_close();
+            error = info.supported ? "Could not load your disc. Choose it again." : info.message;
         }
         auto* context = aurora::rmlui::get_context();
         if (!context) {
@@ -1298,6 +1313,8 @@ enum { SFX_BACK = 0, SFX_CONFIRM = 1, SFX_MOVE = 2 };
 namespace {
 class PortMenu final : public Rml::EventListener {
 public:
+    bool disc_reset = false;    /* "Choose another" pressed: prefs.disc cleared */
+    std::string forgotten_disc; /* ...and what it was, for Undo */
     Rml::ElementDocument* document = nullptr;
     Rml::ElementDocument* counter = nullptr;
     SDL_Window* window = nullptr;
@@ -1344,7 +1361,7 @@ public:
                 "filter-mode", "custom-textures", "stock-style", "smooth", "backend"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
-                "port-check-update"};
+                "port-check-update", "port-auto-update", "port-disc"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
         case 4:
@@ -1473,15 +1490,26 @@ public:
         slider("scale", prefs.scale * 100.0f);
         label("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
         label("menu-version", pc::get_app_version());
+        label("port-auto-update", prefs.check_updates ? "On" : "Off");
+        label("port-disc", disc_reset ? "Undo" : "Choose another");
+        label("port-disc-name", disc_reset ?
+                                    "The disc picker opens the next time you start Melee 4K." :
+                                    std::filesystem::path(prefs.disc).filename().string());
         auto ustate = pc::updater::get_state();
+        label("port-check-update",
+            ustate.status == pc::updater::Status::UpdateAvailable ? "Install update" : "Check now");
         if (ustate.status == pc::updater::Status::UpdateAvailable) {
-            label("port-update-status", "Update available: " + ustate.latest_release.tag_name);
+            label("port-update-status", ustate.latest_release.tag_name +
+                                            " is out. Install closes the game, updates it "
+                                            "and opens it again.");
         } else if (ustate.status == pc::updater::Status::Checking) {
             label("port-update-status", "Checking for updates...");
         } else if (ustate.status == pc::updater::Status::Failed) {
             label("port-update-status", "Check failed");
-        } else {
+        } else if (ustate.status == pc::updater::Status::UpToDate) {
             label("port-update-status", "Up to date (" + pc::get_app_version() + ")");
+        } else {
+            label("port-update-status", "This is " + pc::get_app_version());
         }
         refresh_bindings();
         quiet = false;
@@ -1526,6 +1554,16 @@ public:
         label("menu-status", axis ? "Move a stick or press a button. Escape cancels." :
                                     "Press a button on the controller. Escape cancels.");
         refresh_bindings();
+    }
+    // Runs once a frame: an update check that finished shows at once.
+    void poll_updater() {
+        static auto last = pc::updater::Status::Idle;
+        const auto now = pc::updater::get_state().status;
+        if (now != last) {
+            last = now;
+            if (document && document->IsVisible())
+                refresh();
+        }
     }
     // Runs once a frame while a bind prompt is up.
     void poll_binding() {
@@ -1688,11 +1726,25 @@ public:
         else if (id == "scale") {
             prefs.scale = prefs.scale >= 1.5f ? 0.75f : prefs.scale + 0.25f;
             aurora::rmlui::set_ui_scale(prefs.scale);
+        } else if (id == "port-auto-update") {
+            prefs.check_updates = !prefs.check_updates;
+        } else if (id == "port-disc") {
+            /* Forget the disc (kept here for Undo): the next start opens the
+             * launcher to pick one, which is all it is for now. */
+            std::swap(prefs.disc, forgotten_disc);
+            disc_reset = !disc_reset;
         } else if (id == "port-check-update") {
-            pc::updater::check_for_updates_async(true);
+            lbAudioAx_80024030(SFX_CONFIRM);
+            if (pc::updater::get_state().status == pc::updater::Status::UpdateAvailable) {
+                std::string error;
+                label("menu-status", "Closing to update...");
+                if (!pc::updater::install_update(error))
+                    label("menu-status", error);
+                return;
+            }
+            pc::updater::check_for_updates_async(false);
             label("port-update-status", "Checking for updates...");
             label("menu-status", "Checking for updates...");
-            lbAudioAx_80024030(SFX_CONFIRM);
             return;
         } else
             return;
@@ -1932,6 +1984,8 @@ extern "C" void pc_menu_update(void) {
             port_menu.counter->Hide();
     }
     port_menu.poll_binding();
+    port_menu.poll_updater();
+    pc::updater::test_poll();
 }
 
 extern "C" bool pc_is_custom_textures_enabled(void) {
@@ -2052,6 +2106,7 @@ enum {
     M4K_STOCKS,
     M4K_FPS,
     M4K_UNLOCK,
+    M4K_UPDATES,
     M4K_ROWS
 };
 
@@ -2094,6 +2149,27 @@ extern "C" void pc_m4k_label(int row, char* out, int size) {
     case M4K_UNLOCK:
         snprintf(out, size, "Unlock All %s", prefs.unlock_all ? "On" : "Off");
         return;
+    case M4K_UPDATES: {
+        const auto u = pc::updater::get_state();
+        switch (u.status) {
+        case pc::updater::Status::Checking:
+            snprintf(out, size, "Updates Checking...");
+            break;
+        case pc::updater::Status::UpdateAvailable:
+            snprintf(out, size, "Update to %s", u.latest_release.tag_name.c_str());
+            break;
+        case pc::updater::Status::UpToDate:
+            snprintf(out, size, "Updates Up to date");
+            break;
+        case pc::updater::Status::Failed:
+            snprintf(out, size, "Updates Can't check");
+            break;
+        default:
+            snprintf(out, size, "Check for Updates");
+            break;
+        }
+        return;
+    }
     default:
         snprintf(out, size, "%s", "");
     }
@@ -2102,15 +2178,17 @@ extern "C" void pc_m4k_label(int row, char* out, int size) {
 extern "C" const char* pc_m4k_description(int row) {
     /* <= 44 characters: what fits the menu's bottom bar */
     static const char* const descriptions[M4K_ROWS] = {
-        "Widescreen 16:9, or the original 4:3.",
-        "Wide moves the HUD out to the screen edges.",
+        "Widescreen 16:9, or the original 4:3.", "Wide moves the HUD out to the screen edges.",
         "Rendering resolution. Auto fits the window.",
-        "Frames drawn a second. Game speed stays 60.",
-        "Use the HD texture pack.",
-        "The style of the stock icons in a match.",
-        "Show the frame rate in the corner.",
-        "Every character, stage and mode, unlocked.",
+        "Frames drawn a second. Game speed stays 60.", "Use the HD texture pack.",
+        "The style of the stock icons in a match.", "Show the frame rate in the corner.",
+        "Every character, stage and mode, unlocked.", "", /* M4K_UPDATES: below */
     };
+    if (row == M4K_UPDATES) {
+        return pc::updater::get_state().status == pc::updater::Status::UpdateAvailable ?
+                   "A: install. The game closes and reopens." :
+                   "A: look for a newer Melee 4K.";
+    }
     return row >= 0 && row < M4K_ROWS ? descriptions[row] : "";
 }
 
@@ -2147,6 +2225,19 @@ extern "C" void pc_m4k_step(int row, int dir) {
     case M4K_UNLOCK:
         prefs.unlock_all = !prefs.unlock_all;
         break;
+    case M4K_UPDATES: {
+        /* A (or Right) checks; once an update is found, installs it */
+        if (d < 0)
+            return;
+        std::string error;
+        if (pc::updater::get_state().status == pc::updater::Status::UpdateAvailable) {
+            if (!pc::updater::install_update(error))
+                pc_log_line("update: %s", error.c_str());
+        } else {
+            pc::updater::check_for_updates_async(false);
+        }
+        return;
+    }
     case M4K_STOCKS: {
         std::string next = prefs.stock_style;
         if (d > 0) {

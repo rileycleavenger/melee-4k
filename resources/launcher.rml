@@ -11,7 +11,7 @@
             <span class="update-badge">UPDATE AVAILABLE</span>
             <span id="update-tag" class="update-tag">v0.1.8-beta</span>
           </div>
-          <div id="update-title" class="update-title">Melee PC Update</div>
+          <div id="update-title" class="update-title">Melee 4K Update</div>
           <p id="update-desc" class="update-desc">A newer version is available.</p>
           <div id="update-progress-row" class="update-progress-row" style="display: none;">
             <div class="progress-bar-bg">

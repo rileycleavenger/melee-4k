@@ -196,7 +196,7 @@ typedef struct Peer {
 
 static enum OnlineState s_state;
 static enum OnlineError s_error;
-static bool s_host;
+static bool s_is_host;
 static OnSocket s_sock = ON_INVALID;
 static uint32_t s_session, s_token, s_build;
 static char s_name[ONLINE_NAME_LEN];
@@ -367,6 +367,14 @@ static bool open_socket(uint16_t port, bool broadcast) {
 #ifdef _WIN32
     u_long on = 1;
     ioctlsocket(s_sock, FIONBIO, &on);
+    /* Windows reports an ICMP "port unreachable" (a player who just left) as
+     * an error on the next receive; that is not this socket's problem. */
+#ifndef SIO_UDP_CONNRESET
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+#endif
+    BOOL report = FALSE;
+    DWORD got = 0;
+    WSAIoctl(s_sock, SIO_UDP_CONNRESET, &report, sizeof report, NULL, 0, &got, NULL, NULL);
 #else
     fcntl(s_sock, F_SETFL, fcntl(s_sock, F_GETFL, 0) | O_NONBLOCK);
 #endif
@@ -422,7 +430,7 @@ static void end_game(enum OnlineError why) {
     s_end = why;
     s_error = why;
     pc_log_line("online: game ended: %s", online_error_text());
-    if (s_host) {
+    if (s_is_host) {
         EndMsg m = {0};
         hdr(&m.h, T_END);
         m.epoch = s_epoch;
@@ -477,7 +485,7 @@ static void reset_all(void) {
     s_state = ONLINE_OFF;
     s_error = ONLINE_ERR_NONE;
     s_end = ONLINE_ERR_NONE;
-    s_host = false;
+    s_is_host = false;
     s_session = 0;
     s_slot = 0;
     s_prepared = false;
@@ -497,7 +505,7 @@ bool online_host(const char* name) {
         fail(ONLINE_ERR_SOCKET);
         return false;
     }
-    s_host = true;
+    s_is_host = true;
     s_slot = 0;
     s_session = random32() | 1;
     s_token = random32() & 0x1FFFF;
@@ -522,7 +530,7 @@ bool online_join(const char* code, const char* name) {
         fail(ONLINE_ERR_SOCKET);
         return false;
     }
-    s_host = false;
+    s_is_host = false;
     s_slot = 0xFF;
     s_started_ms = now_ms();
     s_join_sent_ms = 0;
@@ -539,7 +547,7 @@ void online_leave(void) {
         hdr(&bye, T_BYE);
         for (int k = 0; k < 3; k++) {
             for (int i = 0; i < ONLINE_MAX_PLAYERS; i++) {
-                if (i != s_slot || !s_host) {
+                if (i != s_slot || !s_is_host) {
                     send_peer(i, &bye, sizeof bye);
                 }
             }
@@ -612,11 +620,11 @@ bool online_clipboard_code(char out[PC_NET_CODE_LEN + 1]) {
 }
 
 bool online_is_host(void) {
-    return s_host;
+    return s_is_host;
 }
 
 bool online_code(char out[18], int* reach) {
-    if (!s_host || s_state == ONLINE_OFF || s_state == ONLINE_FAILED) {
+    if (!s_is_host || s_state == ONLINE_OFF || s_state == ONLINE_FAILED) {
         return false;
     }
     const enum PcPortmapState st = pc_portmap_state();
@@ -641,7 +649,7 @@ bool online_code(char out[18], int* reach) {
 
 int online_players(OnlinePlayer out[ONLINE_MAX_PLAYERS]) {
     int n = 0;
-    if (s_host) {
+    if (s_is_host) {
         for (int i = 0; i < ONLINE_MAX_PLAYERS; i++) {
             if (s_peer[i].used) {
                 snprintf(out[n].name, sizeof out[n].name, "%s", s_peer[i].name);
@@ -688,7 +696,7 @@ static bool players_caught_up(void) {
 }
 
 bool online_can_start(void) {
-    if (!s_host || s_state != ONLINE_HOSTING || guest_count() == 0 || !players_caught_up()) {
+    if (!s_is_host || s_state != ONLINE_HOSTING || guest_count() == 0 || !players_caught_up()) {
         return false;
     }
     for (int i = 1; i < ONLINE_MAX_PLAYERS; i++) {
@@ -746,7 +754,7 @@ bool online_setup(OnlineSetup* out, void* blob, size_t size) {
         return false;
     }
     *out = s_setup;
-    if (!s_host && blob != NULL) {
+    if (!s_is_host && blob != NULL) {
         if (size != s_blob_size || s_blob_in == NULL) {
             return false;
         }
@@ -1139,7 +1147,7 @@ static void receive_all(void) {
         if (h->build != s_build && h->type != T_JOIN && h->type != T_REFUSE) {
             continue; /* another build: only the refusal that says so gets through */
         }
-        if (s_host) {
+        if (s_is_host) {
             host_receive(buf, n, &from);
         } else {
             guest_receive(buf, n, &from);
@@ -1348,7 +1356,7 @@ void online_poll(void) {
         flush_held();
         return;
     }
-    if (s_host) {
+    if (s_is_host) {
         host_lobby_tick();
         if (s_state == ONLINE_STARTING) {
             host_send_setup();
@@ -1390,7 +1398,7 @@ void online_lockstep_begin(void) {
 void online_lockstep_end(void) {
     if (s_state == ONLINE_PLAYING || s_state == ONLINE_READY || s_state == ONLINE_STARTING) {
         pc_log_line("online: back to the lobby");
-        s_state = s_host ? ONLINE_HOSTING : ONLINE_JOINED;
+        s_state = s_is_host ? ONLINE_HOSTING : ONLINE_JOINED;
     }
 }
 
@@ -1409,7 +1417,7 @@ void online_submit(int32_t frame, const OnlinePad* pad) {
         s_local[f & (RING - 1)] = *pad;
     }
     s_local_newest = frame;
-    if (s_host) {
+    if (s_is_host) {
         const int port = s_setup.local_port;
         for (int32_t f = s_input_have[port] + 1; f <= frame; f++) {
             s_input[port][f & (RING - 1)] = *pad;
@@ -1465,7 +1473,7 @@ void online_note_hash(int32_t frame, uint32_t hash) {
     const int k = frame & 63;
     s_ck_frame[k] = frame;
     s_ck[k] = hash;
-    if (s_host) {
+    if (s_is_host) {
         for (int i = 1; i < ONLINE_MAX_PLAYERS; i++) {
             const Peer* p = &s_peer[i];
             if (p->used && p->port >= 0 && p->ck_frame[k] == frame && p->ck[k] != hash) {
@@ -1482,7 +1490,7 @@ void online_note_hash(int32_t frame, uint32_t hash) {
 
 int online_ping_ms(void) {
     int worst = 0;
-    if (s_host) {
+    if (s_is_host) {
         for (int i = 1; i < ONLINE_MAX_PLAYERS; i++) {
             if (s_peer[i].used && s_peer[i].ping_ms > worst) {
                 worst = s_peer[i].ping_ms;

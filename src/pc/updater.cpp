@@ -30,6 +30,9 @@
 #include <unistd.h>
 #endif
 
+extern "C" char* pc_user_dir(void); /* SDL_malloc'd */
+extern "C" bool pc_exit_requested;
+
 namespace pc::updater {
 namespace {
 
@@ -361,7 +364,9 @@ std::string select_best_asset(const std::vector<Asset>& assets, std::string& out
         const std::string linux_arch = architecture == "arm64" ? "aarch64" : arch;
         names = {"Melee-" + linux_arch + ".AppImage", "melee-linux-" + linux_arch + ".tar.gz"};
     } else if (platform == "Windows" || platform == "macOS") {
-        names = {"Melee-" + std::string(platform) + "-" + arch + ".zip"};
+        /* Melee 4K's release zips (tools/package_release_macos.sh,
+         * .github/workflows/release-windows.yml) */
+        names = {"Melee4K-" + std::string(platform) + "-" + arch + ".zip"};
     } else if (platform == "Android") {
         names = {"Melee-Android-" + arch + ".apk"};
     } else if (platform == "iOS") {
@@ -649,10 +654,10 @@ void check_for_updates_async(bool include_prereleases) {
 
 #if defined(_WIN32)
         ok = http_get_string_winhttp(
-            L"api.github.com", L"/repos/999sian/melee-pc/releases", body, error);
+            L"api.github.com", L"/repos/rileycleavenger/melee-4k/releases", body, error);
 #elif defined(MELEE_USE_CURL)
         ok = http_get_string_curl(
-            "https://api.github.com/repos/999sian/melee-pc/releases", body, error);
+            "https://api.github.com/repos/rileycleavenger/melee-4k/releases", body, error);
 #else
         error = "Networking unsupported on this platform";
 #endif
@@ -673,7 +678,7 @@ void check_for_updates_async(bool include_prereleases) {
         auto releases = parse_github_releases(body);
         if (releases.empty()) {
             g_updater_state.status = Status::UpToDate;
-            g_updater_state.message = "Melee-PC is up to date.";
+            g_updater_state.message = "Melee 4K is up to date.";
             return;
         }
 
@@ -695,11 +700,13 @@ void check_for_updates_async(bool include_prereleases) {
 
         if (!best_release) {
             g_updater_state.status = Status::UpToDate;
-            g_updater_state.message = "Melee-PC is up to date.";
+            g_updater_state.message = "Melee 4K is up to date.";
             return;
         }
 
-        std::string current_ver = get_app_version();
+        /* MELEE_UPDATE_TEST=<version>: be that version (test_poll) */
+        const char* pretend = std::getenv("MELEE_UPDATE_TEST");
+        std::string current_ver = pretend && *pretend ? pretend : get_app_version();
         g_updater_state.latest_release = *best_release;
         g_updater_state.target_asset_name = select_best_asset(best_release->assets,
             g_updater_state.target_asset_url, g_updater_state.download_total_bytes);
@@ -708,7 +715,7 @@ void check_for_updates_async(bool include_prereleases) {
             g_updater_state.message = "Update available: " + best_release->tag_name;
         } else {
             g_updater_state.status = Status::UpToDate;
-            g_updater_state.message = "Melee-PC is up to date (" + current_ver + ").";
+            g_updater_state.message = "Melee 4K is up to date (" + current_ver + ").";
         }
     });
 }
@@ -818,7 +825,7 @@ void open_release_in_browser() {
         url = g_updater_state.latest_release.html_url;
     }
     if (url.empty()) {
-        url = "https://github.com/999sian/melee-pc/releases";
+        url = "https://github.com/rileycleavenger/melee-4k/releases";
     }
     SDL_OpenURL(url.c_str());
 }
@@ -839,6 +846,126 @@ void open_downloaded_location() {
     std::string cmd = "xdg-open \"" + parent + "\" &";
     system(cmd.c_str());
 #endif
+}
+
+/* Check for Updates' install: Setup (tools/setup/setup.py --update) waits
+ * for the game to close, puts the release over this install, keeping the
+ * disc, saves, settings and textures, and starts the game again. Setup's
+ * folder is the one its last run wrote down (melee4k-install-root.txt in the
+ * settings folder); failing that, where the release zips put it. */
+static std::filesystem::path find_setup(std::filesystem::path& root) {
+    std::error_code ec;
+#if defined(_WIN32)
+    const char* setup_name = "Setup.exe";
+#else
+    const char* setup_name = ".setup/melee4k-setup";
+#endif
+    std::vector<std::filesystem::path> roots;
+    if (char* user = pc_user_dir()) {
+        std::ifstream f(std::filesystem::u8path(user) / "melee4k-install-root.txt");
+        SDL_free(user);
+        std::string line;
+        if (std::getline(f, line)) {
+            while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+                line.pop_back();
+            if (!line.empty())
+                roots.push_back(std::filesystem::u8path(line));
+        }
+    }
+    if (const char* base = SDL_GetBasePath()) {
+        auto exe_dir = std::filesystem::u8path(base);
+#if defined(_WIN32)
+        roots.push_back(exe_dir.parent_path().parent_path()); /* Melee4K\Melee4K\melee.exe */
+        roots.push_back(exe_dir.parent_path());
+#endif
+    }
+    if (const char* home = std::getenv("HOME"))
+        roots.push_back(std::filesystem::u8path(home) / "Melee4K");
+    for (const auto& r : roots) {
+        auto setup = r / setup_name;
+        if (std::filesystem::is_regular_file(setup, ec)) {
+            root = r;
+            return setup;
+        }
+    }
+    return {};
+}
+
+bool install_update(std::string& error) {
+    std::string tag;
+    {
+        std::lock_guard lock(g_updater_mutex);
+        if (g_updater_state.status != Status::UpdateAvailable) {
+            error = "No update to install";
+            return false;
+        }
+        tag = g_updater_state.latest_release.tag_name;
+    }
+    std::filesystem::path root;
+    const auto setup = find_setup(root);
+    if (setup.empty()) {
+        error = "Setup not found: download the new release";
+        open_release_in_browser();
+        return false;
+    }
+#if defined(_WIN32)
+    std::wstring cmd = L"\"" + setup.wstring() + L"\" --root \"" + root.wstring() +
+                       L"\" --update --tag \"" + std::filesystem::u8path(tag).wstring() +
+                       L"\" --wait-pid " + std::to_wstring(GetCurrentProcessId());
+    STARTUPINFOW si{};
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi{};
+    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NEW_CONSOLE, nullptr,
+            root.wstring().c_str(), &si, &pi))
+    {
+        error = "Could not start Setup";
+        return false;
+    }
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
+    const std::string setup_s = setup.string(), root_s = root.string(),
+                      pid = std::to_string(getpid());
+    const pid_t child = fork();
+    if (child < 0) {
+        error = "Could not start Setup";
+        return false;
+    }
+    if (child == 0) {
+        setsid(); /* outlives the game */
+        execl(setup_s.c_str(), setup_s.c_str(), "--root", root_s.c_str(), "--update", "--tag",
+            tag.c_str(), "--wait-pid", pid.c_str(), (char*)nullptr);
+        _exit(127);
+    }
+#else
+    error = "Updating is not supported here";
+    return false;
+#endif
+    pc_exit_requested = true; /* the frame boundary closes the game (vi.c) */
+    return true;
+}
+
+void test_poll() {
+    static int stage = -1;
+    if (stage < 0) {
+        const char* e = std::getenv("MELEE_UPDATE_TEST");
+        stage = e && *e ? 0 : 2;
+    }
+    if (stage == 0) {
+        check_for_updates_async(false);
+        stage = 1;
+    } else if (stage == 1) {
+        const auto st = get_state().status;
+        if (st == Status::UpdateAvailable) {
+            std::string error;
+            if (!install_update(error))
+                SDL_Log("update test: %s", error.c_str());
+            stage = 2;
+        } else if (st != Status::Checking) {
+            SDL_Log("update test: no update (%s)", get_state().message.c_str());
+            stage = 2;
+        }
+    }
 }
 
 bool apply_update_and_restart(std::string& error) {

@@ -46,5 +46,11 @@ UpdateState get_state();
 void open_release_in_browser();
 void open_downloaded_location();
 bool apply_update_and_restart(std::string& error);
+/* Start Setup --update for the release found, and close the game; Setup
+ * reopens it. False (with why) when Setup cannot be started. */
+bool install_update(std::string& error);
+/* MELEE_UPDATE_TEST=<version>: act as that version, check at once and install
+ * whatever is newer (once a frame, from pc_menu_update). */
+void test_poll();
 
 }  // namespace pc::updater
