@@ -34,6 +34,11 @@ AuroraCardType aurora_card_get_type(s32 channel);
  */
 size_t aurora_card_get_path(const char* gameName, AuroraCardType type, s32 channel, char* buffer, size_t capacity);
 
+/** While set, every card change (create, write, delete, rename, set status) succeeds without
+ * touching the card. Reads are unaffected. */
+void aurora_card_set_read_only(bool read_only);
+bool aurora_card_is_read_only(void);
+
 /** Closes and reopens a mounted channel so external filesystem changes are discovered. */
 bool aurora_card_remount(s32 channel);
 

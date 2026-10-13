@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Milestone M0 (docs/netcode-plan.md section 5 and 12): one recorded run must
+"""Milestone M0 (docs/determinism.md): one recorded run must
 replay bit-identical on every platform we ship.
 
     tools/net_determinism.py [--frames 2400] [--seed 7] [--exe build/melee]

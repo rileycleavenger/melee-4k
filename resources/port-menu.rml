@@ -36,11 +36,10 @@
 <div class="setting"><div class="description"><h3>Check for updates</h3><p id="port-update-status">Up to date</p></div><button id="port-check-update">Check now</button></div>
 </div>
 <div id="page-online" class="page">
-<div class="setting"><div class="description"><h3>Player name</h3><p>1–8 letters or digits. Changes apply to the next search.</p></div><input type="text" id="net-name" maxlength="8" value="PLAYER" /></div>
-<div class="setting"><div class="description"><h3>Your connect code</h3><p id="net-code"></p></div></div>
-<div class="setting"><div class="description"><h3>Friend's connect code</h3><p>Leave blank to host your code. Open Online → Direct Connect in-game.</p></div><input type="text" id="net-target" maxlength="17" value="" /></div>
-<div class="setting"><div class="description"><h3>Input delay</h3><p>Automatic adapts to your connection. Changes apply next match.</p></div><button id="net-delay">Auto</button></div>
-<div class="setting"><div class="description"><p>Internet discovery can take a few minutes. Some home networks cannot connect without a relay.</p></div></div>
+<div class="setting"><div class="description"><h3>Player name</h3><p>1–8 letters or digits, shown to the others in a lobby.</p></div><input type="text" id="net-name" maxlength="8" value="PLAYER" /></div>
+<div class="setting"><div class="description"><h3>Lobby code</h3><p>The last code you joined, filled in for you under Online → Join Lobby.</p></div><input type="text" id="net-target" maxlength="17" value="" /></div>
+<div class="setting"><div class="description"><h3>Input delay</h3><p>When you host. Auto picks it from the slowest player's ping.</p></div><button id="net-delay">Auto</button></div>
+<div class="setting"><div class="description"><p>Online → Host Lobby gives you a code for your friends. If your router does not open the port by itself, forward UDP 41000 to this computer.</p></div></div>
 </div>
 <div id="page-controls" class="page">
 <div class="setting"><div class="description"><h3>Controller</h3><p id="pad-name">No controller connected.</p></div><button id="pad-port">Port 1</button></div>

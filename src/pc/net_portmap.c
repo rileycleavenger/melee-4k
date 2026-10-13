@@ -598,6 +598,11 @@ void pc_portmap_start(uint16_t internal_port) {
     s_internal = internal_port;
     s_control[0] = '\0';
     s_mapped_by = 0;
+    /* MELEE_PORTMAP_OFF=1: leave the router alone (tests on one machine). */
+    if (getenv("MELEE_PORTMAP_OFF") != NULL) {
+        set_result(PC_PORTMAP_NONE, 0, 0, "");
+        return;
+    }
     set_result(PC_PORTMAP_WORKING, 0, 0, "");
     SDL_SetAtomicInt(&s_stop, 0);
     s_thread = SDL_CreateThread(portmap_thread, "portmap", NULL);

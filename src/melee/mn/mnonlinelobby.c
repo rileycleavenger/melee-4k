@@ -1,7 +1,6 @@
-/* PC only: the online lobby view (docs/netcode-plan.md §8, Double Dash LAN
- * counter screen). gmonlinemode.c owns the flow and the network and hands us
- * an OnlineLobbyView every frame; this file only draws it: the main-menu
- * backdrop (MnMaAll, via the exported mnmain.c helpers), a translucent panel
+/* PC only: the online lobby view (docs/online.md). gmonlinemode.c owns the
+ * flow and the network and hands us an OnlineLobbyView every frame; this file
+ * only draws it: the main-menu backdrop (MnMaAll, via the exported mnmain.c helpers), a translucent panel
  * and SIS text on the same ortho canvas the title screen's build stamp uses. */
 
 #include <melee/gm/gmonlinemode.h>

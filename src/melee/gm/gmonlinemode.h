@@ -4,26 +4,21 @@
 #include <melee/gm/types.h>
 
 /* PC only: GM_ONLINE. Lobby (GS_ONLINE_LOBBY) -> CSS -> SSS -> VS -> results
- * -> CSS, every scene after the lobby driven by synced inputs
- * (docs/netcode-plan.md §8, §10). */
+ * -> CSS, every scene after the lobby in lockstep (docs/online.md). */
 
 extern GameModeState gm_Mode_Online_States[];
 
 /* Which online flavour the menu picked before entering GM_ONLINE. */
 typedef enum OnlineKind {
-    ONLINE_KIND_LAN = 0,
+    ONLINE_KIND_LAN = 0, /* unused: kept for the menu's cursor memory */
     ONLINE_KIND_DIRECT = 1,
-    ONLINE_KIND_UNRANKED = 2,
-    ONLINE_KIND_RANKED = 3,
-    ONLINE_KIND_PROFILE = 4,
 } OnlineKind;
 
 void gmOnline_SetKind(OnlineKind kind);
 
-/* VS Mode > Online's two entries, both ONLINE_KIND_DIRECT: Host waits on
- * this player's connect code, Join asks for a friend's. */
+/* VS Mode > Online's two entries, both ONLINE_KIND_DIRECT: Host Lobby opens
+ * a lobby and shows its code, Join Lobby asks for the host's. */
 typedef enum OnlineDirectRole {
-    ONLINE_DIRECT_HUB = 0, /* the older hub (contacts, clipboard, wait) */
     ONLINE_DIRECT_HOST = 1,
     ONLINE_DIRECT_JOIN = 2,
 } OnlineDirectRole;
@@ -47,7 +42,7 @@ typedef struct OnlineLobbyPlayer {
     int ping_ms;   /* -1 = unknown */
     bool is_host;
     bool is_local;
-    bool incompatible; /* other protocol/build; listed, never counted */
+    bool incompatible; /* unused */
 } OnlineLobbyPlayer;
 
 typedef enum OnlineLobbyPhase {

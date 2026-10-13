@@ -328,7 +328,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
         } else if (key == "net_delay" || key == "net_port") {
             int value;
             if (row >> value && value >= (key == "net_delay" ? -1 : 0) &&
-                value <= (key == "net_delay" ? 4 : 65535))
+                value <= (key == "net_delay" ? 8 : 65535))
                 (key == "net_delay" ? prefs.net_delay : prefs.net_port) = value;
         } else if (key == "disc") {
             std::string value;

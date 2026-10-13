@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <time.h>
 #include <melee/lb/forward.h>
 
 #include "forward.h"
@@ -12,6 +11,7 @@
 #include "gm_1A36.h"
 #include "gm_1A3F.h"
 #include "gm_unsplit.h"
+#include "gmmain_lib.h"
 #include "gmresult.h"
 #include "gmscene.h"
 #include "gmvsmelee.h"
@@ -24,28 +24,28 @@
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/random.h>
 #ifdef TARGET_PC
+#include <aurora/card.h>
 #include "pc/net.h"
 #include "pc/net_code.h"
-#include "pc/net_lan.h"
 #include "pc/net_portmap.h"
-#include "pc/net_identity.h"
-#include "pc/net_match.h"
-#include "pc/net_rank_session.h"
+#include "pc/online.h"
+#include "pc/pc.h"
+extern const char* pc_get_net_name(void);
 extern const char* pc_get_net_target(void);
 extern void pc_set_net_target(const char* code);
-#include "pc/pc.h"
 #endif
 
 /* GM_ONLINE: lobby -> CSS -> SSS -> VS -> (sudden death) -> results -> CSS,
- * the vanilla VS flow (gmvsmode.c) on a private VsModeData that both peers
- * reset identically on entering the lobby. The lobby is the Double Dash LAN
- * counter screen (docs/netcode-plan.md §8): pc_lan_* announces us, counts
- * peers, and the first Start elects the host; once pc_lan_state() reports
- * the match (2) both peers leave for the CSS on the same synced frame. From
- * there every scene runs on synced inputs: the local player is P1 when
- * hosting and P2 as guest, ports 3/4 report no controller, and the RULES
- * handshake (net.c) has made GameRules/GamePrefs/unlock/frozen-stadium
- * identical on both sides. B on the CSS goes back to the lobby. */
+ * the vanilla VS flow (gmvsmode.c) on a private VsModeData.
+ *
+ * The lobby (Host Lobby / Join Lobby) runs offline: pc/online.c gathers up
+ * to four players around the host. When the host presses Start, every
+ * machine gets the host's game data (rules, teams, unlocks, names: struct
+ * gmm_x0), the seed and its port, and enters the CSS; from the CSS's first
+ * frame every scene runs in lockstep on the host's bundle of everyone's
+ * inputs (pc/net.c), so every machine plays the same game. B on the CSS, or
+ * a game that ends early (a player left, out of sync), brings everyone back
+ * to the lobby, where each machine gets its own game data back. */
 
 enum {
     state_lobby = 0,
@@ -56,8 +56,6 @@ enum {
     state_results = 5, /* last: gmVsMelee_ExitResults skips challengers */
 };
 
-static bool awaiting_rank_result;
-static unsigned lobby_frame_n;
 static void onEnterLobby(GameModeState*);
 static void onEnterCss(GameModeState*);
 static void onExitCss(GameModeState*);
@@ -159,66 +157,104 @@ OnlineKind gmOnline_GetKind(void)
     return online_kind;
 }
 
+/* ---- the session's game data ------------------------------------------- */
+#ifdef TARGET_PC
+/* Set in the lobby when the setup is in: the next CSS is the game's first
+ * frame. */
+static bool session_pending;
+static OnlineSetup session_setup;
+/* This machine's own game data, put back when the session ends. */
+static struct gmm_x0 own_data;
+static bool own_data_saved;
+
+/* The function pointers in each VS mode's rules are addresses in the host's
+ * process: keep ours. They are the only pointers in the data (on 64-bit
+ * builds struct gmm_x0 is larger by exactly these). */
+static void keepOwnPointers(void)
+{
+    const size_t from = offsetof(StartMeleeRules, on_unpause_override);
+    for (int i = 0; i < GmVsMode_Count; i++) {
+        memcpy((u8*) &gmMainLib_804D3EE0->modes.table[i].start.rules + from,
+               (const u8*) &own_data.modes.table[i].start.rules + from,
+               sizeof(StartMeleeRules) - from);
+    }
+}
+
+/* The game data every machine starts from, without the pointers
+ * (keepOwnPointers): equal on every machine, or the log says why not. */
+static u32 sessionDataHash(void)
+{
+    static struct gmm_x0 tmp;
+    const size_t from = offsetof(StartMeleeRules, on_unpause_override);
+    u32 h = 2166136261u;
+    memcpy(&tmp, gmMainLib_804D3EE0, sizeof tmp);
+    for (int i = 0; i < GmVsMode_Count; i++) {
+        memset((u8*) &tmp.modes.table[i].start.rules + from, 0, sizeof(StartMeleeRules) - from);
+    }
+    for (size_t i = 0; i < sizeof tmp; i++) {
+        h = (h ^ ((const u8*) &tmp)[i]) * 16777619u;
+    }
+    return h;
+}
+
+/* ONLINE_READY: load what every machine starts from. False when the
+ * host's data did not arrive whole. */
+static bool sessionLoad(void)
+{
+    memcpy(&own_data, gmMainLib_804D3EE0, sizeof own_data);
+    own_data_saved = true;
+    if (!online_setup(&session_setup, gmMainLib_804D3EE0, sizeof(struct gmm_x0))) {
+        memcpy(gmMainLib_804D3EE0, &own_data, sizeof own_data);
+        own_data_saved = false;
+        return false;
+    }
+    keepOwnPointers();
+    /* The host's data must not be saved over this machine's, and the host's
+     * own card must not be written mid-game either: a save's completion
+     * would land on a different frame than everyone else's no-op. */
+    aurora_card_set_read_only(true);
+    pc_log_line("online: game data loaded (%s, hash %08x), %d players, we are P%d",
+                online_is_host() ? "ours" : "the host's", sessionDataHash(),
+                session_setup.players, session_setup.local_port + 1);
+    return true;
+}
+
+static void sessionUnload(void)
+{
+    if (own_data_saved) {
+        memcpy(gmMainLib_804D3EE0, &own_data, sizeof own_data);
+        own_data_saved = false;
+    }
+    aurora_card_set_read_only(false);
+}
+#endif
+
 void onEnterLobby(UNUSED GameModeState* state)
 {
 #ifdef TARGET_PC
-    /* Terminal sets leave Results deterministically. Keep transport alive
-     * here while both peers finish signing and durable saving. */
-    awaiting_rank_result = online_kind == ONLINE_KIND_RANKED &&
-        (pc_rank_session_set_complete() ||
-         pc_rank_session_state(NULL) == PC_RANK_SESSION_FAILED);
-    if (!awaiting_rank_result) {
-        pc_net_match_stop();
-        pc_net_disconnect();
+    if (pc_net_active()) {
+        pc_net_session_end();
     }
-    pc_lan_stop();
+    session_pending = false;
+    sessionUnload();
 #endif
-    /* Same CSS start state on both peers: two human doors, nothing picked. */
     gm_InitVsMode(&online_vs);
-    online_vs.start.players[0].slot_type = Gm_PKind_Human;
-    online_vs.start.players[1].slot_type = Gm_PKind_Human;
-    for (int i = 2; i < GM_MAX_PLAYERS; ++i)
-        online_vs.start.players[i].slot_type = Gm_PKind_NA;
 }
-
-#ifdef TARGET_PC
-static bool rankedMode(void) { return online_kind == ONLINE_KIND_RANKED; }
-
-static void rankedRules(StartMeleeData* start, UNUSED StartMeleeData* previous)
-{
-    if (!rankedMode() || !pc_rank_session_active()) return;
-    start->rules.match_kind = MatchKind_Stock;
-    start->rules.is_stock = true;
-    start->rules.is_teams = false;
-    start->rules.timer_enabled = true;
-    start->rules.timer_counts_up = false;
-    start->rules.time_limit = pc_rank_session_seconds();
-    start->rules.disable_pausing = true;
-    start->rules.item_freq = -1;
-    start->rules.x20 = 0;
-    start->rules.x30 = 1.0f;
-    start->rules.game_speed = 1.0f;
-    start->rules.stkind = pc_rank_session_stage();
-}
-
-static void rankedPlayer(PlayerInitData* start, PlayerInitData* previous)
-{
-    if (!rankedMode() || !pc_rank_session_active()) return;
-    start->stocks = pc_rank_session_stocks();
-    start->handicap = 5;
-    start->attack_ratio = start->defense_ratio = start->model_scale = 1.0f;
-    start->damage = start->damage1 = 0;
-    start->vs_metal = start->vs_invisible = false;
-    if (previous == &online_vs.start.players[0] || previous == &online_vs.start.players[1])
-        start->slot_type = Gm_PKind_Human;
-    else
-        start->slot_type = Gm_PKind_NA;
-}
-#endif
 
 void onEnterCss(GameModeState* state)
 {
 #ifdef TARGET_PC
+    if (session_pending) {
+        /* Same CSS start everywhere: one human door per player, nothing
+         * picked, on the host's rules. */
+        session_pending = false;
+        gm_InitVsMode(&online_vs);
+        for (int i = 0; i < GM_MAX_PLAYERS; ++i) {
+            online_vs.start.players[i].slot_type =
+                i < session_setup.players ? Gm_PKind_Human : Gm_PKind_NA;
+        }
+        pc_net_session_begin(&session_setup);
+    }
     pc_log_line("online: enter CSS at frame %d", pc_net_frame());
 #endif
     gmVsMelee_EnterCss(state, &online_vs, VS_MELEE);
@@ -237,12 +273,6 @@ void onExitCss(GameModeState* state)
         gm_SetNextGameModeStateId(state_lobby);
         return;
     }
-#ifdef TARGET_PC
-    if (rankedMode() && !pc_rank_session_active()) {
-        gm_SetNextGameModeStateId(state_lobby);
-        return;
-    }
-#endif
     gmVsMelee_ExitCss(state, &online_vs);
 }
 
@@ -252,14 +282,6 @@ void onEnterSss(GameModeState* state)
     pc_log_line("online: enter SSS at frame %d", pc_net_frame());
 #endif
     gmVsMelee_EnterSss(state, &online_vs);
-#ifdef TARGET_PC
-    if (rankedMode() && pc_rank_session_active()) {
-        SSSData* sss = gm_GetGameModeStateEnterData(state);
-        pc_rank_session_stage_begin();
-        sss->force_stage_id = pc_rank_session_stage() ? (int) pc_rank_session_stage() : -1;
-        sss->no_lras = true;
-    }
-#endif
 }
 
 void onExitSss(GameModeState* state)
@@ -271,12 +293,6 @@ void onExitSss(GameModeState* state)
     }
 #endif
     gmVsMelee_ExitSss(state, &online_vs, state_css);
-#ifdef TARGET_PC
-    if (rankedMode() && !((SSSData*) gm_GetGameModeStateExitData(state))->start_game) {
-        pc_rank_session_abort("ranked stage selection cancelled");
-        gm_SetNextGameModeStateId(state_lobby);
-    }
-#endif
 }
 
 void onEnterVs(GameModeState* state)
@@ -284,20 +300,13 @@ void onEnterVs(GameModeState* state)
 #ifdef TARGET_PC
     pc_log_line("online: enter VS at frame %d", pc_net_frame());
 #endif
-#ifdef TARGET_PC
-    gmVsMelee_EnterVs(state, &online_vs, rankedRules, rankedPlayer);
-#else
     gmVsMelee_EnterVs(state, &online_vs, NULL, NULL);
-#endif
 }
 
 void onExitVs(GameModeState* state)
 {
 #ifdef TARGET_PC
     if (pc_net_peer_status() != PC_NET_PEER_OK) {
-        if (rankedMode()) {
-            pc_rank_session_abort("peer disconnected");
-        }
         gm_SetNextGameModeStateId(state_lobby);
         return;
     }
@@ -307,25 +316,6 @@ void onExitVs(GameModeState* state)
 
     gmVsMelee_ExitVs(state, state_results, state_sudden_death);
     mei = gm_GetGameModeStateExitData(state);
-#ifdef TARGET_PC
-    if (rankedMode()) {
-        MatchEnd* end = &mei->match_end;
-        if (gm_WasMatchCanceled(end->outcome) || end->is_teams ||
-            end->player_standings[0].pkind != Gm_PKind_Human ||
-            end->player_standings[1].pkind != Gm_PKind_Human) {
-            pc_rank_session_abort("ranked game cancelled or invalid");
-        } else {
-            unsigned winner = end->n_winners == 1 ? end->winners[0] : PC_RANK_TIE;
-            int a = end->player_standings[0].stocks;
-            int b = end->player_standings[1].stocks;
-            pc_rank_session_game(winner, a < 0 ? 0 : a, b < 0 ? 0 : b,
-                                 gmVsMelee_StartData.rules.stkind, end->frame_count);
-        }
-        /* Ties return through CSS to a fresh one-stock, three-minute game;
-         * vanilla sudden death would begin at 300 percent. */
-        gm_SetNextGameModeStateId(state_results);
-    }
-#endif
     for (i = 0; i < GM_MAX_PLAYERS; i++) {
         if (mei->match_end.player_standings[i].pkind != Gm_PKind_NA) {
             gm_80162A98(mei->match_end.player_standings[i].x20);
@@ -369,17 +359,6 @@ void onExitResults(GameModeState* state)
     }
 #endif
     gmVsMelee_ExitResults(state, &online_vs, state_css);
-#ifdef TARGET_PC
-    if (rankedMode()) {
-        /* The results exit is driven by synchronized pads. Reliable-message
-         * arrival and disk speed must never choose different next scenes.
-         * Both peers leave a terminal set for the lobby; that scene keeps
-         * the connection alive until signing/saving finishes. */
-        if (pc_rank_session_set_complete() ||
-            gm_WasMatchCanceled(gmVsMelee_ResultsEnterData.match_end.outcome))
-            gm_SetNextGameModeStateId(state_lobby);
-    }
-#endif
     if (!gm_WasMatchCanceled(gmVsMelee_ResultsEnterData.match_end.outcome)) {
         gm_801623A4(&gmVsMelee_ResultsEnterData.match_end);
     }
@@ -387,735 +366,408 @@ void onExitResults(GameModeState* state)
 
 /* ---- lobby scene ------------------------------------------------------- */
 #ifdef TARGET_PC
-static char profile_message[ONLINE_LOBBY_MSG_LEN];
-static void profileRefresh(void) {
-    const char* code = pc_net_match_local_code();
-    if (!code || !*code) {
-        snprintf(profile_message, sizeof profile_message, "Identity unavailable. Check your profile files.");
-        return;
-    }
-    PcNetRankStoreResult result;
-    PcNetRankStore* store = pc_rank_store_open(pc_net_match_profile_directory(),
-        pc_net_match_identity()->public_key, &result);
-    PcNetRating rating;
-    unsigned count = 0;
-    if (store && pc_rank_store_current(store, &rating, NULL, &count)) {
-        double score = pc_rank_display(&rating);
-        const char* tier = count < 5 ? "Placement" : score < 1050 ? "Bronze" :
-            score < 1200 ? "Silver" : score < 1350 ? "Gold" : score < 1500 ? "Platinum" :
-            score < 1650 ? "Diamond" : "Master";
-        snprintf(profile_message, sizeof profile_message, "%s %.0f - %u sets. Community rating, unverified. B: back", tier, score, count);
-    } else snprintf(profile_message, sizeof profile_message, "Rating history unavailable or damaged. B: back");
-    pc_rank_store_close(store);
-}
-static bool internetLobby(void) {
-    return online_kind != ONLINE_KIND_LAN && online_kind != ONLINE_KIND_PROFILE &&
-           !(online_kind == ONLINE_KIND_DIRECT && getenv("MELEE_LAN_DIRECT"));
-}
-
-/* Direct Connect. From the online-UX research (2026-09): the code is
- * your identity but you should rarely have to type it. So the first screen
- * is a hub -- a code found on the clipboard, everyone you have played,
- * "enter a code", "wait for a friend" -- and typing, when it is needed, is
- * eight characters on a keyboard grid rather than seventeen slots on a
- * wheel. Only the part after the '#' is typed: it is derived from the
- * friend's key and is all that identifies them (net_match.c pairing_topic),
- * so the name can be wrong or missing and the call still connects. Both
- * players may dial each other; they meet on a topic both compute.
- *
- * States: HUB -> KEYS -> (call) ; HUB -> (call or wait). The call itself is
- * the internet lobby below, with a progress line and a clock. */
-#define DIRECT_SUFFIX PC_NET_CODE_LEN /* Join Lobby: a lobby code (pc/net_code.h) */
-enum { DIRECT_OFF, DIRECT_HUB, DIRECT_KEYS };
-enum { ROW_PASTE, ROW_CONTACT, ROW_TYPE, ROW_WAIT };
-static const char direct_keys[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-static int direct_screen;
-static int direct_cursor;       /* hub row */
-static int direct_key;          /* keyboard cell */
-static char direct_suffix[DIRECT_SUFFIX + 1];
-static char direct_error[ONLINE_LOBBY_MSG_LEN];
-static char direct_clip[18];    /* a code seen on the clipboard, or "" */
-static PcNetContact direct_contacts[ONLINE_LOBBY_MENU_ROWS];
-static int direct_contact_n;
-static int direct_row_kind[ONLINE_LOBBY_MENU_ROWS];
-static int direct_row_arg[ONLINE_LOBBY_MENU_ROWS];
-static int direct_rows;
-static char direct_calling[18]; /* who the current call is to, "" hosting */
-static OnlineDirectRole direct_role;
-static bool direct_copied;
-
-static void directHubBuild(void)
-{
-    direct_rows = 0;
-    if (pc_net_match_clipboard_code(direct_clip)) {
-        direct_row_kind[direct_rows++] = ROW_PASTE;
-    } else {
-        direct_clip[0] = '\0';
-    }
-    direct_contact_n = pc_net_match_contacts(direct_contacts, ONLINE_LOBBY_MENU_ROWS - 3);
-    for (int i = 0; i < direct_contact_n; i++) {
-        direct_row_kind[direct_rows] = ROW_CONTACT;
-        direct_row_arg[direct_rows++] = i;
-    }
-    direct_row_kind[direct_rows++] = ROW_TYPE;
-    direct_row_kind[direct_rows++] = ROW_WAIT;
-    if (direct_cursor >= direct_rows) {
-        direct_cursor = 0;
-    }
-}
+static OnlineDirectRole lobby_role;
 
 void gmOnline_SetDirectRole(OnlineDirectRole role)
 {
-    direct_role = role;
+    lobby_role = role;
 }
 
-static void directKeysBegin(void)
+/* Join Lobby's code entry: the host's fifteen characters, A-Z and 2-7, on a
+ * grid (it wraps, so any key is at most six moves away), typed on a
+ * keyboard or pasted. */
+static const char code_keys[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+static bool code_entry;           /* the keyboard owns the screen */
+static int code_key;              /* keyboard cell */
+static char code_typed[PC_NET_CODE_LEN + 1];
+static char code_note[ONLINE_LOBBY_MSG_LEN];
+static char last_game[ONLINE_LOBBY_MSG_LEN]; /* why the last game ended early */
+static unsigned lobby_frames;
+
+static void codeEntryBegin(void)
 {
-    direct_screen = DIRECT_KEYS;
-    direct_suffix[0] = '\0';
-    direct_key = 0;
-    direct_error[0] = '\0';
-    /* A code copied from a chat is already typed in. */
-    if (pc_net_match_clipboard_lobby_code(direct_suffix)) {
-        snprintf(direct_error, sizeof direct_error,
-                 "Code pasted from your clipboard - press START to join");
+    code_entry = true;
+    code_key = 0;
+    code_note[0] = '\0';
+    code_typed[0] = '\0';
+    /* A code copied from a chat is already typed in; else the last one. */
+    if (online_clipboard_code(code_typed)) {
+        snprintf(code_note, sizeof code_note, "Code pasted from your clipboard - START: join");
+    } else if (pc_net_code_normalize(pc_get_net_target(), code_typed)) {
+        snprintf(code_note, sizeof code_note, "Your last code - START: join");
+    } else {
+        code_typed[0] = '\0';
     }
 }
 
-/* One typed character into the code: lower case, and 0/1/8 read as O/I/B,
- * as the code itself does (net_code.c). */
-static void directType(char ch)
+/* One typed character: upper case, and 0/1/8 read as O/I/B, as the code
+ * itself does (net_code.c). */
+static void codeType(char ch)
 {
-    int len = (int) strlen(direct_suffix);
+    int len = (int) strlen(code_typed);
     ch = (char) toupper((unsigned char) ch);
     ch = ch == '0' ? 'O' : ch == '1' ? 'I' : ch == '8' ? 'B' : ch;
-    if (strchr(direct_keys, ch) != NULL && len < DIRECT_SUFFIX) {
-        direct_suffix[len++] = ch;
-        direct_suffix[len] = '\0';
-        direct_error[0] = '\0';
+    if (strchr(code_keys, ch) != NULL && ch != '\0' && len < PC_NET_CODE_LEN) {
+        code_typed[len++] = ch;
+        code_typed[len] = '\0';
+        code_note[0] = '\0';
     }
 }
 
-static void directPaste(void)
+static void codePaste(void)
 {
-    char code[PC_NET_CODE_LEN + 1];
-    if (pc_net_match_clipboard_lobby_code(code)) {
-        snprintf(direct_suffix, sizeof direct_suffix, "%s", code);
-        snprintf(direct_error, sizeof direct_error, "Code pasted - press START to join");
+    if (online_clipboard_code(code_typed)) {
+        snprintf(code_note, sizeof code_note, "Code pasted - START: join");
     } else {
-        snprintf(direct_error, sizeof direct_error, "No lobby code on your clipboard");
+        snprintf(code_note, sizeof code_note, "No lobby code on your clipboard");
     }
 }
 
-static void directEntryBegin(void)
+static void lobbyJoin(const char* code)
 {
-    if (direct_role == ONLINE_DIRECT_JOIN) {
-        directKeysBegin();
-        return;
-    }
-    direct_screen = DIRECT_HUB;
-    direct_cursor = 0;
-    direct_error[0] = '\0';
-    direct_copied = false;
-    directHubBuild();
-    pc_log_line("lobby: direct connect hub, %d recent, clipboard %s", direct_contact_n,
-                direct_clip[0] ? direct_clip : "-");
+    code_entry = false;
+    pc_set_net_target(code);
+    last_game[0] = '\0';
+    pc_log_line("lobby: joining %s", code);
+    online_join(code, pc_get_net_name());
 }
 
-static void directCall(const char* code)
-{
-    snprintf(direct_calling, sizeof direct_calling, "%s", code ? code : "");
-    direct_screen = DIRECT_OFF;
-    if (code != NULL) {
-        pc_set_net_target(code);
-    }
-    pc_log_line("lobby: direct connect %s '%s'", code ? "calling" : "waiting as",
-                code ? code : pc_net_match_local_code());
-    pc_net_match_start(PC_MATCH_DIRECT, code);
-}
-
-/* "RYAN#K3XQ2M7A" -> "RYAN #K3X-Q2M-7A": the suffix in groups of three is
- * how a person reads a code aloud and checks it against a friend's. A lobby
- * code is grouped in fives (pc_net_code_show). */
-static void directShow(char* out, size_t n, const char* code)
-{
-    const char* hash = strchr(code, '#');
-    if (hash == NULL && strlen(code) == PC_NET_CODE_LEN) {
-        pc_net_code_show(code, out, n);
-        return;
-    }
-    if (hash == NULL || strlen(hash + 1) != DIRECT_SUFFIX) {
-        snprintf(out, n, "%s", code);
-        return;
-    }
-    const char* s = hash + 1;
-    snprintf(out, n, "%.*s#%.3s-%.3s-%.2s", (int) (hash - code), code, s, s + 3, s + 6);
-}
-
-static void directAgo(char* out, size_t n, int64_t when)
-{
-    int64_t d = (int64_t) time(NULL) - when;
-    if (d < 3600) {
-        snprintf(out, n, "%dm ago", (int) (d / 60));
-    } else if (d < 86400) {
-        snprintf(out, n, "%dh ago", (int) (d / 3600));
-    } else {
-        snprintf(out, n, "%dd ago", (int) (d / 86400));
-    }
-}
-
-/* One frame of the hub or the keyboard; true while it owns the screen. */
-static bool directEntryFrame(OnlineLobbyView* view, u64 input)
+/* One frame of the code keyboard. False once it gives the screen up: a
+ * code was entered, or B on an empty code (`*leave`). */
+static bool codeEntryFrame(OnlineLobbyView* view, u64 input, bool* leave)
 {
     u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
-    char buf[ONLINE_LOBBY_MSG_LEN], shown[40];
-
-    if (direct_role == ONLINE_DIRECT_JOIN) {
-        view->subtitle[0] = '\0';
-    } else {
-        directShow(shown, sizeof shown, pc_net_match_local_code());
-        snprintf(view->subtitle, sizeof view->subtitle, "YOU %s", shown);
-    }
-    view->phase = LOBBY_PHASE_FOUND;
-
-    if (direct_screen == DIRECT_HUB) {
-        /* The clipboard is read again as the player moves, so a code copied
-         * from a chat while the hub is open shows up without leaving it. */
-        if ((lobby_frame_n++ % 30) == 0) {
-            int was = direct_rows;
-            directHubBuild();
-            if (direct_rows != was) {
-                direct_cursor = 0;
+    char typed[64];
+    pc_keyboard_text_want();
+    const int n = pc_keyboard_take_text(typed, sizeof typed);
+    for (int i = 0; i < n; i++) {
+        if (typed[i] == '\b') {
+            const int l = (int) strlen(code_typed);
+            if (l > 0) {
+                code_typed[l - 1] = '\0';
             }
-        }
-        if (repeat & PAD_ANY_UP) {
-            direct_cursor = (direct_cursor + direct_rows - 1) % direct_rows;
-            sfxMove();
-        } else if (repeat & PAD_ANY_DOWN) {
-            direct_cursor = (direct_cursor + 1) % direct_rows;
-            sfxMove();
-        }
-        view->screen = LOBBY_SCREEN_MENU;
-        view->menu_count = direct_rows;
-        view->cursor = direct_cursor;
-        for (int i = 0; i < direct_rows; i++) {
-            switch (direct_row_kind[i]) {
-            case ROW_PASTE:
-                directShow(shown, sizeof shown, direct_clip);
-                snprintf(view->menu[i], sizeof view->menu[i], "Call %s  from clipboard", shown);
-                break;
-            case ROW_CONTACT: {
-                const PcNetContact* c = &direct_contacts[direct_row_arg[i]];
-                char ago[16];
-                directShow(shown, sizeof shown, c->code);
-                directAgo(ago, sizeof ago, c->last_played);
-                snprintf(view->menu[i], sizeof view->menu[i], "%-22s played %s", shown, ago);
-                break;
-            }
-            case ROW_TYPE:
-                snprintf(view->menu[i], sizeof view->menu[i], "Enter a friend's code");
-                break;
-            default:
-                snprintf(view->menu[i], sizeof view->menu[i], "Wait for a friend to call me");
-                break;
-            }
-        }
-        snprintf(view->message, sizeof view->message, "%s",
-                 direct_error[0] ? direct_error :
-                 direct_copied ? "Your code is copied - send it to a friend" :
-                 "Pick who to play. Both of you can call each other.");
-        view->hint = "A: select   Y: copy my code   B: back";
-        if (input & HSD_PAD_Y) {
-            direct_copied = pc_net_match_copy_code();
-            sfxForward();
-        }
-        if (input & (HSD_PAD_A | HSD_PAD_START)) {
-            sfxForward();
-            switch (direct_row_kind[direct_cursor]) {
-            case ROW_PASTE:
-                directCall(direct_clip);
-                break;
-            case ROW_CONTACT:
-                directCall(direct_contacts[direct_row_arg[direct_cursor]].code);
-                break;
-            case ROW_TYPE:
-                direct_screen = DIRECT_KEYS;
-                direct_suffix[0] = '\0';
-                direct_key = 0;
-                direct_error[0] = '\0';
-                break;
-            default:
-                directCall(NULL);
-                break;
-            }
-        }
-        return direct_screen != DIRECT_OFF;
-    }
-
-    /* KEYS: the host's fifteen-character code, A-Z and 2-7, on the grid
-     * (it wraps, so any key is at most six moves away), typed on a keyboard
-     * or pasted. */
-    {
-        char typed[64];
-        pc_keyboard_text_want();
-        const int n = pc_keyboard_take_text(typed, sizeof typed);
-        for (int i = 0; i < n; i++) {
-            if (typed[i] == '\b') {
-                const int l = (int) strlen(direct_suffix);
-                if (l > 0) {
-                    direct_suffix[l - 1] = '\0';
-                }
-            } else if (typed[i] == 0x16) {
-                directPaste();
-            } else {
-                directType(typed[i]);
-            }
-        }
-        if (input & HSD_PAD_Y) {
-            directPaste();
-            sfxForward();
+        } else if (typed[i] == 0x16) {
+            codePaste();
+        } else if (typed[i] == '\r' || typed[i] == '\n') {
+            input |= HSD_PAD_START;
+        } else {
+            codeType(typed[i]);
         }
     }
-    int len = (int) strlen(direct_suffix);
+    if (input & HSD_PAD_Y) {
+        codePaste();
+        sfxForward();
+    }
+    const int keys = (int) sizeof code_keys - 1;
+    int len = (int) strlen(code_typed);
     if (repeat & PAD_ANY_LEFT) {
-        direct_key = direct_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
-                     (direct_key + ONLINE_LOBBY_KEY_COLS - 1) % ONLINE_LOBBY_KEY_COLS;
+        code_key = code_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
+                   (code_key + ONLINE_LOBBY_KEY_COLS - 1) % ONLINE_LOBBY_KEY_COLS;
         sfxMove();
     } else if (repeat & PAD_ANY_RIGHT) {
-        direct_key = direct_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
-                     (direct_key + 1) % ONLINE_LOBBY_KEY_COLS;
+        code_key = code_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
+                   (code_key + 1) % ONLINE_LOBBY_KEY_COLS;
         sfxMove();
     } else if (repeat & PAD_ANY_UP) {
-        direct_key = (direct_key + (int) sizeof direct_keys - 1 - ONLINE_LOBBY_KEY_COLS) %
-                     ((int) sizeof direct_keys - 1);
+        code_key = (code_key + keys - ONLINE_LOBBY_KEY_COLS) % keys;
         sfxMove();
     } else if (repeat & PAD_ANY_DOWN) {
-        direct_key = (direct_key + ONLINE_LOBBY_KEY_COLS) % ((int) sizeof direct_keys - 1);
+        code_key = (code_key + ONLINE_LOBBY_KEY_COLS) % keys;
         sfxMove();
     }
-    if ((input & HSD_PAD_A) && len < DIRECT_SUFFIX) {
-        direct_suffix[len++] = direct_keys[direct_key];
-        direct_suffix[len] = '\0';
-        direct_error[0] = '\0';
+    if ((input & HSD_PAD_A) && len < PC_NET_CODE_LEN) {
+        code_typed[len++] = code_keys[code_key];
+        code_typed[len] = '\0';
+        code_note[0] = '\0';
         sfxForward();
-    } else if (input & HSD_PAD_B) {
+    } else if (input & (HSD_PAD_B | PAD_CANCEL)) {
         if (len > 0) {
-            direct_suffix[--len] = '\0';
+            code_typed[--len] = '\0';
             sfxBack();
-        } else if (direct_role == ONLINE_DIRECT_JOIN) {
-            /* Join opened straight on the keyboard: B on an empty code
-             * leaves the lobby (the caller sees B and goes back). */
-            direct_screen = DIRECT_OFF;
-            return false;
         } else {
-            direct_screen = DIRECT_HUB; /* B on an empty code goes back a step */
-            sfxBack();
-            return true;
+            *leave = true;
+            return false;
         }
     } else if (input & HSD_PAD_START) {
         PcNetLobbyCode code;
-        if (len == DIRECT_SUFFIX && pc_net_code_decode(direct_suffix, &code)) {
+        if (len == PC_NET_CODE_LEN && pc_net_code_decode(code_typed, &code)) {
             sfxForward();
-            directCall(direct_suffix);
+            lobbyJoin(code_typed);
             return false;
         }
-        snprintf(direct_error, sizeof direct_error,
-                 len == DIRECT_SUFFIX ? "That code isn't right - check it" :
-                                        "A code has 15 characters");
+        snprintf(code_note, sizeof code_note,
+                 len == PC_NET_CODE_LEN ? "That code isn't right - check it" :
+                                          "A code has 15 characters");
         sfxBack();
     }
     view->screen = LOBBY_SCREEN_KEYS;
-    view->keys = direct_keys;
-    view->key_cursor = direct_key;
+    view->keys = code_keys;
+    view->key_cursor = code_key;
     view->menu_count = 1;
-    {
-        char slots[DIRECT_SUFFIX + 1];
-        for (int i = 0; i < DIRECT_SUFFIX; i++) {
-            slots[i] = i < len ? direct_suffix[i] : '_';
-        }
-        slots[DIRECT_SUFFIX] = '\0';
-        snprintf(buf, sizeof buf, "Host's code   %.5s-%.5s-%.5s", slots, slots + 5, slots + 10);
-        snprintf(view->menu[0], sizeof view->menu[0], "%s", buf);
+    char slots[PC_NET_CODE_LEN + 1];
+    for (int i = 0; i < PC_NET_CODE_LEN; i++) {
+        slots[i] = i < len ? code_typed[i] : '_';
     }
+    slots[PC_NET_CODE_LEN] = '\0';
+    snprintf(view->menu[0], sizeof view->menu[0], "Host's code   %.5s-%.5s-%.5s", slots,
+             slots + 5, slots + 10);
     snprintf(view->message, sizeof view->message, "%s",
-             direct_error[0] ? direct_error :
-             "Type the code the host shows, or paste it");
+             code_note[0] ? code_note : "Type the code the host shows, or paste it");
     view->hint = "A: type   B: delete   Y: paste   START: join";
+    view->phase = LOBBY_PHASE_FOUND;
     return true;
 }
-#endif
+
+static void lobbyOpen(void)
+{
+    if (lobby_role == ONLINE_DIRECT_HOST) {
+        online_host(pc_get_net_name());
+        return;
+    }
+    codeEntryBegin();
+    /* MELEE_ONLINE_JOIN=<code>: typed in for you, for tests. */
+    const char* join = getenv("MELEE_ONLINE_JOIN");
+    if (join != NULL && join[0] != '\0') {
+        char code[PC_NET_CODE_LEN + 1];
+        if (pc_net_code_normalize(join, code)) {
+            lobbyJoin(code);
+        }
+    }
+}
+
+/* MELEE_ONLINE_AUTOSTART=<n>: the host starts once n players are in, for
+ * tests. */
+static int lobbyAutostart(void)
+{
+    static int n = -1;
+    if (n < 0) {
+        const char* e = getenv("MELEE_ONLINE_AUTOSTART");
+        n = e != NULL ? atoi(e) : 0;
+    }
+    return n;
+}
+
+static void lobbyStart(void)
+{
+    /* The host's own settings that live outside the game data. */
+    const bool unlock_all = pc_is_unlock_all_enabled();
+    const bool frozen = pc_is_frozen_stadium_enabled();
+    if (online_start(gmMainLib_804D3EE0, sizeof(struct gmm_x0), unlock_all, frozen)) {
+        sfxForward();
+        last_game[0] = '\0';
+        pc_net_peer_status_clear();
+    }
+}
+
+static void lobbyPlayers(OnlineLobbyView* view)
+{
+    OnlinePlayer players[ONLINE_MAX_PLAYERS];
+    const int n = online_players(players);
+    view->player_count = 0;
+    for (int i = 0; i < n && i < ONLINE_LOBBY_MAX_PLAYERS; i++) {
+        OnlineLobbyPlayer* p = &view->players[view->player_count++];
+        snprintf(p->name, sizeof p->name, "%s", players[i].name);
+        p->ping_ms = players[i].local ? -1 : players[i].ping_ms;
+        p->is_host = i == 0;
+        p->is_local = players[i].local;
+    }
+}
 
 void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
 {
     mnOnlineLobby_Create();
-#ifdef TARGET_PC
-    direct_screen = DIRECT_OFF;
-    if (online_kind == ONLINE_KIND_PROFILE) {
-        profileRefresh();
-    } else if (internetLobby() && online_kind == ONLINE_KIND_DIRECT) {
-        /* Same-network discovery runs alongside: a host advertises its code
-         * and a caller rings that address too (net_match.c). */
-        pc_lan_start();
-        if (direct_role == ONLINE_DIRECT_HOST) {
-            /* The lobby code goes out over mDNS once the router has
-             * answered (pc_net_match_lobby_code). */
-            pc_lan_set_code(NULL);
-            directCall(NULL);
-        } else {
-            /* Ask for the code first: starting on a stale launcher pref is
-             * how two players both ended up hosting their own codes forever. */
-            pc_lan_set_code(NULL);
-            directEntryBegin();
-            /* MELEE_ONLINE_JOIN=<code>: type it, for two-instance tests. */
-            const char* join = getenv("MELEE_ONLINE_JOIN");
-            if (direct_role == ONLINE_DIRECT_JOIN && join != NULL && join[0] != '\0') {
-                directCall(join);
-            }
+    lobby_frames = 0;
+    code_entry = false;
+    const int status = pc_net_peer_status();
+    if (status != PC_NET_PEER_OK && online_state() != ONLINE_OFF) {
+        /* Back from a game that ended early. */
+        snprintf(last_game, sizeof last_game, "%s", online_error_text());
+    }
+    pc_net_peer_status_clear();
+    if (online_state() == ONLINE_OFF) {
+        last_game[0] = '\0';
+        /* MELEE_TEST_LOCAL_RULES=1: this machine's own rules differ (teams,
+         * one stock), as a joiner's did in the v1.1.0-rc1 test; the game
+         * must still start on the host's. */
+        if (getenv("MELEE_TEST_LOCAL_RULES") != NULL) {
+            gmMainLib_804D3EE0->x1850.stock_count = 1;
+            gmMainLib_804D3EE0->modes.table[GmVsMode_Melee].start.rules.is_teams = true;
+            pc_log_line("lobby: test: local rules changed (teams, 1 stock)");
         }
-    } else if (internetLobby() && !awaiting_rank_result &&
-               (online_kind != ONLINE_KIND_RANKED ||
-                                  pc_net_match_publication(NULL) == 0)) {
-        if (pc_net_peer_status() == PC_NET_PEER_OK) {
-            pc_net_match_start(online_kind == ONLINE_KIND_UNRANKED ? PC_MATCH_UNRANKED :
-                               PC_MATCH_RANKED, NULL);
-        }
-    } else if (!internetLobby()) pc_lan_start();
-#endif
+        lobbyOpen();
+    }
 }
 
 void gm_Scene_OnlineLobby_OnExit(UNUSED void* unused)
 {
     mnOnlineLobby_Destroy();
-#ifdef TARGET_PC
-    if (online_kind == ONLINE_KIND_DIRECT && internetLobby()) {
-        pc_lan_set_code(NULL);
-        pc_lan_stop();
-    }
-#endif
+}
+#else
+void gmOnline_SetDirectRole(OnlineDirectRole role)
+{
+    (void) role;
 }
 
-#ifdef TARGET_PC
-static const char* const peer_word[] = { "", "Peer left",
-                                         "Connection timed out", "Desync",
-                                         "Incompatible version",
-                                         "Could not resume" };
-
-static void lobbyCopyName(char* dst, const char* src)
+void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
 {
-    snprintf(dst, ONLINE_LOBBY_NAME_LEN, "%s", src);
+    mnOnlineLobby_Create();
 }
 
-/* Peers on our protocol and build: the only ones counted or started with. */
-static int lobbyCompatible(const PcLanPeer* peers, int n)
+void gm_Scene_OnlineLobby_OnExit(UNUSED void* unused)
 {
-    int i, nc = 0;
-    for (i = 0; i < n; i++) {
-        nc += peers[i].compatible;
-    }
-    return nc;
-}
-
-/* Fill the view from the LAN state; logs the status line when it changes. */
-static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
-                          const PcLanPeer* peers, int n)
-{
-    /* Indexed by pc_net_quality() 0..3 and pc_net_peer_status() 0..5;
-     * anything outside stays blank. */
-    static const char* const link_word[] = { "stable", "warning", "stalling",
-                                             "reconnecting" };
-    static char last_status[ONLINE_LOBBY_MSG_LEN];
-    char status[ONLINE_LOBBY_MSG_LEN];
-    bool connected = state == 1 || state == 2;
-    bool host = connected && pc_lan_is_host();
-    int ping = -1, delay;
-    unsigned rollbacks;
-    int quality, reason;
-    int nc = lobbyCompatible(peers, n);
-    int i;
-
-    memset(view, 0, sizeof *view);
-    view->title =
-        online_kind == ONLINE_KIND_DIRECT ? "DIRECT CONNECT" : "LAN PLAY";
-    if (connected && !pc_net_stats(&ping, &delay, &rollbacks)) {
-        ping = -1;
-    }
-    quality = connected ? pc_net_quality() : -1;
-    if (quality >= 0 && quality < (int) ARRAY_SIZE(link_word)) {
-        view->link = link_word[quality];
-    }
-
-    lobbyCopyName(view->players[0].name, pc_lan_local_name());
-    view->players[0].ping_ms = -1;
-    view->players[0].is_host = host;
-    view->players[0].is_local = true;
-    view->player_count = 1;
-    for (i = 0; i < n && view->player_count < ONLINE_LOBBY_MAX_PLAYERS; i++) {
-        OnlineLobbyPlayer* p = &view->players[view->player_count++];
-        lobbyCopyName(p->name, peers[i].name);
-        p->is_host = peers[i].host;
-        p->incompatible = !peers[i].compatible;
-        /* The session peer: the host we joined, or our first peer as host. */
-        p->ping_ms = connected && (peers[i].host || (host && i == 0)) ? ping : -1;
-    }
-
-    switch (state) {
-    case 0:
-        view->phase = nc == 0 ? LOBBY_PHASE_SEARCHING : LOBBY_PHASE_FOUND;
-        if (nc == 0 && pc_lan_discovery_unavailable()) {
-            /* Five seconds without even our own announce looping back:
-             * this network (often guest or campus Wi-Fi) hides players
-             * from each other, and waiting longer will not change it. */
-            snprintf(status, sizeof status,
-                     "This network hides other players - try DIRECT CONNECT");
-        } else if (nc == 0) {
-            snprintf(status, sizeof status, "LAN: searching...%s",
-                     pc_lan_full() ? " - Lobby full" : "");
-        } else {
-            snprintf(status, sizeof status, "%d players found - press START%s",
-                     nc + 1, pc_lan_full() ? " - Lobby full" : "");
-        }
-        break;
-    case 1:
-        view->phase = LOBBY_PHASE_CONNECTING;
-        snprintf(status, sizeof status, "Connecting...");
-        break;
-    case 4:
-        view->phase = LOBBY_PHASE_CONNECTING;
-        snprintf(status, sizeof status, "Ready - waiting for host...");
-        break;
-    case 2:
-        view->phase = LOBBY_PHASE_STARTING;
-        view->countdown_frames = pc_lan_start_frame() - pc_net_frame();
-        if (view->countdown_frames < 0) {
-            view->countdown_frames = 0;
-        }
-        snprintf(status, sizeof status, "Starting...");
-        break;
-    default:
-        view->phase = LOBBY_PHASE_ERROR;
-        reason = pc_net_peer_status();
-        if (reason <= 0 || reason >= (int) ARRAY_SIZE(peer_word)) {
-            reason = 0;
-        }
-        /* Still in the lobby: Start elects again, and a peer's proposal is
-         * still joined (net_lan.c), so leaving to retry is never needed. */
-        snprintf(status, sizeof status, "Failed: %s%s%s%s",
-                 why != NULL ? why : "unknown error", reason ? " - " : "",
-                 peer_word[reason], nc ? " - START: retry" : "");
-        break;
-    }
-    memcpy(view->message, status, sizeof view->message);
-    if (strcmp(status, last_status) != 0) {
-        memcpy(last_status, status, sizeof last_status);
-        pc_log_line("lobby: %s", status);
-    }
+    mnOnlineLobby_Destroy();
 }
 #endif
 
 void gm_Scene_OnlineLobby_OnFrame(void)
 {
 #ifdef TARGET_PC
-    PcLanPeer peers[PC_LAN_MAX_PEERS];
+    static char last_status[ONLINE_LOBBY_MSG_LEN];
     OnlineLobbyView view;
-    const char* why = NULL;
-    int state;
-    int n;
-    u64 input = gm_GetButtonsTriggered(pc_net_active() ? pc_net_local_player() : PAD_MAX_CONTROLLERS);
+    u64 input = gm_GetButtonsTriggered(PAD_MAX_CONTROLLERS);
+    bool leave = false;
+    lobby_frames++;
+    memset(&view, 0, sizeof view);
+    view.title = lobby_role == ONLINE_DIRECT_HOST ? "HOST LOBBY" : "JOIN LOBBY";
 
-    if (online_kind == ONLINE_KIND_PROFILE || internetLobby()) {
-        memset(&view, 0, sizeof view);
-        view.title = online_kind == ONLINE_KIND_PROFILE ? "PROFILE" :
-                     online_kind == ONLINE_KIND_UNRANKED ? "UNRANKED" :
-                     online_kind == ONLINE_KIND_RANKED ? "RANKED" :
-                     direct_role == ONLINE_DIRECT_HOST ? "HOST LOBBY" :
-                     direct_role == ONLINE_DIRECT_JOIN ? "JOIN LOBBY" : "DIRECT CONNECT";
-        if (online_kind == ONLINE_KIND_DIRECT) {
-            pc_lan_poll(); /* same-network discovery (OnEnter) */
+    online_poll();
+    const enum OnlineState st = online_state();
+    if (code_entry) {
+        if (codeEntryFrame(&view, input, &leave)) {
+            input = 0;
+        } else if (!leave) {
+            input = 0; /* the START that joined */
         }
-        view.player_count = 1;
-        view.players[0].is_local = true;
-        view.players[0].ping_ms = -1;
-        lobbyCopyName(view.players[0].name, pc_net_match_local_code());
-        if (online_kind == ONLINE_KIND_PROFILE) {
-            view.phase = LOBBY_PHASE_FOUND;
-            snprintf(view.message, sizeof view.message, "%s", profile_message);
-        } else if (direct_screen != DIRECT_OFF && directEntryFrame(&view, input)) {
-            /* the hub or the keyboard drew the screen and took the input */
-            input &= ~(u64) (HSD_PAD_B | PAD_CANCEL);
-        } else if (awaiting_rank_result && pc_net_match_publication(NULL) == 0) {
-            pc_net_poll();
-            pc_rank_session_poll();
-            int result = pc_rank_session_state(&why);
-            if (result == PC_RANK_SESSION_SAVED) {
-                pc_net_match_publish_rank();
-            }
-            view.phase = result == PC_RANK_SESSION_FAILED ? LOBBY_PHASE_ERROR : LOBBY_PHASE_CONNECTING;
-            snprintf(view.message, sizeof view.message, "%s",
-                     why ? why : "Finishing signed result...");
-            if (result == PC_RANK_SESSION_FAILED)
-                snprintf(view.message, sizeof view.message, "%.54s - START: retry",
-                         why ? why : "Set could not be rated");
-            if (result == PC_RANK_SESSION_FAILED && (input & HSD_PAD_START)) {
-                awaiting_rank_result = false;
-                pc_net_match_start(PC_MATCH_RANKED, NULL);
-            }
-        } else if (online_kind == ONLINE_KIND_RANKED && pc_net_match_publication(NULL) != 0) {
-            pc_net_match_poll_publication();
-            int publication = pc_net_match_publication(&why);
-            view.phase = publication < 0 ? LOBBY_PHASE_ERROR :
-                         publication == 2 ? LOBBY_PHASE_FOUND : LOBBY_PHASE_CONNECTING;
-            snprintf(view.message, sizeof view.message, "%s",
-                     publication == 2 ? "Rating saved and published. START: next set" :
-                     publication < 0 ? "Rating saved locally. START: retry publication" :
-                     "Rating saved. Publishing...");
-            if ((input & HSD_PAD_START) && publication != 1) {
-                if (publication < 0) pc_net_match_publish_rank();
-                else {
-                    awaiting_rank_result = false;
-                    pc_net_match_start(PC_MATCH_RANKED, NULL);
-                }
-            }
-        } else {
-            pc_net_match_poll();
-            state = pc_net_match_state(&why);
-#ifdef ANDROID
-            /* Build cached device shaders while Direct Connect is still waiting. */
-            if (online_kind == ONLINE_KIND_DIRECT && state == PC_MATCH_SEARCH)
-                pc_gfx_prewarm(8);
-#endif
-            int reason = pc_net_peer_status();
-            view.phase = state == PC_MATCH_READY ? LOBBY_PHASE_STARTING :
-                         (state == PC_MATCH_FAIL || reason != PC_NET_PEER_OK) ? LOBBY_PHASE_ERROR :
-                         state == PC_MATCH_CONNECT ? LOBBY_PHASE_CONNECTING : LOBBY_PHASE_SEARCHING;
-            if (reason != PC_NET_PEER_OK && reason < (int) ARRAY_SIZE(peer_word)) {
-                snprintf(view.message, sizeof view.message, "%s - START: search", peer_word[reason]);
-            } else if (state == PC_MATCH_SEARCH && why == NULL) {
-                /* Every wait shows what it is waiting on and for how long;
-                 * "Searching..." alone looked the same whether the network
-                 * was down, the friend was away or the code was wrong. */
-                PcNetMatchProgress pr;
-                pc_net_match_progress(&pr);
-                unsigned secs = (unsigned) (pr.elapsed_ms / 1000);
-                char who[40];
-                directShow(who, sizeof who, direct_calling);
-                if (!pr.network_ready) {
-                    snprintf(view.message, sizeof view.message,
-                             "Joining the online network...  %u:%02u", secs / 60, secs % 60);
-                } else if (online_kind == ONLINE_KIND_DIRECT && pr.calling) {
-                    snprintf(view.message, sizeof view.message,
-                             secs < 45 ? "Calling %s  %u:%02u" :
-                                         "%s isn't answering yet. Still calling  %u:%02u",
-                             who, secs / 60, secs % 60);
-                } else if (online_kind == ONLINE_KIND_DIRECT && direct_role == ONLINE_DIRECT_HOST) {
-                    /* What the router allowed decides who can use the code. */
-                    char code[PC_NET_CODE_SHOWN_LEN + 1];
-                    int reach = 0;
-                    if (!pc_net_match_lobby_code(code, &reach)) {
-                        snprintf(view.message, sizeof view.message,
-                                 "Opening your lobby...  %u:%02u", secs / 60, secs % 60);
-                    } else if (reach == PC_PORTMAP_OPEN) {
-                        snprintf(view.message, sizeof view.message,
-                                 "Lobby open. Friends join with your code  %u:%02u",
-                                 secs / 60, secs % 60);
-                    } else if (reach == PC_PORTMAP_CLOSED) {
-                        snprintf(view.message, sizeof view.message,
-                                 "Same Wi-Fi only: your router said no. Forward UDP port %u",
-                                 (unsigned) pc_portmap_external_port());
-                    } else {
-                        snprintf(view.message, sizeof view.message,
-                                 "Lobby open on this Wi-Fi only  %u:%02u", secs / 60, secs % 60);
-                    }
-                } else if (online_kind == ONLINE_KIND_DIRECT) {
-                    snprintf(view.message, sizeof view.message,
-                             "Waiting for a friend to call you  %u:%02u", secs / 60, secs % 60);
-                } else {
-                    snprintf(view.message, sizeof view.message,
-                             "Looking for an opponent  %u:%02u", secs / 60, secs % 60);
-                }
-                if (online_kind == ONLINE_KIND_DIRECT) {
-                    char me[40];
-                    if (direct_role == ONLINE_DIRECT_HOST) {
-                        if (!pc_net_match_lobby_code(me, NULL)) {
-                            snprintf(me, sizeof me, "...");
-                        }
-                        snprintf(view.subtitle, sizeof view.subtitle, "CODE %s", me);
-                    } else {
-                        view.subtitle[0] = '\0';
-                    }
-                    view.player_count = 0; /* the subtitle already says who we are */
-                    view.hint = direct_role == ONLINE_DIRECT_HOST ? "Y: copy the code   B: stop" :
-                                                                    "B: stop";
-                    if (direct_role == ONLINE_DIRECT_HOST && (input & HSD_PAD_Y)) {
-                        pc_net_match_copy_code();
-                        sfxForward();
-                    }
+    }
+    if (!code_entry && !leave) {
+        const unsigned secs = lobby_frames / 60;
+        char code[18];
+        int reach = PC_PORTMAP_WORKING;
+        lobbyPlayers(&view);
+        if (online_is_host() && st != ONLINE_FAILED) {
+            if (online_code(code, &reach)) {
+                static char logged[18];
+                snprintf(view.subtitle, sizeof view.subtitle, "CODE %s", code);
+                if (strcmp(code, logged) != 0) {
+                    memcpy(logged, code, sizeof logged);
+                    pc_log_line("lobby: code %s", code);
                 }
             } else {
-                snprintf(view.message, sizeof view.message, "%s", why ? why : "Searching for an opponent...");
+                snprintf(view.subtitle, sizeof view.subtitle, "CODE ...");
             }
-            const char* peer = pc_net_match_opponent_code();
-            if (peer && peer[0]) {
-                view.player_count = 2;
-                lobbyCopyName(view.players[1].name, peer);
-                view.players[1].ping_ms = -1;
-            }
-            if (state == PC_MATCH_READY && pc_net_frame() >= pc_net_match_start_frame()) {
-                *HSD_RandSeedPtr = pc_net_match_seed();
-                pc_log_line("lobby: entering CSS at frame %d, seed %u", pc_net_frame(), pc_net_match_seed());
-                gm_801A4B60();
-            }
-            if ((input & HSD_PAD_START) && (state == PC_MATCH_FAIL || reason != PC_NET_PEER_OK)) {
-                pc_net_peer_status_clear();
-                /* Retry the mode we are actually in: a direct session used to
-                 * restart as public matchmaking, dropping the friend's code. */
-                if (online_kind == ONLINE_KIND_DIRECT && direct_role == ONLINE_DIRECT_HOST) {
-                    directCall(NULL);
-                } else if (online_kind == ONLINE_KIND_DIRECT) {
-                    directEntryBegin();
+        }
+        view.phase = LOBBY_PHASE_FOUND;
+        switch (st) {
+        case ONLINE_HOSTING:
+            if (view.player_count < 2) {
+                view.phase = LOBBY_PHASE_SEARCHING;
+                if (!online_code(code, &reach)) {
+                    snprintf(view.message, sizeof view.message, "Opening your lobby...");
+                } else if (reach == PC_PORTMAP_OPEN) {
+                    snprintf(view.message, sizeof view.message,
+                             "Send your friends the code. Waiting for players  %u:%02u",
+                             secs / 60, secs % 60);
+                } else if (reach == PC_PORTMAP_CLOSED) {
+                    snprintf(view.message, sizeof view.message,
+                             "Same Wi-Fi only: your router said no. Forward UDP port %u",
+                             (unsigned) pc_portmap_external_port());
                 } else {
-                    pc_net_match_start(online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED :
-                                       PC_MATCH_UNRANKED, NULL);
+                    snprintf(view.message, sizeof view.message,
+                             "Lobby open on this Wi-Fi only  %u:%02u", secs / 60, secs % 60);
+                }
+            } else {
+                if (!online_can_start()) {
+                    snprintf(view.message, sizeof view.message,
+                             "%d players - checking everyone's connection...",
+                             view.player_count);
+                } else {
+                    snprintf(view.message, sizeof view.message, "%d players - START: play%s%s",
+                             view.player_count, last_game[0] ? "   Last game: " : "",
+                             last_game);
+                }
+                if ((input & HSD_PAD_START) ||
+                    (lobbyAutostart() > 0 && view.player_count >= lobbyAutostart()))
+                {
+                    lobbyStart();
                 }
             }
+            view.hint = "START: play   Y: copy the code   B: close the lobby";
+            if (input & HSD_PAD_Y) {
+                if (online_copy_code()) {
+                    snprintf(view.message, sizeof view.message,
+                             "Code copied - send it to your friends");
+                }
+                sfxForward();
+            }
+            break;
+        case ONLINE_JOINING:
+            view.phase = LOBBY_PHASE_CONNECTING;
+            snprintf(view.message, sizeof view.message, "Connecting to the host...  %u:%02u",
+                     secs / 60, secs % 60);
+            view.hint = "B: stop";
+            break;
+        case ONLINE_JOINED:
+            snprintf(view.message, sizeof view.message, "In the lobby - the host starts the game%s%s",
+                     last_game[0] ? "   Last game: " : "", last_game);
+            view.hint = "B: leave";
+            break;
+        case ONLINE_STARTING:
+            view.phase = LOBBY_PHASE_STARTING;
+            snprintf(view.message, sizeof view.message, "Starting...");
+            break;
+        case ONLINE_READY:
+        case ONLINE_PLAYING:
+            view.phase = LOBBY_PHASE_STARTING;
+            snprintf(view.message, sizeof view.message, "Starting...");
+            if (!session_pending) {
+                if (sessionLoad()) {
+                    session_pending = true;
+                    pc_log_line("lobby: entering CSS");
+                    gm_801A4B60();
+                } else {
+                    pc_log_line("lobby: the host's game data did not fit");
+                    online_leave();
+                    snprintf(last_game, sizeof last_game,
+                             "The host's game data did not match this version");
+                }
+            }
+            break;
+        case ONLINE_FAILED:
+            view.phase = LOBBY_PHASE_ERROR;
+            snprintf(view.message, sizeof view.message, "%s - START: try again",
+                     online_error_text());
+            view.hint = "START: try again   B: back";
+            if (input & HSD_PAD_START) {
+                sfxForward();
+                online_leave();
+                lobbyOpen();
+            }
+            break;
+        default:
+            view.phase = LOBBY_PHASE_ERROR;
+            snprintf(view.message, sizeof view.message, "%s",
+                     last_game[0] ? last_game : "Not connected - START: try again");
+            if (input & HSD_PAD_START) {
+                sfxForward();
+                lobbyOpen();
+            }
+            break;
         }
-        mnOnlineLobby_Update(&view);
         if (input & (HSD_PAD_B | PAD_CANCEL)) {
-            sfxBack();
-            pc_net_peer_status_clear();
-            pc_net_match_stop();
-            gm_ChangeGameModeAfterCurrentScene(GM_MENU);
-            gm_801A4B60();
+            leave = true;
         }
-        return;
     }
-    pc_lan_poll();
-    state = pc_lan_state(&why);
-    n = pc_lan_peers(peers, PC_LAN_MAX_PEERS);
-    lobbyFillView(&view, state, why, peers, n);
     mnOnlineLobby_Update(&view);
-
-    if (state == 2) {
-        /* Both peers tick in lockstep once connected, so leaving on the
-         * agreed frame puts the CSS on the same synced frame everywhere. */
-        if (pc_net_frame() >= pc_lan_start_frame()) {
-            *HSD_RandSeedPtr = pc_lan_seed();
-            pc_log_line("lobby: entering CSS at frame %d, seed %u",
-                        pc_net_frame(), pc_lan_seed());
-            gm_801A4B60();
-        }
-        return;
+    if (strcmp(view.message, last_status) != 0) {
+        memcpy(last_status, view.message, sizeof last_status);
+        pc_log_line("lobby: %s", view.message);
     }
-    if (input & (HSD_PAD_B | PAD_CANCEL)) {
+    if (leave && !session_pending) {
         sfxBack();
+        online_leave();
         pc_net_peer_status_clear();
-        pc_lan_stop();
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         gm_801A4B60();
-    } else if ((input & HSD_PAD_START) && (state == 0 || state == 3) &&
-               lobbyCompatible(peers, n)) {
-        sfxForward();
-        pc_net_peer_status_clear(); /* a retry from 3 is not the last session's */
-        pc_lan_start_match();
     }
 #endif
 }

@@ -18,9 +18,22 @@ Install steps are in the [README](../README.md#install).
 ## Online
 
 VS Mode > Online. One player picks **Host Lobby** and shares the code it
-shows (Y copies it); the other picks **Join Lobby** and types it. Mac and PC
-can play each other, over the internet or on the same Wi-Fi. Both players
-need the same Melee 4K version.
+shows (Y copies it); up to three friends pick **Join Lobby** and type or paste
+it. When everyone is in, the host presses Start and you all go to character
+select together, on the host's rules. Mac and PC can play each other, over the
+internet or on the same Wi-Fi. Everyone needs the same Melee 4K version.
+
+- **Only the host's network matters.** Melee 4K asks the host's router to
+  open UDP port 41000 by itself. If the lobby says "Same Wi-Fi only", forward
+  UDP 41000 to the host's computer in the router's settings, or let someone
+  else host.
+- **B on character select** takes everyone back to the lobby; B in the lobby
+  leaves it.
+- **Input delay** is picked from the slowest player's connection (2 frames on
+  the same Wi-Fi, more over the internet). The host can set it under
+  Settings (F1) > Online.
+- If a player leaves or the connection drops, everyone goes back to the lobby
+  with the reason, and the host can start again.
 
 ## Settings
 

@@ -62,7 +62,7 @@ typedef enum GameModeKind {
     /* 2A */ GM_CAMERA_VS,
     /* 2B */ GM_EVENT,
     /* 2C */ GM_SINGLE_BUTTON_VS,
-    /* 2D */ GM_ONLINE, ///< PC: netplay (docs/netcode-plan.md §10)
+    /* 2D */ GM_ONLINE, ///< PC: online play (docs/online.md)
     /* 2E */ GM_COUNT,
 } GameModeKind;
 

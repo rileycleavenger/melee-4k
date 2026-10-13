@@ -3,9 +3,9 @@
 ## Unit tests
 
 Launcher settings, version parsing, endian helpers, THP decoding and the updater
-have unit tests. On Linux the suite also covers netplay recovery, handshakes,
-LAN start fencing, reliable messages, controller remapping and adapter snapshot
-publication. The same suite runs in CI:
+and lobby codes have unit tests. On Linux the suite also covers online sound
+handles (net_sfx), record/replay seeds, controller remapping and adapter
+snapshot publication. The same suite runs in CI:
 
 ```sh
 ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure
@@ -14,39 +14,29 @@ ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure
 CI also runs `python3 tools/check_style.py` and `python3 tools/compile_check.py`
 on every push (see [CODING_STYLE.md](../CODING_STYLE.md)).
 
-## Netplay implementation checks
+## Online checks
 
-The Linux unit target includes rollback/RNG/rumble/magnifier regressions,
-ranked rules and durable history, DHT protocol/crypto vectors, quick chat,
-controller sampling, pairing and reliable transport. Standalone fixtures use
-SDL paths from `build/CMakeCache.txt`; set `MELEE_TEST_BUILD` for another build.
-Local UDP tests need loopback socket access.
-
-```sh
-MATCH_RANKED=1 python3 tools/test_net_match.py
-MATCH_RANKED=1 MATCH_PROOF_TIMEOUT=1 python3 tools/test_net_match.py
-MATCH_RANKED=1 MATCH_PROOF_MISMATCH=1 python3 tools/test_net_match.py
-MATCH_RANKED=1 MATCH_COMPLETE=1 python3 tools/test_net_match.py
-MATCH_RANKED=1 MATCH_COMPLETE=1 MATCH_RECOVER=1 python3 tools/test_net_match.py
-python3 tools/test_pe_snapshot.py --wine
-```
-
-Ranked fixtures use an isolated responder with real BEP44 parsing, signatures
-and loopback UDP. They do not establish two-home-NAT connectivity. PE fixtures
-verify Windows section ranges and restores, not a complete Windows match.
-
-For live gameplay (requires your own disc and display):
+`tools/online_test.py` plays real online games on one machine: a host and 1-3
+joiners boot straight into their lobbies, the host starts when everyone is in,
+and each instance is driven from its own key FIFO through character select, a
+stage, a match of random inputs, the results and back to the lobby, as many
+games as asked. It passes when no machine logged a desync, a dropped game or a
+failure, every machine started each game from the same game data, and every
+joiner's recording matches the host's checksum for checksum. It needs your own
+disc and a display.
 
 ```sh
-SDL_VIDEO_DRIVER=wayland python3 tools/net_test.py --delay 50 --loss 2 --minutes 1
-SDL_VIDEO_DRIVER=wayland python3 tools/net_test.py --scenes --minutes 2
+DISC="path/to/GALE01.iso"
+python3 tools/online_test.py --disc "$DISC" --players 2 --games 2
+python3 tools/online_test.py --disc "$DISC" --players 4 --games 2
+python3 tools/online_test.py --disc "$DISC" --players 3 --loss 5 --delay-ms 50 --jitter-ms 20
+python3 tools/online_test.py --disc "$DISC" --players 3 --guest-rules   # joiners' own rules differ
 ```
 
-Use the display backend appropriate to your session. Run live tests sequentially;
-competing game instances and builds affect pacing. The scene test requires both
-peers to enter CSS, SSS, VS, Results, CSS, SSS and VS at matching frame numbers.
-`MELEE_NET_DEBUG=1` adds XFB wait timing and rollback HUD detail.
-Physical button-to-photon comparison still requires hardware measurement.
+Run live tests one at a time; competing instances affect pacing. The router is
+left alone (`MELEE_PORTMAP_OFF`). Mac against Windows is
+`tools/crossplay/` (a recording replayed on the other machine) and, for the
+real thing, two computers: see docs/online.md.
 
 ## Smoke tests
 

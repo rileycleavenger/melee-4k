@@ -466,6 +466,11 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
              * periods the last load let pile up, so checking once per batch
              * ends the scene a whole batch late on the peer that loaded
              * slower -- the very gap this is here to close. */
+            if (temp_r25->unk_C != 0 && pc_net_active()) {
+                pc_log_line("scene: %d ends after frame %d (tick %d of %d this boundary)",
+                            info != NULL ? info->scene_kind : -1, pc_net_frame() - 1, i + 1,
+                            pad_queue_count);
+            }
             if (scene_end_gate(temp_r25)) {
                 break;
             }

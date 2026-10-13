@@ -6,7 +6,6 @@
 #include "discfont.h"
 #include "version.hpp"
 #include "updater.hpp"
-#include "net_match.h"
 #include "net.h"
 #include "pc.h"
 #include <RmlUi/Core/Elements/ElementFormControl.h>
@@ -43,7 +42,6 @@ launcher::Preferences prefs;
 std::filesystem::path config_path;
 
 void refresh_online(Rml::ElementDocument* doc) {
-    pc_net_set_input_delay(prefs.net_delay);
     for (const auto& pair :
         {std::pair{"net-name", prefs.net_name}, std::pair{"net-target", prefs.net_target}})
     {
@@ -52,8 +50,6 @@ void refresh_online(Rml::ElementDocument* doc) {
     }
     if (auto* e = doc->GetElementById("net-delay"))
         e->SetInnerRML(prefs.net_delay < 0 ? "Auto" : std::to_string(prefs.net_delay) + " frames");
-    if (auto* e = doc->GetElementById("net-code"))
-        e->SetInnerRML(pc_net_match_local_code());
 }
 bool change_online(Rml::Event& event) {
     auto* target = event.GetTargetElement();
@@ -501,7 +497,9 @@ class Launcher final : public Rml::EventListener {
     void action(const std::string& requested) {
         std::string id = requested;
         if (id == "net-delay") {
-            prefs.net_delay = prefs.net_delay == 4 ? -1 : prefs.net_delay + 1;
+            prefs.net_delay = prefs.net_delay >= 8 ? -1 :
+                              prefs.net_delay < 2  ? 2 :
+                                                     prefs.net_delay + 1;
             save();
             refresh_settings();
             return;
@@ -1145,7 +1143,6 @@ extern "C" int pc_verify_disc_cli(const char* path, const char* user_path) {
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";
     prefs = launcher::load_preferences(config_path);
-    pc_net_set_input_delay(prefs.net_delay);
     if (prefs.install_id == 0) {
         prefs.install_id = std::random_device{}() | uint64_t(std::random_device{}()) << 32 | 1;
         std::string error;
@@ -1584,7 +1581,9 @@ public:
     }
     void apply(const Rml::String& id) {
         if (id == "net-delay") {
-            prefs.net_delay = prefs.net_delay == 4 ? -1 : prefs.net_delay + 1;
+            prefs.net_delay = prefs.net_delay >= 8 ? -1 :
+                              prefs.net_delay < 2  ? 2 :
+                                                     prefs.net_delay + 1;
             saved();
             refresh();
             return;

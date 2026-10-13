@@ -88,9 +88,6 @@ static const struct {
     {"opening", GM_OPENING_MV},
     {"host", GM_ONLINE},
     {"join", GM_ONLINE},
-    {"unranked", GM_ONLINE},
-    {"direct", GM_ONLINE},
-    {"ranked", GM_ONLINE},
 };
 
 static const char* boot_scene_name;
@@ -129,12 +126,6 @@ u8 pc_boot_scene(void)
         if (strcmp(want, "host") == 0 || strcmp(want, "join") == 0) {
             gmOnline_SetKind(ONLINE_KIND_DIRECT);
             gmOnline_SetDirectRole(want[0] == 'h' ? ONLINE_DIRECT_HOST : ONLINE_DIRECT_JOIN);
-        } else if (strcmp(want, "unranked") == 0) {
-            gmOnline_SetKind(ONLINE_KIND_UNRANKED);
-        } else if (strcmp(want, "direct") == 0) {
-            gmOnline_SetKind(ONLINE_KIND_DIRECT);
-        } else if (strcmp(want, "ranked") == 0) {
-            gmOnline_SetKind(ONLINE_KIND_RANKED);
         }
         if (scene == GM_COUNT) {
             OSReport("MELEE_BOOT_SCENE: unknown scene '%s'; use mode:<0-%d> or one of:",

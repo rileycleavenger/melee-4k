@@ -100,7 +100,7 @@ target_compile_definitions(aurora_mtx PRIVATE ${MELEE_FP_PERTURB_DEFS})
 add_compile_definitions(${MELEE_FP_PERTURB_DEFS})
 if (WIN32)
     set(MELEE_CRYPTO_LIBS bcrypt)
-    set(MELEE_NETWORK_LIBS winhttp ws2_32 iphlpapi) # iphlpapi: GetAdaptersAddresses in src/pc/net_lan.c
+    set(MELEE_NETWORK_LIBS winhttp ws2_32 iphlpapi) # iphlpapi: GetBestRoute in src/pc/net_portmap.c
     add_compile_definitions(MELEE_USE_BCRYPT)
 elseif (ANDROID OR IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(MELEE_CRYPTO_LIBS)
@@ -213,36 +213,16 @@ set(PC_SOURCES
         src/pc/textures.cpp
         src/pc/updater.cpp
         src/pc/version.cpp
-        # Netplay (docs/netcode-plan.md). net.c is the session and rollback
-        # loop; the rest are its modules behind src/pc/net_internal.h.
+        # Online play (docs/online.md): online.c is the lobby and lockstep
+        # transport, net.c the game's hooks, net_snapshot.c record/replay.
         src/pc/net.c
-        src/pc/net_chat.c
         src/pc/net_code.c
-        src/pc/net_dht.c
-        src/pc/net_dht_item.c
-        src/pc/net_identity.c
-        src/pc/net_match.c
-        src/pc/net_rank.c
-        src/pc/net_rank_store.c
-        src/pc/net_rank_session.c
-        src/pc/libm/pc_rank_exp.c
-        src/pc/libm/pc_rank_sqrt.c
-        extern/dht/dht.c
-        extern/dht/sha1.c
-        extern/monocypher/monocypher.c
-        extern/monocypher/monocypher-ed25519.c
-        src/pc/net_handshake.c
-        src/pc/net_lan.c
         src/pc/net_portmap.c
-        src/pc/net_reliable.c
         src/pc/net_sfx.c
-        src/pc/net_sim.c
         src/pc/net_snapshot.c
-        src/pc/net_sync.c
-        src/pc/net_watchdog.c
-        src/pc/net_wire.c
+        src/pc/online.c
         # Vendored musl trig: platform libm differs by an ULP between targets,
-        # which is a cross-platform desync (docs/netcode-plan.md section 5).
+        # which is a cross-platform desync (docs/determinism.md).
         src/pc/libm/pc_atanf.c
         src/pc/libm/pc_cosdf.c
         src/pc/libm/pc_cosf.c
@@ -263,8 +243,6 @@ if (ANDROID)
 else ()
     add_executable(melee ${PC_SOURCES})
 endif ()
-
-target_include_directories(melee PRIVATE extern/monocypher)
 
 target_compile_options(melee PRIVATE
         ${MELEE_FP_FLAGS}
@@ -482,31 +460,12 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         find_package(Python3 REQUIRED COMPONENTS Interpreter)
-        foreach(case IN ITEMS net_resume net_handshake net_lan_txt net_reliable)
-            if (case STREQUAL "net_reliable")
-                add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_net_chat_transport.c src/pc/net_chat.c)
-            else()
-                add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_${case}.c)
-            endif()
-            if (case STREQUAL "net_resume" OR case STREQUAL "net_handshake")
-                # both include net_wire.c, which keys the per-datagram MAC
-                target_sources(${case}_test PRIVATE extern/monocypher/monocypher.c)
-                target_include_directories(${case}_test PRIVATE extern/monocypher)
-            endif()
-            target_include_directories(${case}_test PRIVATE extern/aurora/include src src/sdk_include)
-            target_compile_definitions(${case}_test PRIVATE TARGET_PC=1 MELEE_PC=1 AURORA NDEBUG XXH_INLINE_ALL)
-            target_link_libraries(${case}_test PRIVATE ${AURORA_SDL3_TARGET} xxhash)
-            add_test(NAME ${case} COMMAND ${case}_test)
-            set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 30)
-            add_dependencies(unit_tests ${case}_test)
-        endforeach()
-        add_executable(net_chat_ui_test EXCLUDE_FROM_ALL tools/test_net_chat_ui.c)
-        target_include_directories(net_chat_ui_test PRIVATE src extern/aurora/include src/sdk_include)
-        target_compile_definitions(net_chat_ui_test PRIVATE TARGET_PC=1 MELEE_PC=1 AURORA)
-        target_compile_options(net_chat_ui_test PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/compat.h)
-        add_test(NAME net_chat_ui COMMAND net_chat_ui_test)
-        set_tests_properties(net_chat_ui PROPERTIES LABELS melee TIMEOUT 30)
-        add_dependencies(unit_tests net_chat_ui_test)
+        add_executable(net_sfx_test EXCLUDE_FROM_ALL tools/test_net_sfx.c src/pc/net_sfx.c)
+        target_include_directories(net_sfx_test PRIVATE src)
+        target_compile_options(net_sfx_test PRIVATE -UNDEBUG)
+        add_test(NAME net_sfx COMMAND net_sfx_test)
+        set_tests_properties(net_sfx PROPERTIES LABELS melee TIMEOUT 30)
+        add_dependencies(unit_tests net_sfx_test)
         add_executable(slp_test EXCLUDE_FROM_ALL tools/test_slp.c src/pc/slp_format.c)
         target_include_directories(slp_test PRIVATE src)
         target_link_libraries(slp_test PRIVATE ${AURORA_SDL3_TARGET})
@@ -514,85 +473,9 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         add_test(NAME slp COMMAND slp_test)
         set_tests_properties(slp PROPERTIES LABELS melee TIMEOUT 30)
         add_dependencies(unit_tests slp_test)
-        add_executable(net_chat_test EXCLUDE_FROM_ALL tools/test_net_chat.c src/pc/net_chat.c)
-        target_include_directories(net_chat_test PRIVATE src extern/aurora/include)
-        target_link_libraries(net_chat_test PRIVATE ${AURORA_SDL3_TARGET})
-        target_compile_options(net_chat_test PRIVATE -UNDEBUG)
-        add_test(NAME net_chat COMMAND net_chat_test)
-        set_tests_properties(net_chat PROPERTIES LABELS melee TIMEOUT 30)
-        add_dependencies(unit_tests net_chat_test)
-        add_executable(net_dht_bootstrap_test EXCLUDE_FROM_ALL tools/test_net_dht_bootstrap.c)
-        target_compile_options(net_dht_bootstrap_test PRIVATE -UNDEBUG)
-        add_test(NAME net_dht_bootstrap COMMAND net_dht_bootstrap_test)
-        set_tests_properties(net_dht_bootstrap PROPERTIES LABELS melee TIMEOUT 30)
-        add_dependencies(unit_tests net_dht_bootstrap_test)
-        add_executable(net_sfx_test EXCLUDE_FROM_ALL tools/test_net_sfx.c src/pc/net_sfx.c)
-        target_include_directories(net_sfx_test PRIVATE src)
-        target_compile_options(net_sfx_test PRIVATE -UNDEBUG)
-        add_test(NAME net_sfx COMMAND net_sfx_test)
-        set_tests_properties(net_sfx PROPERTIES LABELS melee TIMEOUT 30)
-        add_dependencies(unit_tests net_sfx_test)
-        set(NET_IDENTITY_SOURCES src/pc/net_identity.c src/pc/net_dht.c src/pc/net_dht_item.c
-            extern/dht/dht.c extern/dht/sha1.c extern/monocypher/monocypher.c
-            extern/monocypher/monocypher-ed25519.c)
-        foreach(case IN ITEMS net_identity net_dht net_rank net_rank_store)
-            add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_${case}.c ${NET_IDENTITY_SOURCES})
-            if (case STREQUAL "net_rank" OR case STREQUAL "net_rank_store")
-                target_sources(${case}_test PRIVATE src/pc/net_rank.c src/pc/libm/pc_rank_exp.c src/pc/libm/pc_rank_sqrt.c)
-            endif()
-            if (case STREQUAL "net_rank_store")
-                target_sources(${case}_test PRIVATE src/pc/net_rank_store.c)
-            endif()
-            target_include_directories(${case}_test PRIVATE src src/pc extern/monocypher)
-            target_compile_definitions(${case}_test PRIVATE PC_DHT_TEST_NO_BOOTSTRAP)
-            target_compile_options(${case}_test PRIVATE -UNDEBUG ${MELEE_FP_FLAGS})
-            target_link_libraries(${case}_test PRIVATE ${AURORA_SDL3_TARGET} m)
-            add_test(NAME ${case} COMMAND ${case}_test)
-            set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
-            add_dependencies(unit_tests ${case}_test)
-        endforeach()
-        foreach(case IN ITEMS net_snapshot net_stage net_set_flow net_replay_seed net_scene_timing net_fixture_env net_rank_rules net_match net_magnify net_late_poll snapshot_platforms sim_prefs)
+        foreach(case IN ITEMS net_replay_seed net_magnify snapshot_platforms sim_prefs)
             add_test(NAME ${case} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_${case}.py)
             set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
-        endforeach()
-        add_test(NAME net_match_direct COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_net_match.py)
-        set_tests_properties(net_match_direct PROPERTIES LABELS melee TIMEOUT 90
-            ENVIRONMENT "MATCH_DIRECT=1")
-        foreach(mode IN ITEMS ranked proof_timeout proof_mismatch complete recover)
-            add_test(NAME net_match_${mode} COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_net_match.py)
-            set_tests_properties(net_match_${mode} PROPERTIES LABELS melee TIMEOUT 90
-                ENVIRONMENT "MATCH_RANKED=1")
-            if (mode STREQUAL "proof_timeout")
-                set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_PROOF_TIMEOUT=1")
-            elseif (mode STREQUAL "proof_mismatch")
-                set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_PROOF_MISMATCH=1")
-            elseif (mode STREQUAL "complete" OR mode STREQUAL "recover")
-                set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_COMPLETE=1")
-                if (mode STREQUAL "recover")
-                    set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_RECOVER=1")
-                endif()
-            endif()
-        endforeach()
-        add_executable(net_dht_observation_test EXCLUDE_FROM_ALL tools/test_net_dht_observation.c
-            src/pc/net_dht_item.c src/pc/net_identity.c extern/dht/dht.c extern/dht/sha1.c
-            extern/monocypher/monocypher.c extern/monocypher/monocypher-ed25519.c)
-        add_executable(net_dht_item_test EXCLUDE_FROM_ALL tools/test_net_dht_item.c
-            src/pc/net_identity.c extern/dht/sha1.c extern/monocypher/monocypher.c
-            extern/monocypher/monocypher-ed25519.c)
-        add_executable(net_rank_session_test EXCLUDE_FROM_ALL tools/test_net_rank_session.c
-            extern/dht/sha1.c src/pc/net_rank.c src/pc/net_rank_store.c src/pc/net_identity.c
-            src/pc/libm/pc_rank_exp.c src/pc/libm/pc_rank_sqrt.c
-            extern/monocypher/monocypher.c extern/monocypher/monocypher-ed25519.c)
-        foreach(case IN ITEMS net_dht_observation net_dht_item net_rank_session)
-            target_include_directories(${case}_test PRIVATE src src/pc extern/monocypher)
-            target_compile_options(${case}_test PRIVATE -UNDEBUG ${MELEE_FP_FLAGS} -ffunction-sections -fdata-sections)
-            target_link_options(${case}_test PRIVATE -Wl,--gc-sections)
-            target_link_libraries(${case}_test PRIVATE ${AURORA_SDL3_TARGET} m)
-            add_test(NAME ${case} COMMAND ${case}_test)
-            set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
-            add_dependencies(unit_tests ${case}_test)
         endforeach()
         add_test(NAME pad_regressions COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pad_regressions.py)

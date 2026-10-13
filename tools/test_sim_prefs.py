@@ -18,12 +18,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = {
     "pc_is_ucf_enabled": "forced on in launcher.cpp",
     "pc_is_free_camera_enabled": "forced off in launcher.cpp",
-    "pc_is_unlock_all_enabled": "RULES (pc_net_rules)",
-    "pc_is_frozen_stadium_enabled": "RULES (pc_net_rules)",
+    "pc_is_unlock_all_enabled": "the host's, sent in the setup (pc_net_rules)",
+    "pc_is_frozen_stadium_enabled": "the host's, sent in the setup (pc_net_rules)",
 }
 PRESENTATION = {
     "pc_get_hud_mode": "widescreen HUD placement (ifall.c)",
-    "pc_get_net_target": "prefills the connect-code entry (gmonlinemode.c)",
+    "pc_get_net_target": "prefills the lobby-code entry (gmonlinemode.c)",
+    "pc_get_net_name": "the player's name in the lobby list (gmonlinemode.c)",
 }
 
 found = {}

@@ -45,6 +45,11 @@ bool Initialized = false;
 static bool CardPresent = true;
 extern "C" void aurora_card_set_present(bool present) { CardPresent = present; }
 extern "C" bool aurora_card_is_present(void) { return CardPresent; }
+// melee-pc: online, a guest plays on the host's game data; every change the
+// game makes to its card then succeeds without touching it.
+static bool CardReadOnly = false;
+extern "C" void aurora_card_set_read_only(bool read_only) { CardReadOnly = read_only; }
+extern "C" bool aurora_card_is_read_only(void) { return CardReadOnly; }
 // melee-pc: completion callbacks go through a dispatcher so the game can
 // defer them (on GameCube they arrived from a later interrupt, never from
 // inside the CARD*Async call itself).
@@ -437,6 +442,14 @@ s32 CARDCreate(const s32 chan, const char* fileName, const u32 size, CARDFileInf
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
   }
+  if (CardReadOnly) {
+    if (fileInfo != nullptr) {
+      *fileInfo = {};
+      fileInfo->chan = chan;
+      fileInfo->fileNo = -1;
+    }
+    return CARD_RESULT_READY;
+  }
   if (!CARD_READY(chan))
     return CARD_RESULT_NOCARD;
   const auto& card = GET_CARD(chan);
@@ -466,6 +479,9 @@ s32 CARDDelete(const s32 chan, const char* fileName) {
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
   }
+  if (CardReadOnly) {
+    return CARD_RESULT_READY;
+  }
   if (!CARD_READY(chan))
     return CARD_RESULT_NOCARD;
 
@@ -493,6 +509,9 @@ s32 CARDDeleteAsync(const s32 chan, const char* fileName, const CARDCallback cal
 s32 CARDFastDelete(const s32 chan, const s32 fileNo) {
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
+  }
+  if (CardReadOnly) {
+    return CARD_RESULT_READY;
   }
   if (!CARD_READY(chan))
     return CARD_RESULT_NOCARD;
@@ -737,6 +756,9 @@ s32 CARDRename(const s32 chan, const char* oldName, const char* newName) {
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
   }
+  if (CardReadOnly) {
+    return CARD_RESULT_READY;
+  }
   if (!CARD_READY(chan))
     return CARD_RESULT_NOCARD;
   const auto& card = GET_CARD(chan);
@@ -776,6 +798,9 @@ s32 CARDSetAttributes(const s32 chan, s32 fileNo [[maybe_unused]], u8 attr [[may
 s32 CARDSetStatus(const s32 chan, s32 fileNo, const CARDStat* stat) {
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
+  }
+  if (CardReadOnly) {
+    return CARD_RESULT_READY;
   }
   if (!CARD_READY(chan))
     return CARD_RESULT_NOCARD;
@@ -878,6 +903,9 @@ s32 CARDReadAsync(const CARDFileInfo* fileInfo, void* addr, const s32 length, co
 s32 CARDWrite(const CARDFileInfo* fileInfo, const void* addr, const s32 length, const s32 offset) {
   if (fileInfo->chan < 0 || fileInfo->chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
+  }
+  if (CardReadOnly) {
+    return CARD_RESULT_READY;
   }
   if (!CARD_READY(fileInfo->chan))
     return CARD_RESULT_NOCARD;

@@ -113,19 +113,10 @@ float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */
 const char* pc_app_version(void);
 
-/* The whole unlock surface the RNG-visible unlock predicates read, packed
- * into one scalar: chars:16 | stages:16 | features:8 | latch4:8 | latch5:8 |
- * latch6:8. Implemented in src/melee/gm/gmmain_lib.c, next to the save-data
- * layout and the NUM_UNLOCKABLE_* constants that define it; netplay
- * snapshots it, forces pc_unlock_state_all() for the session and puts it
- * back at disconnect (src/pc/net_handshake.c). */
-uint64_t pc_unlock_state_get(void);
-void pc_unlock_state_set(uint64_t state);
-uint64_t pc_unlock_state_all(void);
 /* Per-install random id, generated once and kept in launcher.cfg
- * (src/pc/launcher.cpp); the LAN lobby's host election key. */
+ * (src/pc/launcher.cpp). */
 uint64_t pc_install_id(void);
-/* Build identity peers must share to play (the app version, src/pc/version.cpp). */
+/* Build identity online players must share (the app version, src/pc/version.cpp). */
 const char* pc_app_rev(void);
 
 /* Audio volume control */

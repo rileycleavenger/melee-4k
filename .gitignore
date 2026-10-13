@@ -7,7 +7,8 @@ __pycache__/
 # Internal working notes stay local; the docs listed here are published.
 docs/*
 !docs/CODING_STYLE.md
-!docs/netcode-plan.md
+!docs/online.md
+!docs/determinism.md
 !docs/architecture.md
 !docs/building.md
 !docs/debugging.md

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Platform hooks the LAN lobby needs from the Android Java side
+/* Platform hooks from the Android Java side
  * (src/pc/android_compat.cpp). Every one of these is a no-op, or returns
  * NULL, on every other platform, so callers need no #ifdef. */
 #ifndef PC_ANDROID_HOOKS_H
@@ -11,17 +11,13 @@
 extern "C" {
 #endif
 
-/* Hold a WifiManager.MulticastLock while LAN discovery runs. Without it the
- * Wi-Fi stack drops every multicast frame not addressed to this device, so
- * the mDNS group is joined, our announces go out, and no answer ever comes
- * back: pc_lan_discovery_unavailable() turns true after 5 s and the lobby
- * stays empty (docs/netcode-plan.md §8).
+/* Hold a WifiManager.MulticastLock: without it the Wi-Fi stack drops every
+ * multicast and broadcast frame not addressed to this device. Online play no
+ * longer uses multicast (docs/online.md); kept for the platform layer.
  *
  * Nesting is counted: the OS lock is taken on the 0 -> 1 acquire and dropped
- * on the 1 -> 0 release, so repeated pc_lan_start()/pc_lan_stop() cycles in
- * one process are safe, as is the atexit(pc_lan_stop) path. An unbalanced
- * release is ignored rather than letting MulticastLock.release() throw.
- * Safe to call from any thread. */
+ * on the 1 -> 0 release. An unbalanced release is ignored rather than letting
+ * MulticastLock.release() throw. Safe to call from any thread. */
 void pc_android_multicast_lock_acquire(void);
 void pc_android_multicast_lock_release(void);
 

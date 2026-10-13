@@ -959,49 +959,6 @@ struct gmm_x1868_1A8_t* gmMainLib_8015EDC8(void)
     return &gmMainLib_GetCardData()->save_data.unk_1A8;
 }
 
-#ifdef TARGET_PC
-/* ---- unlock state as one scalar (pc/pc.h) -----------------------------
- * Everything the unlock predicates in gm_1601.c read, plus the three
- * gm_16F1.c latches derived from them, packed so netplay can snapshot,
- * force and restore it as a unit and hash it onto the wire. The layout is
- * part of the netplay wire contract (PC_NET_PROTO_VERSION): changing it
- * changes pc_unlock_state_all(), which both peers compare. */
-#define UNLOCK_PACK(chars, stages, features, l4, l5, l6)                     \
-    ((u64) (chars) << 48 | (u64) (stages) << 32 | (u64) (features) << 24 |   \
-     (u64) ((l4) != 0) << 16 | (u64) ((l5) != 0) << 8 | (u64) ((l6) != 0))
-
-u64 pc_unlock_state_get(void)
-{
-    GmSaveData* sd = gmMainLib_GetSaveData();
-    return UNLOCK_PACK(sd->unlocked_characters, sd->x186A, sd->x186C,
-                       sd->unk_1A8.x4, sd->unk_1A8.x5, sd->unk_1A8.x6);
-}
-
-void pc_unlock_state_set(u64 state)
-{
-    GmSaveData* sd = gmMainLib_GetSaveData();
-    sd->unlocked_characters = (u16) (state >> 48);
-    sd->x186A = (u16) (state >> 32);
-    sd->x186C = (u8) (state >> 24);
-    sd->unk_1A8.x4 = (u8) (state >> 16 & 1);
-    sd->unk_1A8.x5 = (u8) (state >> 8 & 1);
-    sd->unk_1A8.x6 = (u8) (state & 1);
-}
-
-u64 pc_unlock_state_all(void)
-{
-    /* The three latches are set to 1 rather than left for the predicates to
-     * latch on first read: gm_16F1.c's fn_801735F0/fn_80173510/fn_8017367C
-     * would each write save data the first time they run, and which frame
-     * that is depends on the menu path each peer took. Pre-set, the whole
-     * unlock surface is constant for the session and no rollback can see it
-     * change. 0xFF is x186C fully unlocked, the same value the DbLevel
-     * unlock-everything path in gmMainLib_8015FA34 writes. */
-    return UNLOCK_PACK((1u << NUM_UNLOCKABLE_CHARACTERS) - 1,
-                       (1u << NUM_UNLOCKABLE_STAGES) - 1, 0xFF, 1, 1, 1);
-}
-#endif
-
 s32 gmMainLib_8015EDD4(void)
 {
     return gmMainLib_GetCardData()->save_data.x186C & 4;
@@ -1272,13 +1229,9 @@ void gmMainLib_8015F600(int arg0, int arg1)
          * and the card-absent memory-card scene, which re-runs this with
          * arg1 == 0).
          *
-         * A netplay session pins the same state for real: it writes
-         * pc_unlock_state_all() into these masks and verifies the result
-         * against the peer's (src/pc/net_handshake.c), so a card-present peer
-         * with a different launcher.cfg is covered too. This branch still
-         * carries the card-absent single-player and replay cases, which never
-         * open a session, and it keeps two card-less peers identical before
-         * the handshake lands. */
+         * An online game needs none of this: every machine loads the host's
+         * save data (docs/online.md). This branch carries the card-absent
+         * single-player and replay cases. */
         if (!aurora_card_is_present()) {
             gm_80164F18();
             gm_8016468C();

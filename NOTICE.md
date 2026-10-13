@@ -14,8 +14,8 @@ not affiliated with or endorsed by them.
   `licenses/` and the upstream repository.
 - **[aurora](https://github.com/encounter/aurora)**: GameCube SDK
   compatibility layer and WebGPU renderer.
-- **Dawn**, **SDL3**, **RmlUi**, **nod**, **xxHash**, **zstd**, **libpng**,
-  **monocypher** and the other libraries listed in `licenses/`.
+- **Dawn**, **SDL3**, **RmlUi**, **nod**, **xxHash**, **zstd**, **libpng**
+  and the other libraries listed in `licenses/`.
 - **[stb_truetype](https://github.com/nothings/stb)** by Sean Barrett (public
   domain): renders Melee 4K's own menu labels.
 

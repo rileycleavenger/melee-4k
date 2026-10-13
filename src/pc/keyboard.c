@@ -25,6 +25,7 @@
 #include <dolphin/pad.h>
 #include <dolphin/gx/GXAurora.h>
 
+#include "pc/net.h"
 #include "pc/pc.h"
 #include <dolphin/vi.h>
 #include "pc/touch.h"
@@ -173,6 +174,11 @@ static bool mouse_menu_live(void) {
 /* `u`, `v` in [0,1] across the game image (letterboxing removed). True when
  * the pointer is over it and is driving the hand. */
 bool pc_mouse_menu(float* u, float* v) {
+    /* The pointer moves menu cursors without going through a controller, so
+     * the other machines in an online game would never see it. */
+    if (pc_net_active()) {
+        return false;
+    }
     atomic_store_explicit(&s_mouse_wanted_ms, SDL_GetTicks(), memory_order_relaxed);
     /* "u,v[@frame]": a fixed pointer, for tests; from that frame on. */
     const char* test = getenv("MELEE_MOUSE_TEST");

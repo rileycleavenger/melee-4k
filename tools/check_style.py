@@ -25,7 +25,7 @@ TOOL_FILES = list((ROOT / "tools").glob("*.cpp")) + list((ROOT / "tools").glob("
 SOURCE_EXTENSIONS = {".c", ".cpp", ".h", ".hpp"}
 EXCLUDE_FILES = {"stb_vorbis.c", "stb_vorbis.h", "stb_image.h", "stb_truetype.h"}
 # Vendored verbatim, so upstream diffs stay readable: src/pc/libm is musl's
-# trig (one implementation on every target, see docs/netcode-plan.md section 5)
+# trig (one implementation on every target, see docs/determinism.md)
 # and src/pc/mdns is mjansson/mdns. Reformatting them is churn, not style.
 EXCLUDE_DIRS = {ROOT / "src/pc/libm", ROOT / "src/pc/mdns"}
 

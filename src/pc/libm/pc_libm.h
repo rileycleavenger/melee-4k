@@ -61,8 +61,6 @@ static inline void fp_force_eval(double x) {
         bits.u = ((uint64_t)(uint32_t)(hi) << 32) | (uint32_t)(lo);                                \
         (x) = bits.f;                                                                              \
     } while (0)
-double pc_rank_exp(double x);
-double pc_rank_sqrt(double x);
 
 #define asuint(f)                                                                                  \
     ((union {                                                                                      \
