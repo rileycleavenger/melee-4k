@@ -67,7 +67,7 @@ jobs:
               $env:MANIFEST)
           }
           Set-Content -Path setup_frozen.py -Value $src -NoNewline
-          python -m PyInstaller --onefile --console --collect-data certifi --name Setup setup_frozen.py
+          python -m PyInstaller --onefile --console --collect-data certifi --icon platforms/windows/melee.ico --name Setup setup_frozen.py
       - name: Assemble and zip
         shell: pwsh
         run: |

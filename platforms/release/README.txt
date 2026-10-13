@@ -40,7 +40,13 @@ the box (bottom face button A, right one B). Keyboard: arrows = stick, X = A, Z 
 Enter = Start.
 
 Online: VS Mode > Online. One player picks Host Lobby and shares the code;
-the other picks Join Lobby and types it. Works Mac <-> PC.
+up to three friends pick Join Lobby and type or paste it. The host presses
+Start when everyone is in. Works Mac <-> PC. If the lobby says "Same Wi-Fi
+only", forward UDP port 41000 to the host's computer or let someone else
+host.
+
+Updates: Options > Melee 4K > Check for Updates (or F1). The game closes,
+updates itself and opens again; your disc, saves and settings stay.
 
 Mouse: moves the character select hand, in the menus too (point to
 select, left click A, right click B, wheel changes a value).

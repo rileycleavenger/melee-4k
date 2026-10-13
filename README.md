@@ -31,7 +31,7 @@ with Melee 4K.
 3. Wait for **Installed**. The first run downloads the HD textures (about
    2.5 GB, a few minutes), then the game starts.
 
-After that, open **Melee 4K** from Launchpad or Spotlight.
+After that, open **Melee 4K** from the Desktop, Launchpad or Spotlight.
 
 ### Windows (10 or 11, 64-bit)
 
@@ -48,9 +48,11 @@ After that, use the **Melee 4K** shortcut Setup put on your desktop.
 
 ### Updating
 
-macOS: run the Terminal line again. Windows: extract the new release, move
-your disc image into its PUT-YOUR-ROM-HERE folder and run Setup. Your saves,
-settings and textures are kept.
+In the game: **Options > Melee 4K > Check for Updates** (or F1). When a new
+version is out, press A again: the game closes, updates itself and opens
+again. Your disc, saves, settings and textures are kept. (Or: run the
+Terminal line again on macOS; on Windows extract the new release, move your
+disc image into its PUT-YOUR-ROM-HERE folder and run Setup.)
 
 ---
 

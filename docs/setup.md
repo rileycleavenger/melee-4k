@@ -29,9 +29,24 @@ They drop the disc image in `PUT-YOUR-ROM-HERE` and run Setup once. Setup
    size and SHA-256, and unpacks it into the user `textures/` folder,
    replacing only the packs it ships;
 4. clears the download quarantine (macOS; `Setup.command` already did, since
-   opening it was the player's approval) or adds a desktop shortcut
-   (Windows);
-5. starts the game.
+   opening it was the player's approval), adds a desktop shortcut (a `.lnk`
+   on Windows, a link to the app on macOS; made again on every run), adds
+   the Windows Firewall rule for online play, and writes the install folder
+   to `melee4k-install-root.txt` in the settings folder, where the game's
+   Check for Updates finds Setup;
+5. starts the game. With a disc saved, the game starts straight away from
+   then on: the launcher is only the disc picker (F1 > Audio & interface >
+   Disc brings it back; `MELEE_LAUNCHER=1` shows it anyway).
+
+`Setup --update [--tag vX.Y.Z] [--wait-pid PID]` is the game's Check for
+Updates (`src/pc/updater.cpp` starts it and closes the game): it waits for
+the game to exit, downloads this platform's zip from the latest release (or
+the tag), swaps the app (macOS: the bundle behind the `~/Melee4K` link, so
+`~/Applications`) and Setup itself into place, keeping the disc, saves,
+settings and textures, installs a newer texture pack if there is one, and
+starts the game again. Each copy is staged next to its target and swapped in,
+so a failure leaves the old version runnable. `MELEE_UPDATE_TEST=<version>`
+makes the game act as that version and install whatever is newer at once.
 
 Every step is safe to repeat: a finished texture install is recorded in
 `textures/.melee4k-pack` and skipped next time. Failures print one sentence
@@ -52,7 +67,8 @@ release zip with curl, so nothing carries the quarantine flag and Gatekeeper
 never shows its "could not verify" dialog (macOS 15 removed right-click >
 Open for unsigned downloads). It installs to `~/Melee4K`, waits for a disc in
 `PUT-YOUR-ROM-HERE`, runs Setup, and moves the app to
-`~/Applications/Melee 4K.app` (a symlink stays in `~/Melee4K` for Setup).
+`~/Applications/Melee 4K.app` (a symlink stays in `~/Melee4K` for Setup)
+and links it on the Desktop.
 Re-running it updates in place. `MELEE4K_DIR` and `MELEE4K_NO_LAUNCH` exist
 for tests.
 

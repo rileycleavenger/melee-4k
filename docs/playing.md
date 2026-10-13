@@ -50,9 +50,12 @@ setting:
 | Stocks | The stock icon style: Melee HD (the default), Circle, Smash 4 or Classic pixel. |
 | FPS Counter | The frame rate, top right. |
 | Unlock All | Every character, stage and mode (on by default). |
+| Check for Updates | Looks for a newer Melee 4K; press A again to install it (the game closes, updates and reopens, keeping your disc, saves and settings). |
 
 During a match, **F1** (or Back/Select/Create on a controller) opens the same
-settings plus the rest: controls, audio, graphics.
+settings plus the rest: controls, audio, graphics. To play a different disc
+image: F1 > Audio & interface > Disc > Choose another, and the disc picker
+opens the next time you start Melee 4K.
 
 ## Troubleshooting
 
