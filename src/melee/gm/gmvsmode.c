@@ -11,6 +11,7 @@
 #include "gmresult.h"
 #include "gmvsmelee.h"
 #include "types.h"
+#include <melee/ft/ftcustom.h>
 #include <melee/if/if_2FD9.h>
 #include <melee/lb/types.h>
 #include <melee/mn/types.h>
@@ -215,10 +216,13 @@ void onEnterDebugVs(GameModeState* state)
             start->players[i].slot_type = Gm_PKind_Cpu;
         }
     }
-    /* MELEE_DEBUG_VS_CHARS=<ckind>:<color>[,...]: up to four CPU fighters
+    /* MELEE_DEBUG_VS_CHARS=<ckind>:<color>[h][,...]: up to four CPU fighters
      * with chosen costumes, so the texture coverage sweep
      * (tools/textures/sweep.py) can load every character's every costume.
-     * The caller keeps <color> inside the character's costume count. */
+     * The caller keeps <color> inside the character's costume count. An "h"
+     * makes that player human instead (its port's pad, e.g. MELEE_KEY_FIFO
+     * on port 1), for scripted move tests. <ckind> can be a custom fighter's
+     * pack id ("Ge:1", its own costume 1; tools/fighter/preview.py). */
     if (getenv("MELEE_DEBUG_VS_CHARS") != NULL) {
         const char* p = getenv("MELEE_DEBUG_VS_CHARS");
         for (i = 0; i < Gm_Player_NumMax; i++) {
@@ -228,13 +232,28 @@ void onEnterDebugVs(GameModeState* state)
             char* end;
             long ckind = strtol(p, &end, 10);
             long color = 0;
+            bool human = false;
+            int pack = -1;
+            if (end == p && p[0] != '\0' && p[1] != '\0') {
+                /* A custom fighter by its pack id: its costumes count from 0. */
+                pack = ftCustom_PackById(p);
+                ckind = ftCustom_BaseCharacter(pack);
+                end = (char*) p + 2;
+            }
             if (*end == ':') {
                 color = strtol(end + 1, &end, 10);
+            }
+            if (pack >= 0) {
+                color = color < ftCustom_CostumeCount(pack) ? ftCustom_FirstCostume(pack) + color : -1;
+            }
+            if (*end == 'h') {
+                human = true;
+                end++;
             }
             if (ckind >= 0 && ckind < CKind_Playable_Count && color >= 0 && color < 16) {
                 start->players[i].ckind = (CharacterKind) ckind;
                 start->players[i].color = (u8) color;
-                start->players[i].slot_type = Gm_PKind_Cpu;
+                start->players[i].slot_type = human ? Gm_PKind_Human : Gm_PKind_Cpu;
                 start->players[i].cpu_level = 9;
             }
             p = *end == ',' ? end + 1 : end;
