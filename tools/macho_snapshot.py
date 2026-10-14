@@ -125,6 +125,10 @@ def rewrite(path):
                 if segment not in ('__TEXT', '__DWARF', '__LD', '__LLVM'):
                     raise ValueError(f'uncovered Mach-O segment {segment},{name}')
                 continue
+            if flags & 0xff in (0x9, 0xa) or name.startswith('__asan'):
+                # Module initialisers/finalisers and AddressSanitizer's metadata (an
+                # -fsanitize=address debug build): no game state.
+                continue
             if name in ('__data', '__const') and flags & 0xff == 0:
                 renamed = '__melee_data'
             elif name in ('__bss', '__common') and flags & 0xff == 1:

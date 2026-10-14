@@ -62,6 +62,9 @@ if sys.platform == 'darwin':
         '-fexec-charset=CP932',
         '-Wno-scalar-storage-order',
     ] + filtered_args
+    # GCC_EXTRA_FLAGS: GCC-only flags for a debug build (e.g. a bounds-trap
+    # build's -fno-crossjumping, which keeps each check's trap at its line).
+    gcc_cmd += os.environ.get('GCC_EXTRA_FLAGS', '').split()
     os.execv(gcc_bin, gcc_cmd)
 
 # Select the target ABI, not the build host. The x86-64 Android preset must
