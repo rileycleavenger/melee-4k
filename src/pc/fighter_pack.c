@@ -10,6 +10,7 @@
 
 #include <SDL3/SDL.h>
 #include <aurora/dvd.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,13 +49,16 @@ static bool fighters_dir(char* out, size_t n) {
 
 /* ---- fighter.cfg ------------------------------------------------------- */
 
-/* Next whitespace-separated token, honouring "double quotes". */
+/* Next whitespace-separated token, honouring "double quotes"; empty at the
+ * end of the line or at a # comment. */
 static const char* token(const char* p, char* out, size_t n) {
     while (*p == ' ' || *p == '\t') {
         p++;
     }
     size_t k = 0;
-    if (*p == '"') {
+    if (*p == '#') {
+        p += strlen(p);
+    } else if (*p == '"') {
         p++;
         while (*p != '\0' && *p != '"' && *p != '\n') {
             if (k + 1 < n) {
@@ -86,11 +90,22 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
     }
     memset(pk, 0, sizeof *pk);
     snprintf(pk->dir, sizeof pk->dir, "%s", dir);
+    pk->weight = pk->walk = pk->dash = pk->jump = pk->gravity = pk->fall = pk->air = 1.0f;
+    snprintf(pk->team[0], sizeof pk->team[0], "Re");
+    snprintf(pk->team[1], sizeof pk->team[1], "Bu");
+    snprintf(pk->team[2], sizeof pk->team[2], "Gr");
     char line[512];
     while (fgets(line, sizeof line, f) != NULL) {
         char key[32], val[64];
         const char* p = token(line, key, sizeof key);
         if (key[0] == '\0' || key[0] == '#') {
+            continue;
+        }
+        if (strcmp(key, "teams") == 0) {
+            for (int t = 0; t < 3; t++) {
+                p = token(p, val, sizeof val);
+                snprintf(pk->team[t], sizeof pk->team[t], "%s", val);
+            }
             continue;
         }
         if (strcmp(key, "costumes") == 0) {
@@ -112,6 +127,29 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
             snprintf(pk->name, sizeof pk->name, "%s", val);
         } else if (strcmp(key, "symbol") == 0) {
             snprintf(pk->symbol, sizeof pk->symbol, "%s", val);
+        } else if (strcmp(key, "moves") == 0) {
+            snprintf(pk->moves, sizeof pk->moves, "%s", val);
+        } else {
+            /* Attribute multipliers. strtod in the C locale: the same bits on
+             * every machine (they are simulation). */
+            static const struct {
+                const char* key;
+                size_t at;
+            } k_attrs[] = {
+                {"weight", offsetof(PcFighterPack, weight)},
+                {"walk", offsetof(PcFighterPack, walk)},
+                {"dash", offsetof(PcFighterPack, dash)},
+                {"jump", offsetof(PcFighterPack, jump)},
+                {"gravity", offsetof(PcFighterPack, gravity)},
+                {"fall", offsetof(PcFighterPack, fall)},
+                {"air", offsetof(PcFighterPack, air)},
+            };
+            for (size_t i = 0; i < sizeof k_attrs / sizeof k_attrs[0]; i++) {
+                if (strcmp(key, k_attrs[i].key) == 0) {
+                    float v = (float)strtod(val, NULL);
+                    *(float*)((char*)pk + k_attrs[i].at) = v > 0.1f && v < 10.0f ? v : 1.0f;
+                }
+            }
         }
     }
     fclose(f);
@@ -159,8 +197,24 @@ static uint32_t fnv(uint32_t h, const void* p, size_t n) {
 
 /* Adds the pack's costume files and its menu images (Pl<id>Ui.dat) to
  * `files`; hashes them as it goes. */
+static void hash_file(const char* path) {
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        return;
+    }
+    uint8_t buf[65536];
+    size_t got;
+    while ((got = fread(buf, 1, sizeof buf, f)) > 0) {
+        s_hash = fnv(s_hash, buf, got);
+    }
+    fclose(f);
+}
+
 static int add_files(const PcFighterPack* pk, AuroraOverlayFile* files, char (*names)[32],
     char (*paths)[600], int n) {
+    char cfg[600];
+    snprintf(cfg, sizeof cfg, "%s/fighter.cfg", pk->dir);
+    hash_file(cfg);
     for (int c = 0; c <= pk->n_costumes; c++) {
         const char* sfx = c < pk->n_costumes ? pk->costume[c] : "Ui";
         snprintf(names[n], 32, "/Pl%s%s.dat", pk->id, sfx);
@@ -195,9 +249,14 @@ void pc_fighter_packs_init(void) {
     }
     done = true;
     char root[512];
-    if (!fighters_dir(root, sizeof root)) {
-        return;
+    if (fighters_dir(root, sizeof root)) {
+        pc_fighter_packs_load(root);
     }
+}
+
+void pc_fighter_packs_load(const char* root) {
+    s_count = 0;
+    s_hash = 0;
     int n_entries = 0;
     char** entries = SDL_GlobDirectory(root, NULL, 0, &n_entries);
     for (int i = 0; entries != NULL && i < n_entries && s_count < PC_FIGHTER_PACKS_MAX; i++) {

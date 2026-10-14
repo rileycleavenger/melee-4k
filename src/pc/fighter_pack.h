@@ -16,6 +16,17 @@
  *   base     Mr                  base fighter's two-letter code
  *   symbol   PlyGeno5K           costume joint symbol stem
  *   costumes Nr Re Gr Bk         costume file suffixes, first is the default
+ *   teams    Re Nr Gr            the red, blue and green team costumes
+ *                                (default Re Bu Gr; one missing: the
+ *                                player's own costume)
+ *   moves    Geno                special moves compiled into the game
+ *                                (ftcustom.h); absent: the base's
+ *   weight   0.9                 multipliers on the base's attributes,
+ *   walk     1.1                 one per line: weight, walk, dash, jump,
+ *   ...                          gravity, fall, air
+ *
+ * fighter.cfg is simulation (moves, attributes): online it is part of the
+ * content hash, with every costume file.
  */
 
 #include <stdbool.h>
@@ -35,12 +46,19 @@ typedef struct PcFighterPack {
     char symbol[48];
     int n_costumes;
     char costume[PC_FIGHTER_COSTUMES_MAX][4];
+    char team[3][4]; /* red, blue, green team costume suffixes */
+    char moves[24];
+    /* Multipliers on the base fighter's attributes, 1 when not given. */
+    float weight, walk, dash, jump, gravity, fall, air;
     char dir[512];
 } PcFighterPack;
 
 /* Finds the packs and puts their files on the virtual disc. Once, after the
  * disc is open (pc_platform_init). */
 void pc_fighter_packs_init(void);
+/* The packs in `root`, replacing any loaded: pc_fighter_packs_init's work,
+ * callable again (tools/test_fighter_pack.c). */
+void pc_fighter_packs_load(const char* root);
 int pc_fighter_pack_count(void);
 const PcFighterPack* pc_fighter_pack(int i);
 /* FNV-1a over every pack's files in id order: equal on two machines only

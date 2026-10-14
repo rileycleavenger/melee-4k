@@ -25,6 +25,7 @@
 #include "ftcolanim.h"
 #include "ftcoll.h"
 #include "ftcommon.h"
+#include "ftcustom.h"
 #include "ftdata.h"
 #include "ftdevice.h"
 #include "ftdrawcommon.h"
@@ -298,6 +299,9 @@ void Fighter_UnkInitReset_80067C98(Fighter* fp)
     fp->dmg.armor0 = 0;
     fp->dmg.armor1 = 0;
     fp->x1828 = 0;
+#ifdef TARGET_PC
+    ftCustom_Reset(fp); /* a custom fighter's own move state (ftcustom.h) */
+#endif
 
     fp->x221C_b6 = 0;
 
@@ -2578,6 +2582,11 @@ void Fighter_procAccessory(Fighter_GObj* gobj)
 void Fighter_procCollPos(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
+#ifdef TARGET_PC
+    /* A custom fighter's own moves (ftcustom.h), after the frame's motion
+     * changes and before the accessory callbacks they install run. */
+    ftCustom_Frame(gobj);
+#endif
 
     if (!fp->is_sleeping) {
         efAsync_QueueFlush(gobj, &fp->x60C);

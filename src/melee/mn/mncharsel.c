@@ -2467,7 +2467,6 @@ static void cssLeaveCustom(int door)
  * door's team when it has one, else the costume it has. */
 static u8 cssCustomTeamCostume(int door)
 {
-    static const char* const team_suffix[3] = { "Re", "Bu", "Gr" };
     int i = cssDoorCustom(door);
     const PcFighterPack* pk;
     int k, team = mnCharSel_803F0DFC.doors[door].team;
@@ -2476,7 +2475,7 @@ static u8 cssCustomTeamCostume(int door)
     }
     pk = pc_fighter_pack(css_custom[i].pack);
     for (k = 0; team >= 0 && team < 3 && k < pk->n_costumes; k++) {
-        if (strcmp(pk->costume[k], team_suffix[team]) == 0) {
+        if (strcmp(pk->costume[k], pk->team[team]) == 0) {
             return (u8) (ftCustom_FirstCostume(css_custom[i].pack) + k);
         }
     }

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ftdata.h"
+#include "inlines.h"
 #include "types.h"
 
 #include "pc/fighter_pack.h"
@@ -28,7 +29,73 @@ static struct {
     FighterKind base;
     int first; /* the pack's first costume number on the base */
     int count;
+    const FtCustomMoves* moves;
 } s_custom[PC_FIGHTER_PACKS_MAX];
+
+/* Every custom fighter's compiled moves, by the name fighter.cfg uses. */
+extern const FtCustomMoves ftGe_Moves;
+static const FtCustomMoves* const k_moves[] = { &ftGe_Moves };
+
+/* The base fighter's own special entries, for the fighters not wearing a
+ * custom costume with moves: the tables below are shared by all of them. */
+enum { SP_N, SP_S, SP_LW, SP_HI, SP_AIR_N, SP_AIR_S, SP_AIR_LW, SP_AIR_HI, SP_COUNT };
+static HSD_GObjEvent s_base_special[SP_COUNT][Ft_Kind_Max];
+
+static void special(Fighter_GObj* gobj, int which)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const FtCustomMoves* m = ftCustom_Moves(fp);
+    void (*own)(Fighter_GObj*) = NULL;
+    if (m != NULL) {
+        switch (which) {
+        case SP_N: own = m->special_n; break;
+        case SP_S: own = m->special_s; break;
+        case SP_LW: own = m->special_lw; break;
+        case SP_HI: own = m->special_hi; break;
+        case SP_AIR_N: own = m->special_air_n; break;
+        case SP_AIR_S: own = m->special_air_s; break;
+        case SP_AIR_LW: own = m->special_air_lw; break;
+        case SP_AIR_HI: own = m->special_air_hi; break;
+        }
+    }
+    if (own != NULL) {
+        own(gobj);
+    } else if (s_base_special[which][fp->kind] != NULL) {
+        s_base_special[which][fp->kind](gobj);
+    }
+}
+
+static void special_n(Fighter_GObj* g) { special(g, SP_N); }
+static void special_s(Fighter_GObj* g) { special(g, SP_S); }
+static void special_lw(Fighter_GObj* g) { special(g, SP_LW); }
+static void special_hi(Fighter_GObj* g) { special(g, SP_HI); }
+static void special_air_n(Fighter_GObj* g) { special(g, SP_AIR_N); }
+static void special_air_s(Fighter_GObj* g) { special(g, SP_AIR_S); }
+static void special_air_lw(Fighter_GObj* g) { special(g, SP_AIR_LW); }
+static void special_air_hi(Fighter_GObj* g) { special(g, SP_AIR_HI); }
+
+/* Route a base fighter's special entries through special(), once. */
+static void take_specials(FighterKind k)
+{
+    HSD_GObjEvent* const tables[SP_COUNT] = {
+        ftData_SpecialN, ftData_SpecialS, ftData_SpecialLw, ftData_SpecialHi,
+        ftData_SpecialAirN, ftData_SpecialAirS, ftData_SpecialAirLw, ftData_SpecialAirHi,
+    };
+    static void (*const shims[SP_COUNT])(Fighter_GObj*) = {
+        special_n, special_s, special_lw, special_hi,
+        special_air_n, special_air_s, special_air_lw, special_air_hi,
+    };
+    int i;
+    if (tables[0][k] == (HSD_GObjEvent) special_n) {
+        return;
+    }
+    for (i = 0; i < SP_COUNT; i++) {
+        s_base_special[i][k] = tables[i][k];
+        if (tables[i][k] != NULL) {
+            tables[i][k] = (HSD_GObjEvent) shims[i];
+        }
+    }
+}
 static int s_n_custom;
 static int s_retail[Ft_Kind_Max];
 
@@ -98,6 +165,16 @@ void ftCustom_Init(void)
         s_custom[s_n_custom].base = base;
         s_custom[s_n_custom].first = have;
         s_custom[s_n_custom].count = pk->n_costumes;
+        s_custom[s_n_custom].moves = NULL;
+        for (c = 0; pk->moves[0] != '\0' && c < (int) (sizeof k_moves / sizeof k_moves[0]); c++) {
+            if (strcmp(k_moves[c]->name, pk->moves) == 0) {
+                s_custom[s_n_custom].moves = k_moves[c];
+                take_specials(base);
+            }
+        }
+        if (pk->moves[0] != '\0' && s_custom[s_n_custom].moves == NULL) {
+            pc_log_line("fighters: %s: no moves called %s in this build", pk->id, pk->moves);
+        }
         pc_log_line("fighters: %s is %s costumes %d-%d", pk->id, pk->base, have,
                     have + pk->n_costumes - 1);
         s_n_custom++;
@@ -144,6 +221,32 @@ int ftCustom_CostumeCount(int pack)
 FighterKind ftCustom_BaseKind(int pack)
 {
     return pack >= 0 && pack < s_n_custom ? s_custom[pack].base : Ft_Kind_None;
+}
+
+int ftCustom_PackById(const char* id)
+{
+    int i;
+    for (i = 0; i < s_n_custom; i++) {
+        if (strncmp(pc_fighter_pack(i)->id, id, 2) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int ftCustom_BaseCharacter(int pack)
+{
+    const FighterKind kind = ftCustom_BaseKind(pack);
+    int c;
+    if (kind == Ft_Kind_None) {
+        return -1;
+    }
+    for (c = 0; c < CKind_Playable_Count; c++) {
+        if (Player_800325C8((CharacterKind) c, false) == kind) {
+            return c;
+        }
+    }
+    return -1;
 }
 
 static HSD_Archive* s_ui[PC_FIGHTER_PACKS_MAX];
@@ -210,4 +313,45 @@ const char* ftCustom_SlotName(int slot)
     }
     pack = ftCustom_Pack(Player_800325C8(ckind, false), Player_GetCostumeId(slot));
     return pack >= 0 ? pc_fighter_pack(pack)->name : NULL;
+}
+
+const FtCustomMoves* ftCustom_Moves(Fighter* fp)
+{
+    const int p = ftCustom_Pack(fp->kind, fp->costume_id);
+    return p >= 0 ? s_custom[p].moves : NULL;
+}
+
+void ftCustom_ApplyAttrs(Fighter* fp)
+{
+    const int p = ftCustom_Pack(fp->kind, fp->costume_id);
+    const PcFighterPack* pk;
+    if (p < 0) {
+        return;
+    }
+    pk = pc_fighter_pack(p);
+    fp->co_attrs.weight *= pk->weight;
+    fp->co_attrs.walk_max_vel *= pk->walk;
+    fp->co_attrs.dash_max_velocity *= pk->dash;
+    fp->co_attrs.jump_v_initial_velocity *= pk->jump;
+    fp->co_attrs.hop_v_initial_velocity *= pk->jump;
+    fp->co_attrs.gravity *= pk->gravity;
+    fp->co_attrs.terminal_velocity *= pk->fall;
+    fp->co_attrs.fast_fall_velocity *= pk->fall;
+    fp->co_attrs.air_drift_max *= pk->air;
+}
+
+void ftCustom_Frame(Fighter_GObj* gobj)
+{
+    const FtCustomMoves* m = ftCustom_Moves(GET_FIGHTER(gobj));
+    if (m != NULL && m->on_frame != NULL) {
+        m->on_frame(gobj);
+    }
+}
+
+void ftCustom_Reset(Fighter* fp)
+{
+    const FtCustomMoves* m = ftCustom_Moves(fp);
+    if (m != NULL && m->on_reset != NULL) {
+        m->on_reset(fp);
+    }
 }

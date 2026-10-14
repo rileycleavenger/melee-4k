@@ -3,6 +3,7 @@
 #include <placeholder.h>
 
 #include "fighter.h"
+#include "ftcustom.h"
 #include "inlines.h"
 #include <sysdolphin/baselib/debug.h>
 
@@ -148,6 +149,9 @@ void ftCo_800D0FA0(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
 
     fp->co_attrs = *DP(struct ftCo_DatAttrs, fp->ft_data->x0);
+#ifdef TARGET_PC
+    ftCustom_ApplyAttrs(fp); /* a custom fighter's own (ftcustom.h) */
+#endif
     {
         fp->x294_itPickup = *DP(struct itPickup, fp->ft_data->x40);
         DiscVec2* v = DP(DiscVec2, fp->ft_data->x50);
@@ -171,6 +175,9 @@ void ftCo_800D105C(Fighter_GObj* fgp)
 
     fp = GET_FIGHTER(fgp);
     fp->co_attrs = *DP(struct ftCo_DatAttrs, fp->ft_data->x0);
+#ifdef TARGET_PC
+    ftCustom_ApplyAttrs(fp); /* a custom fighter's own (ftcustom.h) */
+#endif
     fp->x294_itPickup = *DP(struct itPickup, fp->ft_data->x40);
     {
         DiscVec2* v = DP(DiscVec2, fp->ft_data->x50);
