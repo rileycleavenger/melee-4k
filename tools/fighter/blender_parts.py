@@ -91,6 +91,7 @@ class Part:
         self.uv = self.bm.loops.layers.uv.new("UV")
         self.dl = self.bm.verts.layers.deform.new()
         self.groups = []
+        self.oriented = False
 
     def group(self, bone):
         if bone not in self.groups:
@@ -121,12 +122,17 @@ class Part:
             f.normal_update()
             if f.normal.dot(c - inside_of(c)) < 0:
                 f.normal_flip()
+        self.oriented = True
 
     def finish(self, subsurf=0, solidify=0.0, inner_mat=None, smooth=True):
         """Make the object. subsurf: Catmull-Clark levels applied (weights
         and UVs follow). solidify: give a sheet this thickness, the inner
         side in material inner_mat (a cape's lining)."""
         me = bpy.data.meshes.new(self.name)
+        if not self.oriented:
+            # Every face outward: the game draws front faces only, so a face
+            # wound inward is a hole (Blender's renders show both sides).
+            bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
         self.bm.normal_update()
         self.bm.to_mesh(me)
         self.bm.free()
@@ -203,6 +209,11 @@ def decimate(ob, ratio):
     ob.data = new
     new.name = old.name
     bpy.data.meshes.remove(old)
+    bm = bmesh.new()
+    bm.from_mesh(new)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(new)
+    bm.free()
     return ob
 
 
