@@ -62,9 +62,27 @@ MENU_MODES = ["menu", "trophies", "lottery", "collection", "tournament", "camera
 GS_VS, GS_TRAINING = 0x02, 0x04
 
 
-def cases(frames):
+def pack_slots(packs):
+    """(pack id, costume) for every costume of every pack in `packs`
+    (fighters/<id>/fighter.cfg, docs/fighters.md)."""
+    out = []
+    for d in sorted(os.listdir(packs)):
+        cfg = os.path.join(packs, d, "fighter.cfg")
+        if not os.path.exists(cfg):
+            continue
+        keys = {}
+        for line in open(cfg):
+            k, _, v = line.split("#", 1)[0].strip().partition(" ")
+            keys[k] = v.split()
+        if keys.get("id") and keys.get("costumes"):
+            out += [(keys["id"][0], k) for k in range(len(keys["costumes"]))]
+    return out
+
+
+def cases(frames, fighters=None):
     out = []
     slots = [(ck, color) for ck, (_, n) in enumerate(COSTUMES) for color in range(n)]
+    slots += pack_slots(fighters) if fighters else []
     groups = [slots[i:i + 4] for i in range(0, len(slots), 4)]
     for i in range(max(len(groups), len(STAGES))):
         stage, group = STAGES[i % len(STAGES)], groups[i % len(groups)]
@@ -72,7 +90,8 @@ def cases(frames):
                "MELEE_DEBUG_VS_CHARS": ",".join(f"{c}:{k}" for c, k in group)}
         if stage:
             env["MELEE_DEBUG_VS_STAGE"] = str(stage)
-        who = "+".join(f"{COSTUMES[c][0].replace(' ', '')}{k}" for c, k in group)
+        who = "+".join(f"{c if isinstance(c, str) else COSTUMES[c][0].replace(' ', '')}{k}"
+                       for c, k in group)
         out.append({"name": f"vs/stage{stage:02x}-{who}", "env": env, "frames": frames,
                     "expect": GS_VS})
     out.append({"name": "classic", "env": {"MELEE_BOOT_SCENE": "classic"}, "frames": frames * 2,
@@ -219,7 +238,11 @@ def main():
     ap.add_argument("--texture-dir")
     ap.add_argument("--timeout", type=int, default=300)
     ap.add_argument("--repeat", type=int, default=1, help="run each case N times (rare crashes)")
+    ap.add_argument("--fighters", help="custom fighter packs folder: loaded in every case "
+                    "(MELEE_FIGHTERS_DIR) and every pack costume added to the VS rotation")
     args = ap.parse_args()
+    if args.fighters:
+        os.environ["MELEE_FIGHTERS_DIR"] = os.path.abspath(args.fighters)
 
     os.makedirs(args.work, exist_ok=True)
     logs = os.path.join(args.work, "logs")
@@ -227,7 +250,7 @@ def main():
     state_path = os.path.join(args.work, "soak.json")
     state = json.load(open(state_path)) if os.path.exists(state_path) else {"runs": {}}
 
-    todo = [c for c in cases(args.frames) if not args.only or re.search(args.only, c["name"])]
+    todo = [c for c in cases(args.frames, args.fighters) if not args.only or re.search(args.only, c["name"])]
     for rep in range(args.repeat):
         for n, case in enumerate(todo):
             key = case["name"] + (f"#{rep}" if args.repeat > 1 else "")

@@ -255,8 +255,14 @@ The opponent's damage climbing in the screenshots proves hits land.
 MELEE_FIGHTERS_DIR=$DEV/packs MELEE_DEBUG_VS_CHARS="Xx:0,8:0,Xx:1,2:0" \
   python3 REPO/tools/interp_determinism.py DISC /tmp/det        # every row PASS
 # online, two local instances (docs/testing.md), fighter picked:
-python3 REPO/tools/online_test.py --disc DISC ...                # PASS, every frame identical
+MELEE_FIGHTERS_DIR=$DEV/packs python3 REPO/tools/online_test.py --disc DISC --guest-mouse "U,V@0"  # PASS
+# (U,V: the guest's pinned pointer on the fighter's icon, e.g. 0.79,0.455
+#  for the first custom icon)
+# soak: every stage, character and mode, with every pack costume in the VS rotation
+python3 REPO/tools/soak.py DISC /tmp/soak --fighters $DEV/packs          # N/N passed
 ```
 
-The soak (`tools/soak.py`) and the online interop tests are in
-`docs/testing.md`.
+Online with a peer that lacks the pack, or runs v1.1.0, must fall back to
+base fighters only (`online: base fighters only (...)` in the log);
+`docs/testing.md` covers the online harness, including a Windows peer
+under Wine.
