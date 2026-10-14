@@ -2304,8 +2304,9 @@ typedef struct CssCustom {
 static CssCustom css_custom[CSS_CUSTOM_MAX];
 static int css_n_custom;
 
-/* Roy's icon moved right by one column. */
-static const f32 css_custom_dx[CSS_CUSTOM_MAX] = { 6.0F };
+/* Roy's icon moved right by one column (the icon columns are 7.0 apart,
+ * ICONBNDS_COL*). */
+static const f32 css_custom_dx[CSS_CUSTOM_MAX] = { 7.0F };
 
 static int cssBaseIcon(FighterKind base)
 {

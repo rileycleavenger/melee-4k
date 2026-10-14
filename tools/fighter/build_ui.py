@@ -15,7 +15,8 @@ corresponding texture objects at these images.
 Sizes are twice the disc's, the shapes the game draws them at: icon 128x112
 (64x56), portrait 272x376 (136x188), stock 64x64 (24x24 drawn).
 
-With --name, also ftUiBanner (the results screen's winner banner, 512x56)
+With --name, the icon is set on a Melee-style plate (striped background,
+the name on a dark bar; --plain-icon keeps it as given), and also ftUiBanner (the results screen's winner banner, 512x56)
 and ftUiName (a results panel's name plate, 160x128): white letters whose
 alpha is their coverage, which the game tints as it does its own
 intensity-only name textures.
@@ -71,6 +72,47 @@ def text_image(text, size, font_path, italic, fill=False):
     return out
 
 
+def melee_icon(render, name, font_path, size=SIZES["icon"]):
+    """A character select icon in Melee's style: the render over a slate
+    striped plate, the name in light letters on a dark bar along the
+    bottom, inside a light rounded frame (all part of Melee's own icon
+    textures)."""
+    from PIL import Image, ImageDraw
+    w, h = size
+    plate = Image.new("RGBA", size)
+    d = ImageDraw.Draw(plate)
+    for y in range(h):
+        t = y / (h - 1)
+        c = [int(a + (b - a) * t) for a, b in zip((66, 82, 108), (30, 40, 56))]
+        if y % 4 >= 2:  # Melee's faint horizontal lines
+            c = [int(v * 0.86) for v in c]
+        d.line([(0, y), (w, y)], fill=tuple(c) + (255,))
+    r = render.convert("RGBA")
+    box = r.getbbox()
+    if box is not None:
+        r = r.crop(box)
+    scale = w * 1.05 / r.width
+    r = r.resize((max(1, int(r.width * scale)), max(1, int(r.height * scale))), Image.LANCZOS)
+    plate.alpha_composite(r, ((w - r.width) // 2, 0))  # head at the top, body cut by the bar
+    m = max(2, w // 40)  # frame width
+    bar = int(h * 0.22)
+    d.rectangle([m, h - bar - m, w - m, h - m], fill=(16, 4, 4, 255))
+    label = text_image(name.upper(), (int(w * 0.9), int(bar * 0.9)), font_path, False)
+    label = Image.composite(Image.new("RGBA", label.size, (200, 196, 196, 255)),
+                            Image.new("RGBA", label.size, (0, 0, 0, 0)), label.getchannel("A"))
+    plate.alpha_composite(label, ((w - label.width) // 2, h - bar - m + (bar - label.height) // 2))
+    # The frame: a light rounded border, transparent outside its corners.
+    radius = w // 12
+    mask = Image.new("L", size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius, fill=255)
+    ImageDraw.Draw(plate).rounded_rectangle([0, 0, w - 1, h - 1], radius, outline=(200, 200, 204, 255),
+                                            width=m)
+    ImageDraw.Draw(plate).rounded_rectangle([m, m, w - 1 - m, h - 1 - m], max(1, radius - m),
+                                            outline=(60, 60, 66, 255), width=1)
+    plate.putalpha(Image.composite(plate.getchannel("A"), mask, mask))
+    return plate
+
+
 def encode_rgba8(img):
     """GX RGBA8: 4x4 tiles, each 32 bytes of A,R pairs then 32 of G,B."""
     w, h = img.size
@@ -108,16 +150,24 @@ def main():
     ap.add_argument("--stock", nargs="+", required=True)
     ap.add_argument("--name", help="the fighter's name, for the results screen")
     ap.add_argument("--font", help="TrueType font for --name (default: Arial Black or similar)")
+    ap.add_argument("--plain-icon", action="store_true",
+                    help="use --icon as it is (by default, with --name, it is set on a Melee-style "
+                         "plate with the name)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     w = hsd.Writer()
-    pubs = {"ftUiIcon": image_desc(w, Image.open(a.icon), SIZES["icon"])}
+    font = a.font or next((f for f in FONTS if os.path.exists(f)), None)
+    icon = Image.open(a.icon)
+    if a.name and not a.plain_icon:
+        if font is None:
+            raise SystemExit("no font for --name; pass --font")
+        icon = melee_icon(icon, a.name, font)
+    pubs = {"ftUiIcon": image_desc(w, icon, SIZES["icon"])}
     for i, p in enumerate(a.csp):
         pubs[f"ftUiCsp{i}"] = image_desc(w, Image.open(p), SIZES["csp"])
     for i, p in enumerate(a.stock):
         pubs[f"ftUiStock{i}"] = image_desc(w, Image.open(p), SIZES["stock"])
     if a.name:
-        font = a.font or next((f for f in FONTS if os.path.exists(f)), None)
         if font is None:
             raise SystemExit("no font for --name; pass --font")
         pubs["ftUiBanner"] = image_desc(w, text_image(a.name.upper(), SIZES["banner"], font, True),
