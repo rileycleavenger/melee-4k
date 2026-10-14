@@ -7,6 +7,7 @@
 #include "ft_0C88.h"
 #include "ftafterimage.h"
 #include "ftcommon.h"
+#include "ftcustom.h"
 #include "ftdata.h"
 #include "ftlib.h"
 #include "ftparts.h"
@@ -236,7 +237,11 @@ void ftDrawCommon_800805C8(HSD_GObj* gobj, s32 arg1, bool arg2)
     if (!fighter->invisible && !fighter->x221E_b5 && arg2) {
         ftParts_800750C8(fighter, 1, 0);
         ftParts_800750C8(fighter, 4, 0);
-        if (fighter->is_metal || fighter->x2226_b5 || fighter->x2227_b3) {
+        /* Group 2 is the base's own low-poly mesh (metal, cloaked...): a
+         * custom costume keeps its model and takes only the material. */
+        if ((fighter->is_metal || fighter->x2226_b5 || fighter->x2227_b3) &&
+            ftCustom_Pack(fighter->kind, fighter->costume_id) < 0)
+        {
             ftParts_800750C8(fighter, 0, 0);
             ftParts_800750C8(fighter, 2, 1);
         } else {

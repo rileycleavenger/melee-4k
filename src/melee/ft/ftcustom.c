@@ -1,9 +1,12 @@
 #include "ftcustom.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ftdata.h"
+#include "fighter.h"
+#include "ftparts.h"
 #include "inlines.h"
 #include "types.h"
 
@@ -12,6 +15,7 @@
 
 #include <melee/lb/lbarchive.h>
 #include <melee/pl/player.h>
+#include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/archive.h>
 
 /* What ftCustom_Init made for each pack: the base's costume list and
@@ -346,9 +350,51 @@ void ftCustom_ApplyAttrs(Fighter* fp)
     fp->co_attrs.air_drift_max *= pk->air;
 }
 
+/* MELEE_DUMP_POSE=path:frame (a test knob): on that frame of the first
+ * custom fighter, write every joint's world matrix (3x4, rows) as JSON,
+ * for tools/fighter/blender_pose.py to pose the model like the game. */
+static void dump_pose(Fighter* fp)
+{
+    static int frame = -1, at = -2;
+    static char path[512];
+    FILE* f;
+    int i, n;
+    if (at == -2) {
+        const char* env = getenv("MELEE_DUMP_POSE");
+        const char* colon = env != NULL ? strrchr(env, ':') : NULL;
+        at = -1;
+        if (colon != NULL && (size_t) (colon - env) < sizeof(path)) {
+            memcpy(path, env, (size_t) (colon - env));
+            path[colon - env] = '\0';
+            at = atoi(colon + 1);
+        }
+    }
+    if (at < 0 || ++frame != at || (f = fopen(path, "w")) == NULL) {
+        return;
+    }
+    n = DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num;
+    fprintf(f, "{\"motion\": %d, \"frame\": %f, \"joints\": [", fp->motion_id, fp->cur_anim_frame);
+    for (i = 0; i < n; i++) {
+        HSD_JObj* j = fp->parts[i].joint;
+        int r, c;
+        fprintf(f, "%s[", i ? ", " : "");
+        for (r = 0; r < 3; r++) {
+            for (c = 0; c < 4; c++) {
+                fprintf(f, "%s%.6f", r || c ? ", " : "", j != NULL ? j->mtx[r][c] : 0.0F);
+            }
+        }
+        fprintf(f, "]");
+    }
+    fprintf(f, "]}\n");
+    fclose(f);
+}
+
 void ftCustom_Frame(Fighter_GObj* gobj)
 {
     const FtCustomMoves* m = ftCustom_Moves(GET_FIGHTER(gobj));
+    if (ftCustom_Pack(GET_FIGHTER(gobj)->kind, GET_FIGHTER(gobj)->costume_id) >= 0) {
+        dump_pose(GET_FIGHTER(gobj));
+    }
     if (m != NULL && m->on_frame != NULL) {
         m->on_frame(gobj);
     }

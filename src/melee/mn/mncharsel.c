@@ -1685,7 +1685,14 @@ void mnCharSel_8025DB34(u8 arg0)
                 }
                 mnCharSel_804D6CB0->vs.start.players[port].color = color;
             }
-            hud_idx += color * 0x1E;
+#ifdef TARGET_PC
+            /* The frames are per retail costume: a custom costume's would
+             * be another fighter's (its own portrait is cssCustomDoor's). */
+            if (cssDoorCustom(arg0) < 0)
+#endif
+            {
+                hud_idx += color * 0x1E;
+            }
             mnCharSel_8025D5AC((int) arg0, hud_idx, 0);
 #ifdef TARGET_PC
             cssCustomDoor(arg0);
