@@ -129,6 +129,8 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
             snprintf(pk->symbol, sizeof pk->symbol, "%s", val);
         } else if (strcmp(key, "moves") == 0) {
             snprintf(pk->moves, sizeof pk->moves, "%s", val);
+        } else if (strcmp(key, "voice") == 0) {
+            pk->mute = strcmp(val, "none") == 0;
         } else {
             /* Attribute multipliers. strtod in the C locale: the same bits on
              * every machine (they are simulation). */

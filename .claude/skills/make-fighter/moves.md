@@ -65,6 +65,20 @@ happens on their events. The building blocks, all from the worked example:
   item's `x40_vel`, `xD44_lifeTimer`, scale, and its `physics_updated` /
   `collided` callbacks for new flight. Its hitbox (damage, knockback) is
   the article's.
+- **Projectiles that are not the base's:** the common items' shots load in
+  every match (ItCo), so any fighter can fire them, owner = the fighter:
+  the Ray Gun's ray `it_80298168(gobj, &pos, fp->facing_dir)`
+  (`itlgunray.h`, a laser), the Star Rod's star `it_802988E4(gobj, &pos,
+  1, fp->facing_dir)` (`itstarrodstar.h`, a big spinning star; 0 the small
+  one). Their look and hitbox are the item's; a projectile that looks like
+  the base's (Mario's fireball) makes the fighter feel like the base.
+- **Hit effects:** the base's hitboxes are its own scripts, but their
+  element can change before they are checked: in on_frame, walk
+  `fp->x914[0..3]` (`HitCapsule`) and set `element` (`HitElement_Fire`,
+  `_Electric`, `_Coin`, ... in `lb/forward.h`). Electric adds Melee's
+  extra hitlag: it is simulation, deterministic, and changes the feel.
+- **Voice:** `voice none` in fighter.cfg silences the base's voice clips
+  (`ftCustom_Mute`, the metal-fighter flag), no C needed.
 - **Buffs and armour:** `fp->dmg.armor0` (knockback resistance) held from
   on_frame; colour flash `ftCo_800BFFD0(fp, colanim, false)`.
 - **State:** a static array indexed by `fp->player_idx` (0..5); reset in

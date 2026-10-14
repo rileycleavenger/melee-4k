@@ -734,6 +734,11 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     }
 
     fp->costume_id = costume_id;
+#ifdef TARGET_PC
+    if (ftCustom_Mute(fp)) {
+        fp->x2225_b5 = true;
+    }
+#endif
     fp->team = Player_GetTeam(fp->player_idx);
     fp->gobj = gobj;
     fp->ft_data = gFtDataList[fp->kind];

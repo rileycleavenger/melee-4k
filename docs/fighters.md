@@ -33,13 +33,18 @@ costumes 5-9`).
 - **Character select.** Each custom fighter gets an icon to the right of
   the bottom row (one at present). Picking it shows its portrait and name;
   X/Y cycle its costumes. In team battles it wears the costumes its
-  `teams` line names. Random never picks a custom fighter.
+  `teams` line names. Random never picks a custom fighter. The **CUSTOM**
+  switch left of the top row turns custom fighters off and on (saved as
+  `custom_fighters` in launcher.cfg; online it starts on, and any player's
+  press flips it for everyone, as the rest of the screen follows the hands).
 - **Matches.** It plays as its base. If the pack names compiled-in `moves`,
   it uses them instead of the base's specials, and the `fighter.cfg`
   attribute multipliers change its weight, speeds, jumps and falling. Other
   players of the same base fighter keep the base's moves.
-- **HUD and results.** It shows its own stock icon, and on the results screen
-  its own winner banner and name plate. The announcer says nothing for it.
+- **HUD and results.** It shows its own stock icon (the HUD, the results
+  screen's KO table), and on the results screen its own winner banner and
+  name plate. The announcer says nothing for it; with `voice none` neither
+  does it.
 - **Online.** Two players with the same game version and the same packs
   (the same bytes, compared by hash when they join) can both use custom
   fighters. Otherwise, from v1.1 up, the session is **base fighters only**:
@@ -53,7 +58,7 @@ fighters/<id>/
   fighter.cfg            what the fighter is
   Pl<id><costume>.dat    one model file per costume (PlGeNr.dat, PlGeRe.dat ...)
   Pl<id>Ui.dat           menu images: icon, portraits, stock icons, results name
-  textures/              HD replacements for the costume files' textures
+  textures/              HD replacements for the costume files' and menu images' textures
 ```
 
 `fighter.cfg` has one `key value` per line, with `#` comments:
@@ -67,6 +72,7 @@ fighters/<id>/
 | `costumes` | `Nr Re Gr Bk Wh` | Costume file suffixes; the first is the default; at most 8 |
 | `teams` | `Re Nr Gr` | Optional: the red, blue and green team costumes (default `Re Bu Gr`) |
 | `moves` | `Geno` | Optional: special moves compiled into the game (`src/melee/ft/ftcustom.h`) |
+| `voice` | `none` | Optional: none of the base fighter's voice clips |
 | `weight` `walk` `dash` `jump` `gravity` `fall` `air` | `0.94` | Optional: multipliers on the base's attributes, one per line, between 0.1 and 10 |
 
 Everything in the pack except `textures/` is simulation or menu data that
@@ -95,8 +101,12 @@ online play hashes: `fighter.cfg` and every `.dat`.
   Attributes are multiplied where the game copies them from the data file
   (`ftchangeparam.c`).
 - **Menus** (`mncharsel.c`, `ifstock.c`, `gmresultplayer.c`). These load
-  `Pl<id>Ui.dat` into the screen's heap and point the right texture objects
-  at its images.
+  `Pl<id>Ui.dat` into the screen's heap and pin its images on the right
+  texture objects (`HSD_TObjPinImage`, `src/sysdolphin/baselib/tobj.c`):
+  menus pick a fighter's icon by animating a texture to the fighter's
+  frame, which a custom costume does not have, so the pinned image stays
+  whatever the animation picks. The images are the disc's sizes, with HD
+  replacements in `textures/` like the costume textures'.
 - **Online** (`src/pc/online.c`). The JOIN message carries the content hash.
   A mismatch puts the session in base-only mode, and v1.1.0 peers are
   answered in v1.1.0's own protocol.
@@ -108,9 +118,10 @@ The `make-fighter` skill's `tools.md` documents each tool:
 | Tool | What |
 |---|---|
 | `tools/fighter/export_base.py` | Exports a base fighter from your disc (skeleton, meshes, template) |
-| `tools/fighter/blender_*.py` | Blender steps: import the base, model primitives, check renders, export, menu renders |
+| `tools/fighter/blender_*.py` | Blender steps: import the base, model primitives, paint and bake textures, check renders, export, menu renders |
 | `tools/fighter/build_dat.py` | Writes a costume file |
 | `tools/fighter/build_ui.py` | Writes the menu images file |
 | `tools/fighter/validate.py` | Checks a pack |
 | `tools/fighter/preview.py` | Plays CPU matches with the fighter and makes a screenshot sheet |
+| `tools/fighter/closeup.py` | The fighter up close in a match, through the pause camera |
 | `tools/test_fighter_pack.c`, `tools/test_fighter_tools.py` | Unit tests |

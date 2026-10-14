@@ -40,6 +40,9 @@ typedef struct FtCustomMoves {
 
 /* The custom fighter's moves, or NULL (a retail fighter, or no "moves"). */
 const FtCustomMoves* ftCustom_Moves(Fighter* fp);
+/* The pack says "voice none": the base's voice clips stay silent (as for
+ * a metal fighter, fp->x2225_b5). */
+bool ftCustom_Mute(Fighter* fp);
 /* fighter.cfg's attribute multipliers, on the attributes just copied from
  * the data file (ftchangeparam.c). */
 void ftCustom_ApplyAttrs(Fighter* fp);

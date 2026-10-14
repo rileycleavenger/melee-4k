@@ -315,6 +315,12 @@ const char* ftCustom_SlotName(int slot)
     return pack >= 0 ? pc_fighter_pack(pack)->name : NULL;
 }
 
+bool ftCustom_Mute(Fighter* fp)
+{
+    const int p = ftCustom_Pack(fp->kind, fp->costume_id);
+    return p >= 0 && pc_fighter_pack(p)->mute;
+}
+
 const FtCustomMoves* ftCustom_Moves(Fighter* fp)
 {
     const int p = ftCustom_Pack(fp->kind, fp->costume_id);

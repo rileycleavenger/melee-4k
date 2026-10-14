@@ -48,6 +48,7 @@ typedef struct PcFighterPack {
     char costume[PC_FIGHTER_COSTUMES_MAX][4];
     char team[3][4]; /* red, blue, green team costume suffixes */
     char moves[24];
+    bool mute; /* "voice none": none of the base fighter's voice clips */
     /* Multipliers on the base fighter's attributes, 1 when not given. */
     float weight, walk, dash, jump, gravity, fall, air;
     char dir[512];

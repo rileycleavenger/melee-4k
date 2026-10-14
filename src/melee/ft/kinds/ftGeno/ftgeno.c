@@ -1,12 +1,13 @@
 /* Geno's special moves: a custom fighter on Mario (fighters/Ge, "moves
  * Geno"), entered in place of Mario's for the fighters wearing his costumes
  * (src/melee/ft/ftcustom.h). They run on Mario's motions -- the skeleton is
- * Mario's -- and his fireball article, flown differently.
+ * Mario's -- firing common items' shots.
  *
- *   Geno Beam   (B)        a fast straight shot from the finger, 6%
- *   Geno Whirl  (side B)   a slower, larger shot that flies twice as far, 10%
+ *   Geno Beam   (B)        the Ray Gun's ray from his hand
+ *   Geno Whirl  (side B)   the Star Rod's big spinning star
  *   Geno Boost  (down B)   ten seconds of armour: hits push him less
- *   up B                   Mario's Super Jump Punch
+ *   up B                   Mario's Super Jump Punch, flashing (below)
+ *   Geno Flash             his fire and coin hits are electric instead
  *
  * All state here is the fighter's own (ftGe_State by player slot) and moves
  * only with the simulation, so it is the same on every machine online. */
@@ -32,19 +33,12 @@
 #include <melee/it/itgroundcoll.h>
 #include <melee/it/itmaplib.h>
 #include <melee/it/kinds/inlines.h>
-#include <melee/it/kinds/itmariofireball.h>
+#include <melee/it/kinds/itlgunray.h>
+#include <melee/it/kinds/itstarrodstar.h>
 #include <melee/it/types.h>
 #include <melee/lb/lb_00B0.h>
 #include <sysdolphin/baselib/jobj.h>
 
-#define GE_BEAM_SPEED 3.6F
-#define GE_BEAM_LIFE 40
-#define GE_BEAM_SCALE 1.2F
-#define GE_BEAM_DAMAGE 6
-#define GE_WHIRL_SPEED 1.7F
-#define GE_WHIRL_LIFE 110
-#define GE_WHIRL_SCALE 1.8F
-#define GE_WHIRL_DAMAGE 10
 #define GE_BOOST_FRAMES 600
 #define GE_BOOST_ARMOR 40.0F
 #define GE_BOOST_COLANIM 53 /* the glow of a charged shot */
@@ -66,72 +60,35 @@ static inline int slot_of(Fighter* fp)
     return fp->player_idx < 6 ? fp->player_idx : 0;
 }
 
-/* Straight flight: no gravity, the speed it was given. The article's
- * script makes its hitbox after the spawn, so the shot's own damage and
- * size go on it here, once per hitbox (it_80272460 records the damage in
- * unk_count). */
-static void shot_hitbox(Item_GObj* gobj, u32 damage, f32 scale)
-{
-    Item* it = GET_ITEM(gobj);
-    int i;
-    for (i = 0; i < 4; i++) {
-        HitCapsule* hit = &it->x5D4_hitboxes[i].hit;
-        if (hit->state != HitCapsule_Disabled && hit->unk_count != damage) {
-            it_80272460(hit, damage, gobj);
-            hit->scale *= scale;
-        }
-    }
-}
-
-static void ftGe_BeamPhys(Item_GObj* gobj)
-{
-    shot_hitbox(gobj, GE_BEAM_DAMAGE, GE_BEAM_SCALE);
-}
-
-static void ftGe_WhirlPhys(Item_GObj* gobj)
-{
-    shot_hitbox(gobj, GE_WHIRL_DAMAGE, GE_WHIRL_SCALE);
-}
-
-/* Gone at the first wall or floor it touches, or when its life runs out
- * (the article's own animation callback counts that down). */
-static bool ftGe_ShotColl(Item_GObj* gobj)
-{
-    it_8026D9A0(gobj);
-    return it_8027781C(gobj) ? true : false;
-}
-
-static void spawn_shot(Fighter_GObj* gobj, f32 speed, int life, f32 scale,
-                       void (*phys)(Item_GObj*))
+/* Geno Beam is the Ray Gun's ray and Geno Whirl the Star Rod's spinning
+ * star (its strong one), fired from his hand: common items' shots, so their
+ * models load in every match, and simulation like any item. */
+static void spawn_shot(Fighter_GObj* gobj, GeShot shot)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    SpawnItem spawn;
     Vec3 pos;
-    Item_GObj* item_gobj;
-    Item* it;
     lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_L1stNb)].joint, NULL, &pos);
-    spawn.kind = It_Kind_Mario_Fire;
-    Item_InitSpawnPositionFromParent(&spawn, gobj, &pos);
-    Item_InitSpawnCommonFields(&spawn, gobj, fp->facing_dir, true);
-    item_gobj = Item_80268B18(&spawn);
-    if (item_gobj == NULL) {
-        return;
+    if (shot == GE_SHOT_BEAM) {
+        it_80298168(gobj, &pos, fp->facing_dir);
+    } else {
+        it_802988E4(gobj, &pos, 1, fp->facing_dir);
     }
-    it_8029B7C0(item_gobj);
-    db_80225DD8(item_gobj, gobj);
-    it_802750F8(item_gobj);
-    it = GET_ITEM(item_gobj);
-    it->x40_vel.x = fp->facing_dir * speed;
-    it->x40_vel.y = 0.0F;
-    it->xD44_lifeTimer = life;
-    it->physics_updated = phys;
-    it->collided = ftGe_ShotColl;
-    {
-        Vec3 s = { scale, scale, scale };
-        HSD_JObjSetScale(GET_JOBJ(item_gobj), &s);
+}
+
+/* His hits flash with electricity where Mario's burn or shed coins (the
+ * forward smash, the up B): Geno Flash. Set on the hitboxes the motion
+ * made this frame, before they are checked. */
+static void flash_hits(Fighter* fp)
+{
+    int i;
+    for (i = 0; i < 4; i++) {
+        HitCapsule* hit = &fp->x914[i];
+        if (hit->state != HitCapsule_Disabled &&
+            (hit->element == HitElement_Fire || hit->element == HitElement_Coin))
+        {
+            hit->element = HitElement_Electric;
+        }
     }
-    efSync_Spawn(1146, gobj, fp->parts[ftParts_GetBoneIndex(fp, FtPart_L1stNb)].joint,
-                 &fp->facing_dir);
 }
 
 /* The motion's throw frame (Mario's fireball frame). */
@@ -144,10 +101,8 @@ static void ftGe_ThrowFrame(Fighter_GObj* gobj)
     fp->throw_flags_b0 = false;
     switch (ftGe_State[slot_of(fp)].shot) {
     case GE_SHOT_BEAM:
-        spawn_shot(gobj, GE_BEAM_SPEED, GE_BEAM_LIFE, GE_BEAM_SCALE, ftGe_BeamPhys);
-        break;
     case GE_SHOT_WHIRL:
-        spawn_shot(gobj, GE_WHIRL_SPEED, GE_WHIRL_LIFE, GE_WHIRL_SCALE, ftGe_WhirlPhys);
+        spawn_shot(gobj, ftGe_State[slot_of(fp)].shot);
         break;
     case GE_SHOT_BOOST:
         ftGe_State[slot_of(fp)].boost = GE_BOOST_FRAMES;
@@ -186,6 +141,7 @@ static void ftGe_Frame(Fighter_GObj* gobj)
     if (fp->accessory4_cb == ftMr_SpecialN_ItemFireSpawn) {
         fp->accessory4_cb = ftGe_ThrowFrame;
     }
+    flash_hits(fp);
     if (*boost > 0) {
         (*boost)--;
         fp->dmg.armor0 = *boost > 0 ? GE_BOOST_ARMOR : 0.0F;
