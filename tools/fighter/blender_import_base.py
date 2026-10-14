@@ -67,7 +67,7 @@ def build(dir_):
             for v in t:
                 verts.append(v["pos"])
                 groups.append(v["weights"])
-            faces.append((base, base + 1, base + 2))
+            faces.append((base, base + 2, base + 1))  # GX winds clockwise
         me = bpy.data.meshes.new(f"Ref_D{d:02d}")
         me.from_pydata(verts, [], faces)
         me.update()

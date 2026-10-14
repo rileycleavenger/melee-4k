@@ -191,7 +191,9 @@ class Builder:
         dl = bytearray()
         verts = []
         for t, tenvs in group:
-            for v, env in zip(t, tenvs):
+            # mesh.json triangles wind counter-clockwise about their normal
+            # (Blender); GX's front faces are clockwise, as every disc model's.
+            for v, env in zip((t[0], t[2], t[1]), (tenvs[0], tenvs[2], tenvs[1])):
                 p, n = v["p"], v["n"]
                 if len(env) == 1:  # single joint: stored in its local space
                     ibm = self.skel[env[0][0]]["ibm"]
