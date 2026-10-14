@@ -147,6 +147,57 @@ void HSD_TObjReqAnimAll(HSD_TObj* tobj, f32 startframe)
     HSD_TObjReqAnimAllByFlags(tobj, startframe, TOBJ_ANIM);
 }
 
+#ifdef TARGET_PC
+/* PC: images pinned onto texture objects (a custom fighter's menu art over
+ * its base fighter's, src/melee/ft/ftcustom.c). Menus pick a fighter's icon
+ * by animating a texture to the fighter's frame; a custom costume has no
+ * frame there, so its image is pinned and the animation keeps it. A pin
+ * lasts until the texture object is freed or unpinned. */
+#define TOBJ_PIN_MAX 48
+static struct {
+    HSD_TObj* tobj;
+    HSD_ImageDesc* img;
+} s_pins[TOBJ_PIN_MAX];
+static int s_n_pins;
+
+static HSD_ImageDesc* TObjPinned(HSD_TObj* tobj)
+{
+    int i;
+    for (i = 0; i < s_n_pins; i++) {
+        if (s_pins[i].tobj == tobj) {
+            return s_pins[i].img;
+        }
+    }
+    return NULL;
+}
+
+void HSD_TObjPinImage(HSD_TObj* tobj, HSD_ImageDesc* img)
+{
+    int i;
+    if (tobj == NULL) {
+        return;
+    }
+    for (i = 0; i < s_n_pins && s_pins[i].tobj != tobj; i++) {
+    }
+    if (img == NULL) {
+        if (i < s_n_pins) {
+            s_pins[i] = s_pins[--s_n_pins];
+        }
+        return;
+    }
+    if (i == s_n_pins) {
+        if (s_n_pins == TOBJ_PIN_MAX) {
+            return;
+        }
+        s_n_pins++;
+    }
+    s_pins[i].tobj = tobj;
+    s_pins[i].img = img;
+    tobj->imagedesc = img;
+    tobj->tlut = NULL;
+}
+#endif
+
 static void TObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
 {
     HSD_TObj* tobj = obj;
@@ -180,8 +231,18 @@ static void TObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
         if (tobj->imagetbl[n].v) {
             tobj->imagedesc = DP(HSD_ImageDesc, tobj->imagetbl[n].v);
         }
+#ifdef TARGET_PC
+        if (s_n_pins != 0 && TObjPinned(tobj) != NULL) {
+            tobj->imagedesc = TObjPinned(tobj);
+        }
+#endif
     } break;
     case HSD_A_T_TCLT: {
+#ifdef TARGET_PC
+        if (s_n_pins != 0 && TObjPinned(tobj) != NULL) {
+            break;
+        }
+#endif
         if (tobj->tluttbl) {
             /* tluttbl is a NULL-terminated table; HSD_TObjSetup indexes it
              * with tlut_no unchecked, so an out-of-range animated index
@@ -1659,6 +1720,9 @@ static void TObjRelease(HSD_Class* o)
 {
     HSD_TObj* tobj = HSD_TOBJ(o);
 
+#ifdef TARGET_PC
+    HSD_TObjPinImage(tobj, NULL);
+#endif
     HSD_AObjRemove(tobj->aobj);
     HSD_TlutRemove(tobj->tlut);
     HSD_TObjTevRemove(tobj->tev);

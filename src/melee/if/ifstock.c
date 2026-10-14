@@ -497,8 +497,7 @@ void fn_802F9410(HSD_GObj* gobj)
             if (icon != NULL && icon->u.dobj != NULL && icon->u.dobj->mobj != NULL &&
                 icon->u.dobj->mobj->tobj != NULL)
             {
-                icon->u.dobj->mobj->tobj->imagedesc = img;
-                icon->u.dobj->mobj->tobj->tlut = NULL;
+                HSD_TObjPinImage(icon->u.dobj->mobj->tobj, img);
             }
         }
     }

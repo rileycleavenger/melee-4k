@@ -12,11 +12,14 @@ costume). The game loads it with lbArchive_LoadSymbols into the menu's own
 heap (src/melee/mn/mncharsel.c, src/melee/if/ifstock.c) and points the
 corresponding texture objects at these images.
 
-Sizes are twice the disc's, the shapes the game draws them at: icon 128x112
-(64x56), portrait 272x376 (136x188), stock 64x64 (24x24 drawn).
+In the file each image has the disc's size (icon 64x56, portrait 136x188,
+stock 24x24); with --textures each also gets an HD replacement there (icon
+320x280, portrait 544x752, stock 144x144, about Melee HD's), which the game
+swaps in like the costume files' textures.
 
-With --name, the icon is set on a Melee-style plate (striped background,
-the name on a dark bar; --plain-icon keeps it as given), and also ftUiBanner (the results screen's winner banner, 512x56)
+With --name, the icon is set on a Melee HD-style plate (the face cut off
+by a light frame, the name on a black bar) and each portrait gets Melee's
+drop shadow (--plain-icon keeps both as given), and also ftUiBanner (the results screen's winner banner, 512x56)
 and ftUiName (a results panel's name plate, 160x128): white letters whose
 alpha is their coverage, which the game tints as it does its own
 intensity-only name textures.
@@ -31,8 +34,13 @@ sys.path.insert(0, HERE)
 import hsd  # noqa: E402
 
 GX_TF_RGBA8 = 6
-SIZES = {"icon": (128, 112), "csp": (272, 376), "stock": (64, 64), "banner": (512, 56),
+# In the file: the disc's sizes. HD: the replacement each gets in the pack's
+# textures folder (--textures), as Melee HD's own menu textures have.
+SIZES = {"icon": (64, 56), "csp": (136, 188), "stock": (24, 24), "banner": (512, 56),
          "name": (160, 128)}
+HD = {"icon": (320, 280), "csp": (544, 752), "stock": (144, 144), "banner": (1024, 112),
+      "name": (320, 256)}
+FONTS_ICON = ["/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf", "C:/Windows/Fonts/ARLRDBD.TTF"]
 FONTS = ["/System/Library/Fonts/Supplemental/Arial Black.ttf",
          "/System/Library/Fonts/Supplemental/Arial Bold Italic.ttf",
          "C:/Windows/Fonts/ariblk.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
@@ -72,45 +80,89 @@ def text_image(text, size, font_path, italic, fill=False):
     return out
 
 
-def melee_icon(render, name, font_path, size=SIZES["icon"]):
-    """A character select icon in Melee's style: the render over a slate
-    striped plate, the name in light letters on a dark bar along the
-    bottom, inside a light rounded frame (all part of Melee's own icon
-    textures)."""
-    from PIL import Image, ImageDraw
+def melee_icon(render, name, font_path, size=HD["icon"]):
+    """A character select icon in the style of Melee HD's: the face, big
+    and cut off by the frame, on a transparent ground (the game draws its
+    striped backdrop behind), a light grey rounded frame with a soft inner
+    shadow, and the name in widely spaced light capitals on a black bar
+    across the bottom quarter. Measured from the HD pack's icons (320x288)."""
+    from PIL import Image, ImageDraw, ImageFilter
     w, h = size
-    plate = Image.new("RGBA", size)
-    d = ImageDraw.Draw(plate)
-    for y in range(h):
-        t = y / (h - 1)
-        c = [int(a + (b - a) * t) for a, b in zip((66, 82, 108), (30, 40, 56))]
-        if y % 4 >= 2:  # Melee's faint horizontal lines
-            c = [int(v * 0.86) for v in c]
-        d.line([(0, y), (w, y)], fill=tuple(c) + (255,))
+    k = w / 320.0
+    fw = max(2, round(10 * k))  # frame width
+    radius = round(22 * k)
+    inner = Image.new("L", size, 0)
+    ImageDraw.Draw(inner).rounded_rectangle([fw, fw, w - 1 - fw, h - 1 - fw], max(1, radius - fw), fill=255)
+    plate = Image.new("RGBA", size, (0, 0, 0, 0))
     r = render.convert("RGBA")
     box = r.getbbox()
     if box is not None:
         r = r.crop(box)
-    scale = w * 1.05 / r.width
+    # The face fills the window above the bar: as wide as the icon, its
+    # bottom (chin, collar) just behind the bar, its top cut by the frame.
+    bar0 = round(h * 0.735)
+    scale = max(w * 1.08 / r.width, (bar0 + h * 0.1) / r.height)
     r = r.resize((max(1, int(r.width * scale)), max(1, int(r.height * scale))), Image.LANCZOS)
-    plate.alpha_composite(r, ((w - r.width) // 2, 0))  # head at the top, body cut by the bar
-    m = max(2, w // 40)  # frame width
-    bar = int(h * 0.22)
-    d.rectangle([m, h - bar - m, w - m, h - m], fill=(16, 4, 4, 255))
-    label = text_image(name.upper(), (int(w * 0.9), int(bar * 0.9)), font_path, False)
-    label = Image.composite(Image.new("RGBA", label.size, (200, 196, 196, 255)),
-                            Image.new("RGBA", label.size, (0, 0, 0, 0)), label.getchannel("A"))
-    plate.alpha_composite(label, ((w - label.width) // 2, h - bar - m + (bar - label.height) // 2))
-    # The frame: a light rounded border, transparent outside its corners.
-    radius = w // 12
-    mask = Image.new("L", size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius, fill=255)
-    ImageDraw.Draw(plate).rounded_rectangle([0, 0, w - 1, h - 1], radius, outline=(200, 200, 204, 255),
-                                            width=m)
-    ImageDraw.Draw(plate).rounded_rectangle([m, m, w - 1 - m, h - 1 - m], max(1, radius - m),
-                                            outline=(60, 60, 66, 255), width=1)
-    plate.putalpha(Image.composite(plate.getchannel("A"), mask, mask))
+    plate.alpha_composite(r, ((w - r.width) // 2 + round(6 * k), bar0 + round(h * 0.1) - r.height))
+    plate.putalpha(Image.composite(plate.getchannel("A"), Image.new("L", size, 0), inner))
+    # Inner shadow along the frame.
+    shade = Image.new("L", size, 0)
+    ImageDraw.Draw(shade).rounded_rectangle([fw, fw, w - 1 - fw, h - 1 - fw], max(1, radius - fw),
+                                            outline=170, width=round(6 * k))
+    shade = Image.composite(shade.filter(ImageFilter.GaussianBlur(2 * k)), Image.new("L", size, 0), inner)
+    plate.alpha_composite(Image.merge("RGBA", (Image.new("L", size, 36),) * 3 + (shade,)))
+    # The name bar and the name.
+    d = ImageDraw.Draw(plate)
+    bar = Image.new("RGBA", size, (0, 0, 0, 0))
+    ImageDraw.Draw(bar).rectangle([0, bar0, w, h], fill=(24, 4, 4, 255))
+    bar.putalpha(Image.composite(bar.getchannel("A"), Image.new("L", size, 0), inner))
+    plate.alpha_composite(bar)
+    label = tracked_text(name.upper(), font_path, round(h * 0.19), round(w * 0.06))
+    if label.width > w - 2 * fw - round(16 * k):
+        label = label.resize((w - 2 * fw - round(16 * k), label.height), Image.LANCZOS)
+    tint = Image.new("RGBA", label.size, (204, 204, 204, 255))
+    tint.putalpha(label)
+    plate.alpha_composite(tint, ((w - label.width) // 2, bar0 + (h - fw - bar0 - label.height) // 2))
+    # The frame.
+    frame = Image.new("L", size, 0)
+    ImageDraw.Draw(frame).rounded_rectangle([0, 0, w - 1, h - 1], radius, fill=255)
+    frame = Image.composite(Image.new("L", size, 0), frame, inner)
+    plate.alpha_composite(Image.merge("RGBA", (Image.new("L", size, 197),) * 3 + (frame,)))
+    d.rounded_rectangle([0, 0, w - 1, h - 1], radius, outline=(224, 224, 224, 255), width=max(1, round(2 * k)))
     return plate
+
+
+def tracked_text(text, font_path, px, tracking):
+    """Coverage mask of text at px high, letters spaced by tracking."""
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype(font_path, px)
+    glyphs = []
+    for ch in text:
+        box = font.getbbox(ch)
+        g = Image.new("L", (max(1, box[2] - box[0]), px + px // 3), 0)
+        ImageDraw.Draw(g).text((-box[0], 0), ch, font=font, fill=255)
+        glyphs.append(g if ch != " " else Image.new("L", (px // 3, px + px // 3), 0))
+    out = Image.new("L", (sum(g.width for g in glyphs) + tracking * (len(glyphs) - 1), px + px // 3), 0)
+    x = 0
+    for g in glyphs:
+        out.paste(g, (x, 0))
+        x += g.width + tracking
+    return out.crop(out.getbbox() or (0, 0, 1, 1))
+
+
+def portrait(render, size=HD["csp"]):
+    """The door portrait: the render with Melee's soft drop shadow."""
+    from PIL import Image, ImageFilter
+    r = render.convert("RGBA")
+    if r.size != size:
+        r = r.resize(size, Image.LANCZOS)
+    k = size[0] / 544.0
+    shadow = Image.new("RGBA", size, (0, 0, 0, 0))
+    a = r.getchannel("A").point(lambda v: v * 0.55)
+    shadow.paste(Image.new("RGBA", size, (8, 6, 20, 255)), (round(14 * k), round(10 * k)),
+                 a.filter(ImageFilter.GaussianBlur(6 * k)))
+    shadow.alpha_composite(r)
+    return shadow
 
 
 def encode_rgba8(img):
@@ -130,12 +182,23 @@ def encode_rgba8(img):
     return bytes(out)
 
 
-def image_desc(w, img, size):
+def image_desc(w, img, size, hd=None, textures=None):
+    """An RGBA8 image of size in the file; with textures, img at hd size is
+    also saved there as its HD replacement (named by the small image's key,
+    tools/fighter/build_dat.py's texture_key)."""
     from PIL import Image
-    img = img.convert("RGBA")
+    big = img.convert("RGBA")
+    img = big
     if img.size != size:
         img = img.resize(size, Image.LANCZOS)
-    data = w.blob(encode_rgba8(img), 32)
+    raw = encode_rgba8(img)
+    if textures and hd:
+        from build_dat import texture_key
+        os.makedirs(textures, exist_ok=True)
+        if big.size != hd:
+            big = big.resize(hd, Image.LANCZOS)
+        big.save(os.path.join(textures, texture_key(raw, size[0], size[1], GX_TF_RGBA8) + ".png"))
+    data = w.blob(raw, 32)
     d = w.alloc(0x18)
     w.ptr(d, data)
     w.put(d + 4, "HHIIff", size[0], size[1], GX_TF_RGBA8, 0, 0.0, 0.0)
@@ -153,27 +216,31 @@ def main():
     ap.add_argument("--plain-icon", action="store_true",
                     help="use --icon as it is (by default, with --name, it is set on a Melee-style "
                          "plate with the name)")
+    ap.add_argument("--textures", help="the pack's textures folder: HD replacements go there")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     w = hsd.Writer()
     font = a.font or next((f for f in FONTS if os.path.exists(f)), None)
+    icon_font = a.font or next((f for f in FONTS_ICON + FONTS if os.path.exists(f)), None)
     icon = Image.open(a.icon)
     if a.name and not a.plain_icon:
-        if font is None:
+        if icon_font is None:
             raise SystemExit("no font for --name; pass --font")
-        icon = melee_icon(icon, a.name, font)
-    pubs = {"ftUiIcon": image_desc(w, icon, SIZES["icon"])}
+        icon = melee_icon(icon, a.name, icon_font)
+    tx = a.textures
+    pubs = {"ftUiIcon": image_desc(w, icon, SIZES["icon"], HD["icon"], tx)}
     for i, p in enumerate(a.csp):
-        pubs[f"ftUiCsp{i}"] = image_desc(w, Image.open(p), SIZES["csp"])
+        img = Image.open(p) if a.plain_icon else portrait(Image.open(p))
+        pubs[f"ftUiCsp{i}"] = image_desc(w, img, SIZES["csp"], HD["csp"], tx)
     for i, p in enumerate(a.stock):
-        pubs[f"ftUiStock{i}"] = image_desc(w, Image.open(p), SIZES["stock"])
+        pubs[f"ftUiStock{i}"] = image_desc(w, Image.open(p), SIZES["stock"], HD["stock"], tx)
     if a.name:
         if font is None:
             raise SystemExit("no font for --name; pass --font")
-        pubs["ftUiBanner"] = image_desc(w, text_image(a.name.upper(), SIZES["banner"], font, True),
-                                        SIZES["banner"])
-        pubs["ftUiName"] = image_desc(w, text_image(a.name.upper(), SIZES["name"], font, False, True),
-                                      SIZES["name"])
+        pubs["ftUiBanner"] = image_desc(w, text_image(a.name.upper(), HD["banner"], font, True),
+                                        SIZES["banner"], HD["banner"], tx)
+        pubs["ftUiName"] = image_desc(w, text_image(a.name.upper(), HD["name"], font, False, True),
+                                      SIZES["name"], HD["name"], tx)
     data = w.finish(pubs)
     open(a.out, "wb").write(data)
     print(f"{a.out}: {len(pubs)} images, {len(data)} bytes")

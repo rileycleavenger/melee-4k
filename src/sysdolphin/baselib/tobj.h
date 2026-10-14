@@ -276,6 +276,10 @@ extern HSD_TObjInfo hsdTObj;
 #define HSD_TOBJ_METHOD(o) HSD_TOBJ_INFO(HSD_OBJECT_METHOD(o))
 
 void HSD_TObjRemoveAnimAll(HSD_TObj* tobj);
+#ifdef TARGET_PC
+/* Keep img on tobj whatever its texture animation picks (NULL unpins). */
+void HSD_TObjPinImage(HSD_TObj* tobj, HSD_ImageDesc* img);
+#endif
 void HSD_TObjAddAnim(HSD_TObj* tobj, HSD_TexAnim* texanim);
 void HSD_TObjAddAnimAll(HSD_TObj* tobj, HSD_TexAnim* texanim);
 void HSD_TObjReqAnimAllByFlags(HSD_TObj* tobj, f32 startframe, u32 flags);

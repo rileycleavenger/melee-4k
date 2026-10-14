@@ -469,8 +469,28 @@ static void resultsSetImage(HSD_JObj* jobj, HSD_ImageDesc* img)
     if (img != NULL && jobj != NULL && jobj->u.dobj != NULL && jobj->u.dobj->mobj != NULL &&
         jobj->u.dobj->mobj->tobj != NULL)
     {
-        jobj->u.dobj->mobj->tobj->imagedesc = img;
-        jobj->u.dobj->mobj->tobj->tlut = NULL;
+        HSD_TObjPinImage(jobj->u.dobj->mobj->tobj, img);
+    }
+}
+
+/* Pin img on every texture-animated (image table) TObj of jobj and the
+ * joints below it: the stock icon beside each player's tag in the KO table
+ * is the second DObj of the joint the game animates. */
+static void resultsSetIconTree(HSD_JObj* jobj, HSD_ImageDesc* img, bool siblings)
+{
+    for (; jobj != NULL && img != NULL; jobj = siblings ? jobj->next : NULL) {
+        if (union_type_dobj(jobj)) {
+            HSD_DObj* d;
+            for (d = jobj->u.dobj; d != NULL; d = d->next) {
+                HSD_TObj* t;
+                for (t = d->mobj != NULL ? d->mobj->tobj : NULL; t != NULL; t = t->next) {
+                    if (t->imagetbl != NULL) {
+                        HSD_TObjPinImage(t, img);
+                    }
+                }
+            }
+        }
+        resultsSetIconTree(jobj->child, img, true);
     }
 }
 
@@ -485,14 +505,15 @@ static void resultsCustomBanner(void)
             continue;
         }
         resultsSetImage(data->player_data[i].jobjs[5], ftCustom_SlotImage(i, "ftUiName"));
-        resultsSetImage(data->player_data[i].jobjs[7], ftCustom_StockImage(i));
+        if (data->player_data[i].jobjs[7] != NULL) {
+            resultsSetIconTree(data->player_data[i].jobjs[7], ftCustom_StockImage(i), false);
+        }
     }
     if (data->x30 != NULL && data->x30->u.dobj != NULL && data->x30->u.dobj->next != NULL) {
         HSD_ImageDesc* img = ftCustom_SlotImage(data->x6, "ftUiBanner");
         HSD_TObj* tobj = data->x30->u.dobj->next->mobj->tobj;
         if (img != NULL && tobj != NULL) {
-            tobj->imagedesc = img;
-            tobj->tlut = NULL;
+            HSD_TObjPinImage(tobj, img);
         }
     }
 }

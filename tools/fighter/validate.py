@@ -26,11 +26,13 @@ import model  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(HERE))
 ATTRS = ("weight", "walk", "dash", "jump", "gravity", "fall", "air")
-KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves"} | set(ATTRS)
-TRI_WARN = (800, 6000)
+KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves", "voice"} | set(ATTRS)
+# Melee's own fighters draw 800-6000 triangles; an HD custom fighter can
+# afford more (smooth shapes), up to about 20000 with eight on screen.
+TRI_WARN = (800, 20000)
 MAX_ENVELOPES = 10
 GX_TF_RGBA8 = 6
-UI_SIZES = {"ftUiIcon": (128, 112), "ftUiCsp": (272, 376), "ftUiStock": (64, 64),
+UI_SIZES = {"ftUiIcon": (64, 56), "ftUiCsp": (136, 188), "ftUiStock": (24, 24),
             "ftUiBanner": (512, 56), "ftUiName": (160, 128)}
 
 
@@ -172,7 +174,7 @@ def check_costume(path, cfg, costume, base_skel, r):
     # The base's low-detail slots repeat the meshes: count what one table shows.
     shown = tris // 2 if tris else 0
     if not TRI_WARN[0] <= shown <= TRI_WARN[1]:
-        r.warn(f"{name}: ~{shown} triangles drawn, Melee's fighters are {TRI_WARN[0]}-{TRI_WARN[1]}")
+        r.warn(f"{name}: ~{shown} triangles drawn, outside {TRI_WARN[0]}-{TRI_WARN[1]}")
     for w, h in textures:
         if w and h and (w > 512 or h > 512):
             r.warn(f"{name}: a {w}x{h} texture in the file; keep it low-res and put HD in textures/")
