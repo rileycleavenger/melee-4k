@@ -2,10 +2,12 @@
 
 ## Unit tests
 
-Launcher settings, version parsing, endian helpers, THP decoding and the updater
-and lobby codes have unit tests. On Linux the suite also covers online sound
+Launcher settings, version parsing, endian helpers, THP decoding, the updater
+and lobby codes and custom fighter packs (`fighter_pack`: fighter.cfg parsing
+and the online content hash) have unit tests. On Linux the suite also covers online sound
 handles (net_sfx), record/replay seeds, controller remapping and adapter
-snapshot publication. The same suite runs in CI:
+snapshot publication, and the fighter tools (`fighter_tools`: archive writer,
+pack validator). The same suite runs in CI:
 
 ```sh
 ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure

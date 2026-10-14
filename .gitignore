@@ -18,6 +18,7 @@ docs/*
 !docs/setup.md
 !docs/playing.md
 !docs/melee-pc.md
+!docs/fighters.md
 !docs/media/
 
 # Android build outputs (CI builds these from source).
