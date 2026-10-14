@@ -24,6 +24,27 @@ float pc_logf(float x);
 #define fmaf pc_fmaf
 #define logf pc_logf
 
+/* The game's own float maths (lbtrigf.c, lb_00CE.c), renamed with every
+ * caller so no call can bind elsewhere: mingw-w64's msvcrt math.h defines
+ * powf and expf as inline wrappers around msvcrt's double pow and exp, and
+ * the v1.1.0-rc2 Windows build called those instead (wall techs,
+ * ftCo_PassiveWall.c). */
+float pc_atan2f(float y, float x);
+float pc_acosf(float x);
+float pc_asinf(float x);
+float pc_powf(float x, float y);
+float pc_expf(float x);
+#undef atan2f
+#undef acosf
+#undef asinf
+#undef powf
+#undef expf
+#define atan2f pc_atan2f
+#define acosf pc_acosf
+#define asinf pc_asinf
+#define powf pc_powf
+#define expf pc_expf
+
 /* MELEE_FP_PERTURB=<name> (CMakeLists.txt) re-routes one of them through the
  * 1-ULP wrapper in pc_perturb.c, which is how tools/net_determinism.py
  * proves it catches a libm divergence. Never on in a shipped build; see the

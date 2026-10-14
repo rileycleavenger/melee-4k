@@ -9,6 +9,11 @@ extern "C" bool SDL_OpenURL(const char* url) {
     opened_url = url;
     return true;
 }
+// install_update's hooks into the game; never reached here.
+extern "C" bool pc_exit_requested = false;
+extern "C" char* pc_user_dir(void) {
+    return nullptr;
+}
 
 int main(int argc, char**) {
     using namespace pc::updater;
@@ -31,11 +36,11 @@ int main(int argc, char**) {
 #endif
     const std::vector<Asset> releases{
         {"Melee-aarch64.AppImage", "linux-arm", 10},
-        {"Melee-Windows-arm64.zip", "windows-arm", 20},
-        {"Melee-macOS-arm64.zip", "mac-arm", 30},
+        {"Melee4K-Windows-arm64.zip", "windows-arm", 20},
+        {"Melee4K-macOS-arm64.zip", "mac-arm", 30},
         {"Melee-x86_64.AppImage", "linux-x86", 40},
-        {"Melee-Windows-x86_64.zip", "windows-x86", 50},
-        {"Melee-macOS-x86_64.zip", "mac-x86", 60},
+        {"Melee4K-Windows-x86_64.zip", "windows-x86", 50},
+        {"Melee4K-macOS-x86_64.zip", "mac-x86", 60},
         {"Melee-Android-arm64.apk", "android", 70},
         {"Melee-iOS-arm64.ipa", "ios", 80},
         {"melee-linux-x86_64.tar.gz", "tar", 90},
