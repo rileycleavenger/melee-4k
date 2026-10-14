@@ -65,10 +65,10 @@ the user before publishing anything). Per character, outside the repo:
   <Id>/                   the character's working folder
     reference/            the reference images
     notes.md              design notes: shapes, colours, proportions, costumes
-    make_textures.py      its textures (from templates/)
-    build_<name>.py       its Blender model (from templates/)
+    make_textures.py      its painted overlays: face, emblems, irises (from templates/)
+    build_<name>.py       its Blender model and paint (from templates/)
     make_pack.sh          rebuilds everything (from templates/)
-    tex/ ui/ mesh.json    generated
+    tex/ baked/ ui/ mesh.json   generated
   packs/<Id>/             the pack the game loads (MELEE_FIGHTERS_DIR=.../packs)
     fighter.cfg  Pl<Id><Costume>.dat ...  Pl<Id>Ui.dat  textures/
 ```
@@ -90,35 +90,47 @@ for special moves (`src/melee/ft/kinds/ft<Name>/`), which contains no art.
 4. **Model.** Two routes (`tools.md` §4-§6):
    - **Primitives in Blender** (works everywhere, what Geno used): copy
      `templates/build_character.py`, build each part with
-     `tools/fighter/blender_parts.py` (ellipsoid, limb, tube, ring_grid) at
-     the base skeleton's joint positions (`jp(i)`), weighted to its bones.
-     Melee-like: 1.5-4k triangles total, big readable shapes, painted
-     detail in the textures.
+     `tools/fighter/blender_parts.py` (`loft` rings, `spiral`, balls and
+     capsules) at the base skeleton's joint positions (`jp(i)`), weighted to
+     its bones, subdivided smooth (`finish(subsurf=1)`), sheets solidified,
+     joined into export meshes by how they move and shade, decimated to
+     ~5-20k triangles. Model what reads in silhouette and close up (eyes,
+     nose, ears, fingers, cuffs, hems); paint the rest.
    - **AssetFurnace** image-to-3D, then fit and weight in Blender: better
      for organic shapes; needs full Xcode on a Mac and ~10 GB disk.
-   Render check views (`blender_snap.py`) front/side/back/three-quarter and
-   compare with the references side by side. Iterate until the silhouette
-   and proportions match.
-5. **Textures.** Copy `templates/make_textures.py`: one PNG per material,
-   2048² for large parts (they become HD replacements; the game file gets a
-   128² copy). UV conventions: see the template header. Faces, emblems and
-   seams are painted, not modelled.
+   Render check views (`blender_snap.py`, `COLOR = "RANDOM"`) front/side/
+   back/three-quarter and compare with the references side by side. Iterate
+   until the silhouette and proportions match.
+5. **Paint and bake.** Parts get procedural `paint()` materials (wood grain,
+   fabric, flat colour from a palette) with painted overlays from
+   `templates/make_textures.py` (faces, seams, emblems, irises);
+   `blender_bake.py` bakes each export mesh into one HD texture per costume
+   with ambient occlusion, which gives the model real shading in the game
+   (`tools.md` §5b). Look at a Cycles render of the baked model before the
+   game.
 6. **Costumes.** 2-6, Melee-like: the default plus team colours (Re, Bu or
    whichever costume is blue, Gr) and one or two alternates. Each is a set
-   of material overrides (material name -> PNG). Name them with Melee's
+   of palette changes (`make_pack.sh` COSTUMES). Name them with Melee's
    suffixes: Nr (default), Re, Bu, Gr, Ye, Bk, Wh, Or, Pi, La, Aq.
-7. **Menu images.** `blender_render_ui.py` renders the portrait, icon and
-   stock icon per costume; `build_ui.py --name` adds the results screen's
-   banner and name plate.
+7. **Menu images.** `blender_render_ui.py` renders the portrait (in a pose
+   of its own, `CSP_POSE`: the character's signature stance), the icon's
+   face and the stock icon's head per costume; `build_ui.py --name
+   --textures` sets them in Melee HD's style (icon plate, portrait shadow),
+   adds the results screen's banner and name plate, and writes HD
+   replacements of all of them. Compare with Melee HD's own (the installed
+   texture pack's `tex1_64x56_*` icons and `tex1_136x188_*` portraits).
 8. **Pack.** `make_pack.sh` (from the template) runs steps 4-7 headless and
    writes the pack: `build_dat.py` per costume (symbol stem plus the costume
    suffix except for Nr), `build_ui.py`, `fighter.cfg`, then `validate.py`.
    fighter.cfg keys: `tools.md` §8.
-9. **Check in game** (`tools.md` §9): `preview.py` (matches, every
-   costume), then character select, HUD stock icon, results screen. Use
-   the `checklist.md`. Fix and rebuild until it passes.
-10. **Moves** (if the character should play differently): `moves.md`.
-    Attributes alone (weight, speed, jump...) need no C: fighter.cfg.
+9. **Check in game** (`tools.md` §9): `closeup.py` (the model up close,
+   from every side), `preview.py` (matches, every costume), then character
+   select, HUD stock icon, results screen (its KO table too). Use the
+   `checklist.md`. Fix and rebuild until it passes.
+10. **Make it play like itself**, not like its base: `moves.md` (specials;
+    common items' shots and effects make new projectiles without new
+    art), `voice none` for a silent character (a base's voice is its most
+    recognisable trait), attribute multipliers (fighter.cfg).
 11. **Gates.** Determinism with the fighter in the match, online with it
     picked (`moves.md` §Verification, `tools.md` §10). Moves and attributes
     are simulation; art is not.

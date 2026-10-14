@@ -1,56 +1,57 @@
 #!/usr/bin/env python3
-"""<NAME>'s textures (copy to ~/Melee4K-dev/fighters/<ID>/ and edit).
+"""<NAME>'s painted overlays (copy to ~/Melee4K-dev/fighters/<ID>/ and edit).
 
-One PNG per material, 2048 px for big parts (the game gets a 128 px copy in
-the .dat and this file as its HD replacement). Faces, emblems and seams are
-painted here, not modelled. UVs (blender_parts.py): u = 0.5 at the front,
-image y = (1 - v) * N.
+RGBA images, transparent where a part's own procedural colour shows (the
+build script's paint(..., overlay=...)); they are baked with the rest
+(tools/fighter/blender_bake.py), so costumes need none of their own: colours
+change through the build's PALETTE. Paint here what is drawn, not modelled:
+face details, seams, emblems, irises.
 
-Costumes: COSTUMES maps each costume suffix to the colours it changes;
-every image a costume changes is written as <image>_<suffix>.png (the
-default costume, first, without a suffix), and make_pack.sh points the
-materials at them.
+UVs (blender_parts.py loft): u = 0.5 at the part's front, growing toward the
+fighter's left (the viewer's right); image row 0 is v = 1 (a head's crown
+when its rings run crown to chin with v_range=(1, 0); an eye's front pole).
 
     REPO/.venv/bin/python make_textures.py OUT_DIR
 """
 import os
 import sys
 
-from PIL import Image, ImageDraw, ImageFilter  # noqa: F401
+from PIL import Image, ImageDraw, ImageFilter
 
-REPO = os.environ.get("REPO", os.path.expanduser("~/Desktop/GitRepos/melee-4k"))
-sys.path.insert(0, os.path.join(REPO, "tools", "fighter"))
-from texgen import N, fabric, flat, wood  # noqa: E402,F401
+N = 2048
 
-# suffix: (main colour, accent colour). First is the default.
-COSTUMES = {
-    "Nr": ((44, 92, 214), (242, 190, 46)),
-    "Re": ((204, 44, 40), (242, 190, 46)),
-    "Gr": ((44, 150, 64), (242, 190, 46)),
-}
+
+def blank(n=N):
+    return Image.new("RGBA", (n, n), (0, 0, 0, 0))
 
 
 def face(out):
-    """The head: base material plus painted eyes and mouth at the front."""
-    img = flat((230, 190, 160)).convert("RGBA")
+    """The head: a mouth and brows at the front (eyes are modelled)."""
+    img = blank()
     d = ImageDraw.Draw(img)
-    for side in (-1, 1):  # eyes either side of u = 0.5, a little above the middle
-        cx, cy, r = int((0.5 + side * 0.08) * N), int(0.47 * N), int(0.06 * N)
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(250, 250, 250, 255), outline=(40, 30, 30, 255), width=10)
-        d.ellipse([cx - r // 2, cy - r // 2, cx + r // 2, cy + r // 2], fill=(40, 30, 30, 255))
-    d.line([(int(0.47 * N), int(0.6 * N)), (int(0.53 * N), int(0.6 * N))], fill=(90, 40, 40, 255), width=12)
-    img.save(os.path.join(out, "head.png"))
+    d.line([(0.47 * N, 0.74 * N), (0.53 * N, 0.74 * N)], fill=(90, 40, 40, 255), width=12)
+    for side in (-1, 1):
+        x = (0.5 + side * 0.08) * N
+        d.line([(x - 0.04 * N, 0.4 * N), (x + 0.04 * N, 0.39 * N)], fill=(60, 40, 30, 255), width=14)
+    img.filter(ImageFilter.GaussianBlur(2)).save(os.path.join(out, "face.png"))
+
+
+def iris(out):
+    """An eye ball's front pole (top rows): iris, then pupil."""
+    n = 1024
+    img = blank(n)
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, n, 0.25 * n], fill=(60, 110, 200, 255))
+    d.rectangle([0, 0, n, 0.11 * n], fill=(20, 20, 30, 255))
+    img.filter(ImageFilter.GaussianBlur(3)).save(os.path.join(out, "iris.png"))
 
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else "."
     os.makedirs(out, exist_ok=True)
     face(out)
-    for name, (main_c, accent) in COSTUMES.items():
-        sfx = "" if name == "Nr" else "_" + name.lower()
-        fabric(main_c).save(os.path.join(out, f"cloth{sfx}.png"))
-        flat(accent).save(os.path.join(out, f"accent{sfx}.png"))
-    print("textures ->", out)
+    iris(out)
+    print("overlays ->", out)
 
 
 if __name__ == "__main__":
