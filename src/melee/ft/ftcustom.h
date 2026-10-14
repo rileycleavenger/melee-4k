@@ -27,4 +27,13 @@ int ftCustom_FirstCostume(int pack);
 int ftCustom_CostumeCount(int pack);
 FighterKind ftCustom_BaseKind(int pack);
 
+/* Menu and HUD images from the pack's Pl<id>Ui.dat (build_ui.py), loaded
+ * into the current scene's heap on first use. ftCustom_UiReset forgets them
+ * (a new scene's heap); call it where a screen is built. */
+void ftCustom_UiReset(void);
+struct HSD_ImageDesc* ftCustom_UiImage(int pack, const char* symbol);
+/* The stock icon of the fighter in player slot `slot`, or NULL for a
+ * retail one. */
+struct HSD_ImageDesc* ftCustom_StockImage(int slot);
+
 #endif

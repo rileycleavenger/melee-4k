@@ -1,5 +1,12 @@
 #include "ifstock.h"
 
+#ifdef TARGET_PC
+#include <melee/ft/ftcustom.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/tobj.h>
+#endif
+
 #include <melee/gm/forward.h>
 #include <melee/sc/forward.h>
 
@@ -479,6 +486,23 @@ void fn_802F9410(HSD_GObj* gobj)
         ifStock_802F89F8(gobj);
         break;
     }
+#ifdef TARGET_PC
+    {
+        /* A custom fighter's stock icons (ftcustom.h): each mode's animation
+         * above picked a frame the base fighter has none for. */
+        HSD_ImageDesc* img = ftCustom_StockImage(p->player);
+        int i;
+        for (i = 1; img != NULL && i <= 7; i++) {
+            HSD_JObj* icon = ifStock_804A1378.player[p->player].x4[i];
+            if (icon != NULL && icon->u.dobj != NULL && icon->u.dobj->mobj != NULL &&
+                icon->u.dobj->mobj->tobj != NULL)
+            {
+                icon->u.dobj->mobj->tobj->imagedesc = img;
+                icon->u.dobj->mobj->tobj->tlut = NULL;
+            }
+        }
+    }
+#endif
 }
 
 void fn_802F94E0(HSD_GObj* gobj, intptr_t renderpass)
@@ -570,6 +594,9 @@ void ifStock_802F98E8(u8 player, u8 b)
     GXColor c1;
 
     if (stock->x0 != NULL) {
+#ifdef TARGET_PC
+        ftCustom_UiReset(); /* a new match: its heap holds the images */
+#endif
         ifStock_804A157C[player].player = player;
         ifStock_804A157C[player].mode = b;
         ifStock_804A157C[player].flag = 1;

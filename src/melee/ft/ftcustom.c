@@ -9,6 +9,10 @@
 #include "pc/fighter_pack.h"
 #include "pc/pc.h"
 
+#include <melee/lb/lbarchive.h>
+#include <melee/pl/player.h>
+#include <sysdolphin/baselib/archive.h>
+
 /* What ftCustom_Init made for each pack: the base's costume list and
  * costume-string table extended by the pack's costumes. */
 /* ftdata.c: each kind's data file and symbol ("PlMr.dat", "ftDataMario"),
@@ -140,4 +144,47 @@ int ftCustom_CostumeCount(int pack)
 FighterKind ftCustom_BaseKind(int pack)
 {
     return pack >= 0 && pack < s_n_custom ? s_custom[pack].base : Ft_Kind_None;
+}
+
+static HSD_Archive* s_ui[PC_FIGHTER_PACKS_MAX];
+static bool s_ui_tried[PC_FIGHTER_PACKS_MAX];
+
+void ftCustom_UiReset(void)
+{
+    memset(s_ui, 0, sizeof s_ui);
+    memset(s_ui_tried, 0, sizeof s_ui_tried);
+}
+
+struct HSD_ImageDesc* ftCustom_UiImage(int pack, const char* symbol)
+{
+    if (pack < 0 || pack >= s_n_custom) {
+        return NULL;
+    }
+    if (!s_ui_tried[pack]) {
+        char name[24];
+        void* first = NULL;
+        s_ui_tried[pack] = true;
+        snprintf(name, sizeof name, "Pl%sUi.dat", pc_fighter_pack(pack)->id);
+        s_ui[pack] = lbArchive_80016DBC(name, &first, "ftUiIcon", NULL);
+    }
+    return s_ui[pack] != NULL ? HSD_ArchiveGetPublicAddress(s_ui[pack], symbol) : NULL;
+}
+
+struct HSD_ImageDesc* ftCustom_StockImage(int slot)
+{
+    const int ckind = Player_GetPlayerCharacter(slot);
+    const int costume = Player_GetCostumeId(slot);
+    FighterKind kind;
+    int pack;
+    char sym[16];
+    if (ckind < 0 || ckind >= CKind_Playable_Count) {
+        return NULL;
+    }
+    kind = Player_800325C8(ckind, false);
+    pack = ftCustom_Pack(kind, costume);
+    if (pack < 0) {
+        return NULL;
+    }
+    snprintf(sym, sizeof sym, "ftUiStock%d", costume - s_custom[pack].first);
+    return ftCustom_UiImage(pack, sym);
 }
