@@ -20,6 +20,9 @@ typedef enum LbHeapKind {
 } LbHeapKind;
 
 /* 0158D0 */ void lbHeap_800158D0(int, int);
+#ifdef TARGET_PC
+bool lbHeap_CanFit(int heap_id, size_t size);
+#endif
 /* 0158E8 */ int lbHeap_800158E8(int);
 /* 015900 */ void lbHeap_80015900(void);
 /* 015BB8 */ LbHeapStatus lbHeap_80015BB8(int);

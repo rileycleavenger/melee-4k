@@ -22,6 +22,9 @@ typedef struct Handle {
 /* 014E24 */ Handle* lbMemory_80014E24(void* lo, void* hi);
 /* 014EEC */ void lbMemory_80014EEC(Handle*);
 /* 014F7C */ u32 lbMemory_80014F7C(Handle*);
+#ifdef TARGET_PC
+u32 lbMemory_LargestFree(Handle*);
+#endif
 /* 014FC8 */ HSD_AllocEntry* lbMemory_80014FC8(Handle*, size_t);
 /* 0150F0 */ void lbMemFreeToHeap(Handle*, void*);
 /* 01529C */ u32 lbMemory_8001529C(Handle*, void (*)(u32), u32);

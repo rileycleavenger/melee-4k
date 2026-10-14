@@ -33,7 +33,7 @@ static struct ifAll_804A0FD8_t {
     /* 0x04 */ HSD_GObj* gobj_2;
     /* 0x08 */ HSD_JObj* x8;
     /* 0x0C */ Vec3 xC;
-    /* 0x18 */ Vec3 x18[6];
+    /* 0x18 */ Vec3 x18[GM_SLOTS];
     /* 0x60 */ Vec3 x60[3];
     /* 0x84 */ Vec3 x84[2];
 } ifAll_804A0FD8;
@@ -74,6 +74,12 @@ Vec3* ifAll_GetTimerPosition(void)
 
 Vec3* ifAll_GetPlayerHUDPosition(int idx)
 {
+#ifdef TARGET_PC
+    /* By player slot; an 8-player match's slots 7 and 8 are places 6, 7. */
+    if (idx > GM_SLOT_NONE) {
+        idx--;
+    }
+#endif
     return &ifAll_804A0FD8.x18[idx];
 }
 
@@ -100,6 +106,11 @@ static void pc_hud_widen(int count, bool timer)
     if (count >= 2 && count <= 4) {
         for (i = 0; i < count; i++) {
             ifAll_804A0FD8.x18[i].x += pc_widescreen_hud_dx(i, count, offset);
+        }
+    }
+    if (count == GM_MAX_FIGHTERS) { /* two rows of four, each spread */
+        for (i = 0; i < count; i++) {
+            ifAll_804A0FD8.x18[i].x += pc_widescreen_hud_dx(i % 4, 4, offset);
         }
     }
     pc_hud.valid = true;
@@ -147,10 +158,11 @@ void ifAll_PcRelayoutHud(void)
         pc_hud_move(&ifAll_804A0FD8.xC, dx);
         ifAll_804A0FD8.xC.x += dx;
     }
-    if (pc_hud.count >= 2 && pc_hud.count <= 4) {
+    if ((pc_hud.count >= 2 && pc_hud.count <= 4) || pc_hud.count == GM_MAX_FIGHTERS) {
+        const int row = pc_hud.count == GM_MAX_FIGHTERS ? 4 : pc_hud.count;
         for (i = 0; i < pc_hud.count; i++) {
-            const float dx = pc_widescreen_hud_dx(i, pc_hud.count, offset) -
-                             pc_widescreen_hud_dx(i, pc_hud.count, pc_hud.offset);
+            const float dx = pc_widescreen_hud_dx(i % row, row, offset) -
+                             pc_widescreen_hud_dx(i % row, row, pc_hud.offset);
             pc_hud_move(&ifAll_804A0FD8.x18[i], dx);
             ifAll_804A0FD8.x18[i].x += dx;
         }
@@ -164,6 +176,11 @@ void ifAll_PcForgetHud(void)
     pc_hud.timer = false;
     pc_hud.count = 0;
 }
+#endif
+
+#ifdef TARGET_PC
+/* The rise from an 8-player match's first HUD row to its second. */
+#define IFALL_HUD_ROW_DY 8.0F
 #endif
 
 static inline void ifAll_802F343C_inline(int i)
@@ -201,6 +218,18 @@ void ifAll_802F343C(int count)
             lb_8000B1CC(child, NULL, &ifAll_804A0FD8.x18[i]);
         }
         break;
+#ifdef TARGET_PC
+    case GM_MAX_FIGHTERS:
+        /* An 8-player match: two rows of four, players 1-4 where four
+         * players' are, 5-8 above them. */
+        for (i = 0; i < 4; i++) {
+            lb_80011E24(jobj, &child, i + 2, -1);
+            lb_8000B1CC(child, NULL, &ifAll_804A0FD8.x18[i]);
+            ifAll_804A0FD8.x18[i + 4] = ifAll_804A0FD8.x18[i];
+            ifAll_804A0FD8.x18[i + 4].y += IFALL_HUD_ROW_DY;
+        }
+        break;
+#endif
     case 5:
     case 6:
         lb_80011E24(jobj, &child, 6, -1);

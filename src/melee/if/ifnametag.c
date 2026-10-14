@@ -109,13 +109,13 @@
 
 /// .bss
 /* 4A1ED0 */ static StaticModelDesc un_804A1ED0;
-/* 4A1EE0 */ static HSD_GObj* un_804A1EE0[Gm_Player_NumMax];
-/* 4A1EF8 */ static int un_804A1EF8[Gm_Player_NumMax];
+/* 4A1EE0 */ static HSD_GObj* un_804A1EE0[GM_SLOTS];
+/* 4A1EF8 */ static int un_804A1EF8[GM_SLOTS];
 
 /// .sbss
 /* 4D6D68 */ static HSD_GObj* un_804D6D68;
 /* 4D6D6C */ static u8 un_804D6D6C;
-/* 4D6D70 */ static u8 un_804D6D70[Gm_Player_NumMax];
+/* 4D6D70 */ static u8 un_804D6D70[GM_SLOTS];
 /* 4D6D78 */ static HSD_Text* un_804D6D78;
 /* 4D6D7C */ static int un_804D6D7C;
 
@@ -166,7 +166,7 @@ void fn_802FCAC4(HSD_GObj* gobj, intptr_t pass)
 {
     if (ifAll_IsHUDHidden() || un_804D6D6C) {
         int i;
-        for (i = 0; i < Gm_Player_NumMax; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (has_nametag(i)) {
                 HSD_SisLib_803A746C(un_804D6D78, un_804A1EF8[i], -5000.0f,
                                     0.0f);
@@ -305,7 +305,7 @@ void un_802FD28C(int slot)
 void un_802FD404(void)
 {
     int i;
-    for (i = 0; i < Gm_Player_NumMax; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         un_804D6D70[i] = 1;
     }
 }
@@ -328,7 +328,7 @@ void un_802FD45C(void)
 void un_802FD468(void)
 {
     int i;
-    for (i = 0; i < Gm_Player_NumMax; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (un_804A1EE0[i]) {
             HSD_GObjFree(un_804A1EE0[i]);
         }
@@ -358,7 +358,7 @@ void un_802FD4C8(void)
     HSD_CObj* cobj;
     int i;
     PAD_STACK(0x10);
-    for (i = 0; i < Gm_Player_NumMax; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         un_804A1EE0[i] = NULL;
     }
     un_804D6D68 = NULL;
@@ -372,7 +372,7 @@ void un_802FD4C8(void)
     GObj_SetupGXLinkMax(gobj, fn_802FCAC4, 6);
     gobj->gxlink_prios = 0x200;
     initSis(gobj);
-    for (i = 0; i < Gm_Player_NumMax; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         NameTag_Create(i);
     }
 }

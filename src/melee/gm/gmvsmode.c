@@ -216,7 +216,7 @@ void onEnterDebugVs(GameModeState* state)
             start->players[i].slot_type = Gm_PKind_Cpu;
         }
     }
-    /* MELEE_DEBUG_VS_CHARS=<ckind>:<color>[h][,...]: up to four CPU fighters
+    /* MELEE_DEBUG_VS_CHARS=<ckind>:<color>[h][,...]: up to eight CPU fighters
      * with chosen costumes, so the texture coverage sweep
      * (tools/textures/sweep.py) can load every character's every costume.
      * The caller keeps <color> inside the character's costume count. An "h"
@@ -228,7 +228,10 @@ void onEnterDebugVs(GameModeState* state)
         for (i = 0; i < Gm_Player_NumMax; i++) {
             start->players[i].slot_type = Gm_PKind_NA;
         }
-        for (i = 0; i < Gm_Player_NumMax && *p != '\0'; i++) {
+        gm_ExtraPlayersClear();
+        /* entries 7 and 8 are an 8-player match's (slots 7 and 8) */
+        for (i = 0; i < GM_MAX_FIGHTERS && *p != '\0'; i++) {
+            PlayerInitData* pl = gm_SlotInitData(start, gm_PlayerSlot(i));
             char* end;
             long ckind = strtol(p, &end, 10);
             long color = 0;
@@ -251,10 +254,10 @@ void onEnterDebugVs(GameModeState* state)
                 end++;
             }
             if (ckind >= 0 && ckind < CKind_Playable_Count && color >= 0 && color < 16) {
-                start->players[i].ckind = (CharacterKind) ckind;
-                start->players[i].color = (u8) color;
-                start->players[i].slot_type = human ? Gm_PKind_Human : Gm_PKind_Cpu;
-                start->players[i].cpu_level = 9;
+                pl->ckind = (CharacterKind) ckind;
+                pl->color = (u8) color;
+                pl->slot_type = human ? Gm_PKind_Human : Gm_PKind_Cpu;
+                pl->cpu_level = 9;
             }
             p = *end == ',' ? end + 1 : end;
         }
@@ -267,8 +270,8 @@ void onEnterDebugVs(GameModeState* state)
         if (stocks > 0 && stocks < 100) {
             start->rules.match_kind = MatchKind_Stock;
             start->rules.is_stock = true;
-            for (i = 0; i < Gm_Player_NumMax; i++) {
-                start->players[i].stocks = stocks;
+            for (i = 0; i < GM_MAX_FIGHTERS; i++) {
+                gm_SlotInitData(start, gm_PlayerSlot(i))->stocks = stocks;
             }
         }
     }

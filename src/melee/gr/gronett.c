@@ -545,8 +545,11 @@ void grOnett_801E43E0(Ground_GObj* gobj)
 
         Camera_800307D0(&cam_x, &cam_y, &cam_z);
 
-        car_jobj = gp->u.onettcar.car_jobjs[saved_car];
-        car_jobj2 = gp->u.onettcar.car_jobjs2[saved_car];
+        /* Before the first car curr_car is -1 and these read the words
+         * before the arrays, as on the disc; state 0 replaces them before
+         * any use. Pointers, so bounds checking leaves the read alone. */
+        car_jobj = (&gp->u.onettcar.car_jobjs[0])[saved_car];
+        car_jobj2 = (&gp->u.onettcar.car_jobjs2[0])[saved_car];
 
         switch ((s8) gp->u.onettcar.state_a) {
         case 0: {

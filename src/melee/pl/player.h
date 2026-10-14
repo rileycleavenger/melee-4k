@@ -80,7 +80,7 @@ typedef struct _StaticPlayer {
 
     /*0x68 - 0x6C*/ s32 falls[PL_MAX_SUB_FIGHTERS];
 
-    /*0x70-0x84*/ u32 kos_by_player[GM_MAX_PLAYERS];
+    /*0x70-0x84*/ u32 kos_by_player[GM_SLOTS];
 
     /// @remarks If -1 in zz_0035184, then it's set to MatchInfo->frame_count
     u32 match_frame_count;

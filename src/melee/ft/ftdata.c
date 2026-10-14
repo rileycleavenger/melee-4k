@@ -127,6 +127,7 @@
 #include <melee/lb/lbarq.h>
 #include <melee/lb/lbdvd.h>
 #include <melee/lb/lbfile.h>
+#include <melee/lb/lbheap.h>
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/gobj.h>
@@ -1666,7 +1667,16 @@ void ftData_80085A14(FighterKind kind)
     PAD_STACK(4);
 
     if (ftData_Table_Unk0[kind].data == NULL) {
+#ifdef TARGET_PC
+        /* The animation banks go to ARAM; eight fighters' do not all fit
+         * its 16 MB, so the rest load into the scene's main-RAM heap (the
+         * animation copy reads either, ftData_80085CD8). Both last the
+         * match: ft_800852B0 forgets them when the next one starts. */
+        lbFile_800168A0(lbHeap_CanFit(1, lbFileGetSize(ftData_803C23E4[kind])) ? 1 : 0,
+                        ftData_803C23E4[kind], &sp18, &sp10);
+#else
         lbFile_800168A0(1, ftData_803C23E4[kind], &sp18, &sp10);
+#endif
         a_head = sp18;
         HSD_ASSERT(0x974, a_head);
         struct Fighter_WaitAnimData* anims = DP(struct Fighter_WaitAnimData, temp_r27->xC);

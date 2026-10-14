@@ -2870,12 +2870,12 @@ s32 fn_80165548(MatchEnd* me, s32 arg1, s32 team)
 
     ret = 0;
     if (me->is_teams == 1) {
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (me->player_standings[i].pkind != 3 &&
                 (s32) me->player_standings[i].team == team)
             {
                 result = i;
-                for (j = 0; j < 4; j++) {
+                for (j = 0; j < GM_SLOTS; j++) {
                     if (me->player_standings[j].pkind != 3 &&
                         (s32) me->player_standings[j].team == team && i != j &&
                         me->player_standings[i].is_small_loser >
@@ -2905,7 +2905,7 @@ u32 fn_801656A8(MatchEnd* arg0, u32 arg1)
     if (arg0->player_standings[arg1].pkind != 3) {
         s32 cnt_gt = 0;
         s32 j;
-        for (j = 0; j < 6; j++) {
+        for (j = 0; j < GM_SLOTS; j++) {
             if (arg0->player_standings[j].pkind != 3 &&
                 arg0->player_standings[arg1].x20 >
                     arg0->player_standings[j].x20)
@@ -2915,7 +2915,7 @@ u32 fn_801656A8(MatchEnd* arg0, u32 arg1)
         }
         {
             s32 cnt_lt = 0;
-            for (j = 0; j < 6; j++) {
+            for (j = 0; j < GM_SLOTS; j++) {
                 if (arg0->player_standings[j].pkind != 3 &&
                     (u32) arg0->player_standings[arg1].x24 <
                         (u32) arg0->player_standings[j].x24)
@@ -2999,9 +2999,9 @@ MatchEnd* fn_80165AC0(MatchEnd* arg0)
     s32 count;
 
     max_loser = 0;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (arg0->player_standings[i].pkind != 3) {
-            for (j = 0; j < 6; j++) {
+            for (j = 0; j < GM_SLOTS; j++) {
                 if (arg0->player_standings[j].pkind != 3 && i != j &&
                     arg0->player_standings[i].score <
                         arg0->player_standings[j].score)
@@ -3016,7 +3016,7 @@ MatchEnd* fn_80165AC0(MatchEnd* arg0)
     }
     ((struct fn_80165AC0_loser_bits*) &arg0->loser)->hi = max_loser;
     count = 0;
-    for (j = 0; j < 6; j++) {
+    for (j = 0; j < GM_SLOTS; j++) {
         if (arg0->player_standings[j].pkind != 3 &&
             arg0->player_standings[j].is_big_loser == 0)
         {
@@ -3033,11 +3033,11 @@ MatchEnd* fn_80165D60(MatchEnd* arg0)
     s32 i;
     s32 j;
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (arg0->player_standings[i].pkind != 3) {
             arg0->player_standings[i].is_small_loser =
                 arg0->player_standings[i].is_big_loser;
-            for (j = 0; j < 6; j++) {
+            for (j = 0; j < GM_SLOTS; j++) {
                 if (arg0->player_standings[j].pkind != 3 && i != j &&
                     arg0->player_standings[i].is_big_loser ==
                         arg0->player_standings[j].is_big_loser &&
@@ -3057,7 +3057,7 @@ void fn_80165E7C(MatchEnd* arg0)
     s32 i;
     int new_var;
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (arg0->player_standings[i].pkind != 3) {
             u8 team = arg0->player_standings[i].team;
 
@@ -3174,7 +3174,7 @@ void gm_80166378(MatchEnd* arg0_raw)
     memzero(arg0->_x448, sizeof(arg0->_x448));
     arg0->frame_count = gm_GetFrameCount();
     arg0->x7 = fn_8016B728();
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         arg0->player_standings[i].pkind = Player_GetPlayerSlotType(i);
         if (arg0->player_standings[i].pkind != 3) {
             arg0->player_standings[i].ckind = Player_GetPlayerCharacter(i);
@@ -3231,7 +3231,7 @@ void gm_80166378(MatchEnd* arg0_raw)
             arg0->player_standings[i].x9C = (u32) pl_80040CFC(i) / 60U;
             arg0->player_standings[i].xA0 = (u32) pl_80040D20(i) / 60U;
             arg0->player_standings[i].xA4 = pl_80040DB8(i);
-            for (j = 0; j < 6; j++) {
+            for (j = 0; j < GM_SLOTS; j++) {
                 if (arg0->player_standings[j].pkind != 3) {
                     arg0->player_standings[i].kills[j] =
                         Player_GetKOsByPlayerIndex(i, j);
@@ -3240,10 +3240,10 @@ void gm_80166378(MatchEnd* arg0_raw)
         }
     }
     if (arg0->is_teams == 1) {
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (arg0->player_standings[i].pkind != 3) {
                 s32 team_i = arg0->player_standings[i].team;
-                for (j = 0; j < 6; j++) {
+                for (j = 0; j < GM_SLOTS; j++) {
                     if (arg0->player_standings[j].pkind != 3) {
                         if (arg0->player_standings[j].team != team_i) {
                             if (i != j) {
@@ -3261,9 +3261,9 @@ void gm_80166378(MatchEnd* arg0_raw)
             }
         }
     } else {
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (arg0->player_standings[i].pkind != 3) {
-                for (j = 0; j < 6; j++) {
+                for (j = 0; j < GM_SLOTS; j++) {
                     if (arg0->player_standings[j].pkind != 3) {
                         if (i != j) {
                             arg0->player_standings[i].x20 +=
@@ -3279,7 +3279,7 @@ void gm_80166378(MatchEnd* arg0_raw)
             }
         }
     }
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (arg0->player_standings[i].pkind != 3) {
             arg0->player_standings[i].score = fn_8016588C(arg0_raw, i);
             arg0->player_standings[i].x30 = fn_801656A8(arg0, i);
@@ -3361,8 +3361,9 @@ MatchEnd* gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4,
         }
     }
 
-    arg0->player_standings[4].pkind = 3;
-    arg0->player_standings[5].pkind = 3;
+    for (i = 4; i < GM_SLOTS; i++) {
+        arg0->player_standings[i].pkind = 3;
+    }
     fn_80165AC0(arg0);
     fn_80165D60(arg0);
     fn_80165E7C(arg0);
@@ -3389,7 +3390,7 @@ void gm_80166CCC(MatchEnd* arg0, MatchEnd* arg1)
         arg0->outcome = result;
     }
     if (arg1->n_winners > 1) {
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (arg1->player_standings[i].pkind != 3) {
                 arg1->player_standings[i].is_big_loser =
                     arg0->player_standings[i].is_big_loser +
@@ -3406,13 +3407,13 @@ void gm_80166CCC(MatchEnd* arg0, MatchEnd* arg1)
             }
         }
     }
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (arg1->player_standings[i].pkind != 3) {
             player_count += 1;
         }
     }
     if (arg0->n_winners > 1) {
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (arg0->player_standings[i].pkind != 3) {
                 arg0->player_standings[i].ftkind =
                     arg1->player_standings[i].ftkind;

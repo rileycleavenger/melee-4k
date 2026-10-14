@@ -574,7 +574,7 @@ struct MatchPlayerData {
     /* KOs dealt to each other slot. gm_1601.c fills and sums this over all
      * six slots; the decomp's `kills[4]` plus a separate `x18` made slots 4
      * and 5 land on `x18` and its tail padding. */
-    u16 kills[GM_MAX_PLAYERS];
+    u16 kills[GM_SLOTS]; ///< by victim slot
     s32 x1C;
     u32 x20;
     int x24;
@@ -631,12 +631,12 @@ struct MatchEnd {
     /* 0x0D */ u8 n_winners;
     /* 0x0E */ u8 n_team_winners;
     /* 0x0F */ u8 loser;
-    /* 0x10 */ u8 winners[GM_MAX_PLAYERS];
+    /* 0x10 */ u8 winners[GM_SLOTS];
     /* 0x16 */ u8 team_winners[GM_MAX_TEAMS];
     /* 0x1B */ struct MatchTeamData team_standings[GM_MAX_TEAMS];
-    /* 0x58 */ struct MatchPlayerData player_standings[GM_MAX_PLAYERS];
+    /* 0x58 */ struct MatchPlayerData player_standings[GM_SLOTS];
     /* 0x448 */ u8 _x448[4]; // offset by 1 because of the previous struct
-    /* 0x44C */ struct UnkResultPlayerData x44C[6]; // 0x508 * 6 = 0x1820
+    /* 0x44C */ struct UnkResultPlayerData x44C[GM_SLOTS]; // 0x508 each
 };
 ASSERT_SIZE(struct MatchEnd, 0x227C);
 
@@ -1314,7 +1314,7 @@ struct VsSceneState {
     /* 0x002E */ u16 unk_2E;
     /* 0x0030 */ u8 unk_30;
     /* 0x0034 */ f32 unk_34;
-    /* 0x0038 */ struct VsSceneFighter fighters[GM_MAX_PLAYERS];
+    /* 0x0038 */ struct VsSceneFighter fighters[GM_SLOTS];
     /* 0x0038 */ char pad_8C[0x24C - 0x8C]; /* maybe part of unk_34[0x925]? */
     /* 0x024C */ MatchEnd x24C;
 };

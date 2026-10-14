@@ -159,7 +159,7 @@ bool gm_8016B014(void)
     PAD_STACK(4);
 
     if (gm_GetStartMeleeRules()->x4_2 && !gm_8016A1F8()) {
-        for (i = 1; i < 6; i++) {
+        for (i = 1; i < GM_SLOTS; i++) {
             if (Player_GetPlayerState(i) != 0) {
                 i = -1;
                 break;
@@ -409,7 +409,7 @@ int gm_8016B558(void)
     int i;
     int count;
     count = 0;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
             count++;
         }
@@ -437,7 +437,7 @@ float fn_8016B5B0(void)
     }
 
     count = 0;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
             count++;
         }
@@ -532,7 +532,7 @@ static inline int fn_8016B918_inline(int var_r31)
 {
     int team = Player_GetTeam(var_r31);
     int i;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != 3 && var_r31 != i &&
             team == Player_GetTeam(i) && Player_GetStocks(i) > 1)
         {
@@ -563,7 +563,7 @@ void fn_8016B918(void)
         return;
     }
 
-    for (i = 0; i < GM_MAX_PLAYERS; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != Gm_PKind_NA &&
             Player_GetEntity(i) != NULL && Player_8003219C(i) != 0 &&
             Player_GetStocks(i) == 0)
@@ -675,7 +675,7 @@ int gm_DefaultVSGetPauser(void)
                     mpPausePressed = mpPadStatus->trigger & HSD_PAD_START;
                 }
                 if (mpPausePressed) {
-                    for (mpPlayerSlot = 0; mpPlayerSlot < 6; mpPlayerSlot++) {
+                    for (mpPlayerSlot = 0; mpPlayerSlot < GM_SLOTS; mpPlayerSlot++) {
                         if (Player_GetPlayerSlotType(mpPlayerSlot) !=
                                 Gm_PKind_NA &&
                             Player_GetEntity(mpPlayerSlot) != NULL &&
@@ -718,7 +718,7 @@ int gm_CameraModeVSGetPauser(void)
                 if (var_r30 == 3) {
                     return var_r30;
                 }
-                for (var_r29 = 0; var_r29 < 6; var_r29++) {
+                for (var_r29 = 0; var_r29 < GM_SLOTS; var_r29++) {
                     if (var_r30 == Player_GetPadPort(var_r29) &&
                         Player_GetPlayerSlotType(var_r29) != Gm_PKind_NA)
                     {
@@ -766,7 +766,7 @@ MatchOutcome gm_GetFFAOutcome(void)
         int i;
         int eliminatedPlayers = 0;
         int playerCount = 0;
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
                 if (Player_GetStocks(i) == 0) {
                     eliminatedPlayers += 1;
@@ -824,7 +824,7 @@ MatchOutcome gm_GetTeamBattleOutcome(void)
             notSinglePlayer = false;
         }
         if (notSinglePlayer && !controller.start.x5_1) {
-            for (slot = 0; slot < 6; slot++) {
+            for (slot = 0; slot < GM_SLOTS; slot++) {
                 if (Player_GetFlagsBit1(slot) == 0 &&
                     Player_GetPlayerSlotType(slot) != Gm_PKind_NA &&
                     Player_GetEntity(slot) != NULL)
@@ -850,7 +850,7 @@ MatchOutcome gm_GetTeamBattleOutcome(void)
         eliminatedTeamCount = 0;
         memset(teamStocks, -1, sizeof(teamStocks));
 
-        for (slot_2 = 0; slot_2 < 6; slot_2++) {
+        for (slot_2 = 0; slot_2 < GM_SLOTS; slot_2++) {
             if (Player_GetPlayerSlotType(slot_2) != Gm_PKind_NA) {
                 if (teamStocks[Player_GetTeam(slot_2)] == -1) {
                     teamStocks[Player_GetTeam(slot_2)] =
@@ -958,7 +958,7 @@ void fn_8016C4F4(MatchEnd* arg0)
     int i;
     int j;
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (arg0->player_standings[i].pkind != 3) {
             pl_80039450(i);
             for (j = 0; j < 0x101; j++) {
@@ -1111,7 +1111,7 @@ void fn_8016C7F0(void)
 static inline s8 gm_GetSlotByPlayerId(int pauserId)
 {
     int slot;
-    for (slot = 0; slot < 6; slot++) {
+    for (slot = 0; slot < GM_SLOTS; slot++) {
         if (pauserId == Player_GetPadPort(slot) &&
             Player_GetPlayerSlotType(slot) == Gm_PKind_Human)
         {
@@ -1747,10 +1747,18 @@ void fn_8016DCC0(StartMeleeData* arg0)
         for (i = 0; i < 6; i++) {
             fn_8016D8AC(i, &arg0->players[i]);
         }
+#ifdef TARGET_PC
+        /* An 8-player match's seventh and eighth players (slots 7, 8). */
+        for (i = GM_SLOT_NONE + 1; i < GM_SLOTS; i++) {
+            if (gm_SlotInitData(arg0, i)->slot_type != Gm_PKind_NA) {
+                fn_8016D8AC(i, gm_SlotInitData(arg0, i));
+            }
+        }
+#endif
         break;
     case 1:
         fn_8016D8AC(0, &arg0->players[0]);
-        for (i = 1; i < 6; i++) {
+        for (i = 1; i < GM_SLOTS; i++) {
             Player_SetSlottype(i, Gm_PKind_NA);
         }
         if (arg0->rules.x54->x10_b1) {
@@ -1768,9 +1776,54 @@ static float direction(float x)
     }
 }
 
+#ifdef TARGET_PC
+/* An 8-player match (players in slots 7 or 8). */
+static bool gm_EightPlayers(void)
+{
+    return Player_GetPlayerSlotType(GM_SLOT_NONE + 1) != Gm_PKind_NA ||
+           Player_GetPlayerSlotType(GM_SLOT_NONE + 2) != Gm_PKind_NA;
+}
+
+/* Players 5-8 of an 8-player match: stages have four spawn points, so
+ * these stand between them (left to right: the middle gap, the left gap,
+ * the right gap) and the eighth at the stage's centre. */
+static void gm_ExtraSpawnPoint(int n, Vec3* v)
+{
+    Vec3 p[4];
+    int i, j;
+    for (i = 0; i < 4; i++) {
+        Stage_80224E64(i, &p[i]);
+    }
+    for (i = 1; i < 4; i++) {
+        for (j = i; j > 0 && p[j].x < p[j - 1].x; j--) {
+            Vec3 t = p[j];
+            p[j] = p[j - 1];
+            p[j - 1] = t;
+        }
+    }
+    switch (n) {
+    case 4: i = 1; break;
+    case 5: i = 0; break;
+    case 6: i = 2; break;
+    default:
+        Stage_80224E64(4, v);
+        return;
+    }
+    v->x = (p[i].x + p[i + 1].x) * 0.5F;
+    v->y = (p[i].y > p[i + 1].y ? p[i].y : p[i + 1].y) + 2.0F;
+    v->z = 0.0F;
+}
+#endif
+
 static inline void getSpawnPoint(int i, Vec3* v)
 {
     VsSceneController* tmp = &controller;
+#ifdef TARGET_PC
+    if (tmp->state.fighters[i].spawn_point == -1 && i >= 4 && gm_EightPlayers()) {
+        gm_ExtraSpawnPoint(i < GM_SLOT_NONE ? i : i - 1, v);
+        return;
+    }
+#endif
     if (tmp->state.fighters[i].spawn_point == -1) {
         Stage_80224E64(i, v);
     } else {
@@ -1790,7 +1843,7 @@ void fn_8016DEEC(void)
 {
     VsSceneController* tmp = &controller;
     VsSceneController* tmp2 = &controller;
-    float sp18[6];
+    float sp18[GM_SLOTS];
     Vec3 spC;
     float temp_f0;
     float var_f1;
@@ -1801,19 +1854,19 @@ void fn_8016DEEC(void)
     int j;
     int var_r23;
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
             getSpawnPoint(i, &spC);
             sp18[i] = spC.x;
         }
     }
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != 3 &&
             Player_GetFacingDirection(i) == 0.0F)
         {
             var_r23 = -1;
 
-            for (j = 0; j < 6; j++) {
+            for (j = 0; j < GM_SLOTS; j++) {
                 if (j != i && Player_GetPlayerSlotType(j) != Gm_PKind_NA &&
                     (tmp->start.is_teams != true ||
                      Player_GetTeam(i) != Player_GetTeam(j)))
@@ -1860,7 +1913,7 @@ void fn_8016E124(void)
         sp10[i] = -1;
     }
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         if (Player_GetPlayerSlotType(i) != 3 &&
             Player_GetPlayerCharacter(i) == CKind_Kirby)
         {
@@ -1879,7 +1932,7 @@ void fn_8016E124(void)
         }
     }
     if (var_r27 > 0) {
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
                 temp_r3 = Player_80032610(i, 0);
                 if (temp_r3 != -1 && temp_r3 != 4) {
@@ -1940,7 +1993,7 @@ void fn_8016E2BC(void)
         fn_80169F50(Player_GetPlayerCharacter(0), Player_GetCostumeId(0));
     } else {
         fn_8016DEEC();
-        for (i = 0; i < 6; i++) {
+        for (i = 0; i < GM_SLOTS; i++) {
             if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
                 getSpawnPoint(i, &sp18);
                 tmp = &controller;
@@ -2138,7 +2191,7 @@ void gm_Scene_Vs_OnExit(void* user_data)
         if (controller.state.match_result != OUTCOME_NO_CONTEST &&
             controller.state.match_result != OUTCOME_RETRY)
         {
-            for (i = 0; i < 6; i++) {
+            for (i = 0; i < GM_SLOTS; i++) {
                 if (Player_GetPlayerSlotType(i) == Gm_PKind_Human) {
                     gmMainLib_8015D00C(
                         gm_CKindToSelKind(Player_GetPlayerCharacter(i)));
@@ -2189,7 +2242,7 @@ float gm_8016ECE8(void)
 
     count = 0;
     var_f29 = 0.0F;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_SLOTS; i++) {
         CharacterKind kind = Player_GetPlayerCharacter(i);
         if (kind == CKind_MasterH || kind == CKind_CrezyH) {
             var_f29 +=
@@ -2271,7 +2324,42 @@ void fn_8016F030(StartMeleeData* arg0)
     for (i = 0; i < 6; i++) {
         gm_SetupPlayerDefaults(&arg0->players[i]);
     }
+#ifdef TARGET_PC
+    gm_ExtraPlayersClear();
+#endif
 }
+
+#ifdef TARGET_PC
+/* The seventh and eighth players of an 8-player match, in slots 7 and 8.
+ * StartMeleeData keeps the disc's six players: it is saved (gmm_x0's VS
+ * tables) and sent online as the disc has it. Whatever sets a match up
+ * with eight sets these as well; otherwise they stay empty. */
+PlayerInitData gm_ExtraPlayers[GM_SLOTS - GM_SLOT_NONE - 1] = {
+    [0 ... GM_SLOTS - GM_SLOT_NONE - 2] = { .slot_type = Gm_PKind_NA },
+};
+
+void gm_ExtraPlayersClear(void)
+{
+    int i;
+    for (i = 0; i < GM_SLOTS - GM_SLOT_NONE - 1; i++) {
+        gm_SetupPlayerDefaults(&gm_ExtraPlayers[i]);
+        gm_ExtraPlayers[i].slot_type = Gm_PKind_NA;
+        /* the ports past the GameCube's four: 4-7 (PAD_MAX_CONTROLLERS) */
+        gm_ExtraPlayers[i].slot = (u8) (GM_SLOT_NONE + i + 1);
+    }
+}
+
+PlayerInitData* gm_SlotInitData(StartMeleeData* start, int slot)
+{
+    if (slot < GM_SLOT_NONE) {
+        return &start->players[slot];
+    }
+    if (slot > GM_SLOT_NONE && slot < GM_SLOTS) {
+        return &gm_ExtraPlayers[slot - GM_SLOT_NONE - 1];
+    }
+    return NULL;
+}
+#endif
 
 int getPort(PlayerInitData* player, int i)
 {
