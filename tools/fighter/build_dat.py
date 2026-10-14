@@ -3,7 +3,8 @@
 """Write a custom fighter's costume file (PlXxNr.dat) over a base fighter's.
 
     .venv/bin/python tools/fighter/build_dat.py --base-dir BASE --mesh mesh.json \\
-        --symbol PlyGeno5K --out pack/PlGnNr.dat [--textures pack/textures] [--lowres 128]
+        --symbol PlyGeno5K --out pack/PlGnNr.dat [--textures pack/textures] [--lowres 128] \\
+        [--texture ge_cape_out=cape_red.png ...]
 
 BASE is export_base.py's folder (the base fighter's PlXxNr.dat and PlXx.dat).
 mesh.json is blender_export_fighter.py's output: materials (PNG textures) and
@@ -26,6 +27,9 @@ Textures: each material's PNG goes in the file at --lowres (RGB565, or
 RGB5A3 with alpha) and, at full size, into --textures as a replacement named
 by that low-res texture's key (tex1_WxH_hash_fmt.png), which the game's
 texture pack loader swaps in (src/pc/textures.cpp).
+
+Costumes: one file per costume (PlXxNr.dat, PlXxRe.dat, ...) from the same
+mesh.json, each --texture swapping a material's image for that costume's.
 """
 import argparse
 import json
@@ -349,17 +353,28 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-dir", required=True)
     ap.add_argument("--mesh", required=True)
-    ap.add_argument("--symbol", required=True, help="e.g. PlyGeno5K (for PlyGeno5K_Share_joint)")
+    ap.add_argument("--symbol", required=True, help="e.g. PlyGeno5K (for PlyGeno5K_Share_joint): fighter.cfg's symbol, "
+                    "plus the costume suffix for every costume but Nr (PlyGeno5KRe)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--textures")
     ap.add_argument("--lowres", type=int, default=128)
+    ap.add_argument("--texture", action="append", default=[], metavar="MATERIAL=PNG",
+                    help="use PNG for that material instead of mesh.json's (a costume's recolour); repeatable")
     a = ap.parse_args()
     skel = json.load(open(os.path.join(a.base_dir, "skeleton.json")))
     code = skel["base"]
     template = open(os.path.join(a.base_dir, f"Pl{code}Nr.dat"), "rb").read()
     vis, low, eyes = base_tables(open(os.path.join(a.base_dir, f"Pl{code}.dat"), "rb").read())
     b = Builder(template, skel["joint_symbol"])
-    keys, n = b.build(json.load(open(a.mesh)), vis, low, eyes, a.lowres, a.textures)
+    mesh = json.load(open(a.mesh))
+    for t in a.texture:
+        name, _, png = t.partition("=")
+        mats = [m for m in mesh["materials"] if m["name"] == name]
+        if not mats or not os.path.exists(png):
+            raise SystemExit(f"--texture {t}: no material {name!r} in the mesh, or no file {png}")
+        for m in mats:
+            m["texture"] = png
+    keys, n = b.build(mesh, vis, low, eyes, a.lowres, a.textures)
     data = b.finish(a.symbol)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     open(a.out, "wb").write(data)
