@@ -510,14 +510,22 @@ static void publish_locked(void) {
     }
 
     static bool s_published0;
+    /* MELEE_KEY_PORT=1..8: the keyboard (and MELEE_KEY_FIFO) plays that
+     * port instead of the first, for tests of an 8-player match's pads. */
+    static int s_port = -1;
+    if (s_port < 0) {
+        const char* env = getenv("MELEE_KEY_PORT");
+        const int n = env != NULL ? atoi(env) : 1;
+        s_port = n >= 1 && n <= PAD_PC_PORTS ? n - 1 : 0;
+    }
     if (any_active) {
         if (s_trace) {
             trace_locked(&st);
         }
-        PADSetVirtualStatus(0, &st);
+        PADSetVirtualStatus((u32)s_port, &st);
         s_published0 = true;
     } else if (s_published0) {
-        PADClearVirtualStatus(0);
+        PADClearVirtualStatus((u32)s_port);
         s_published0 = false;
     }
 }
@@ -534,15 +542,17 @@ static void publish_locked(void) {
  * happens once per pad-alarm period (1/60 s cap, lb_0195.c:84-86), so a press
  * shorter than a frame survives to exactly one read and no further. */
 /* Light bars (DualSense, DualShock 4) in Melee's port colours: P1 red, P2
- * blue, P3 yellow, P4 green. Re-sent once a second so a controller plugged
- * in mid-game picks it up; aurora skips pads without an RGB LED. */
+ * blue, P3 yellow, P4 green, and for an 8-player match's P5-P8 orange, cyan,
+ * pink, purple. Re-sent once a second so a controller plugged in mid-game
+ * picks it up; aurora skips pads without an RGB LED. */
 static void port_lights(void) {
-    static const u8 colors[4][3] = {{255, 0, 0}, {0, 64, 255}, {255, 200, 0}, {0, 200, 0}};
+    static const u8 colors[PAD_PC_PORTS][3] = {{255, 0, 0},   {0, 64, 255},  {255, 200, 0}, {0, 200, 0},
+                                               {255, 128, 0}, {0, 200, 220}, {255, 70, 170}, {150, 80, 255}};
     static unsigned calls;
     if (calls++ % 60 != 0) {
         return;
     }
-    for (u32 port = 0; port < 4; port++) {
+    for (u32 port = 0; port < PAD_PC_PORTS; port++) {
         PADSetColor(port, colors[port][0], colors[port][1], colors[port][2]);
     }
 }

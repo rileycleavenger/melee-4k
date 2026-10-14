@@ -12,13 +12,13 @@ PadLibData default_libinfo_data = { 0,    0,    0, 0,    0, 0,    0x2D, 8,
                                     0,    0x1E, 0, 0,    0, 0x7F, 0,    0,
                                     0xFF, 0,    0, 0xFF, 0, 0x7F, 0xFF, 0xFF };
 PadLibData HSD_PadLibData;
-HSD_PadStatus HSD_PadMasterStatus[4];
-HSD_PadStatus HSD_PadCopyStatus[4];
+HSD_PadStatus HSD_PadMasterStatus[HSD_PAD_PORTS];
+HSD_PadStatus HSD_PadCopyStatus[HSD_PAD_PORTS];
 #ifdef TARGET_PC
-s8 pc_pad_master_raw_x[4];
-s8 pc_pad_game_raw_x[4];
+s8 pc_pad_master_raw_x[HSD_PAD_PORTS];
+s8 pc_pad_game_raw_x[HSD_PAD_PORTS];
 #endif
-HSD_PadStatus HSD_PadGameStatus[4];
+HSD_PadStatus HSD_PadGameStatus[HSD_PAD_PORTS];
 const u32 pad_bit[4] = { PAD_CHAN0_BIT, PAD_CHAN1_BIT, PAD_CHAN2_BIT,
                          PAD_CHAN3_BIT };
 
@@ -51,7 +51,7 @@ static void HSD_PadRawQueueShift(u8 qnum, u8* qptr)
 static void HSD_PadRawMerge(PADStatus* src1, PADStatus* src2, PADStatus* dst)
 {
     int i;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < HSD_PAD_PORTS; i++) {
         dst[i].button = src1[i].button | src2[i].button;
     }
 }
@@ -63,17 +63,21 @@ void HSD_PadRenewRawStatus(bool err_check)
     PadLibData* p = &HSD_PadLibData;
     PADStatus* qwrite;
     PADStatus* qread;
-    PADStatus now[4];
+    PADStatus now[HSD_PAD_PORTS];
 
     HSD_PadRumbleInterpret();
+#ifdef TARGET_PC
+    PADReadPorts(now, HSD_PAD_PORTS);
+#else
     PADRead(now);
+#endif
     if (err_check) {
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < HSD_PAD_PORTS; i++) {
             if (!now[i].err) {
                 break;
             }
         }
-        if (i == 4) {
+        if (i == HSD_PAD_PORTS) {
             return;
         }
     }
@@ -102,7 +106,7 @@ void HSD_PadRenewRawStatus(bool err_check)
 
     {
         struct a {
-            PADStatus _[4];
+            PADStatus _[HSD_PAD_PORTS];
         };
         *(struct a*) qwrite = *(struct a*) now;
     }
@@ -140,9 +144,9 @@ void HSD_PadFlushQueue(HSD_FlushType ftype)
     switch (ftype) {
     case HSD_PAD_FLUSH_QUEUE_MERGE:
         for (; p->qcount > 1; p->qcount -= 1) {
-            qread = &p->queue->stat[p->qread * 4];
+            qread = &p->queue->stat[p->qread * HSD_PAD_PORTS];
             HSD_PadRawQueueShift(p->qnum, &p->qread);
-            qdst = &p->queue->stat[p->qread * 4];
+            qdst = &p->queue->stat[p->qread * HSD_PAD_PORTS];
             HSD_PadRawMerge(qread, qdst, qdst);
         }
         break;
@@ -366,11 +370,11 @@ void HSD_PadRenewMasterStatus(void)
     mp = &HSD_PadMasterStatus[0];
     intr = OSDisableInterrupts();
     if (p->qcount != 0) {
-        qread = &p->queue->stat[p->qread * 4];
+        qread = &p->queue->stat[p->qread * HSD_PAD_PORTS];
         HSD_PadRawQueueShift(p->qnum, &p->qread);
         p->qcount -= 1;
 
-        for (i = 0; i < 4; i++, mp += 1, qread += 1) {
+        for (i = 0; i < HSD_PAD_PORTS; i++, mp += 1, qread += 1) {
             mp->last_button = mp->button;
             mp->err = qread->err;
             if (mp->err == 0) {
@@ -487,7 +491,7 @@ void HSD_PadRenewCopyStatus(void)
     int i;
 
     p = &HSD_PadLibData;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < HSD_PAD_PORTS; i++) {
         mp = &HSD_PadMasterStatus[i];
         cp = &HSD_PadCopyStatus[i];
 
@@ -526,7 +530,7 @@ void HSD_PadRenewGameStatus(void)
     int i;
 
     p = &HSD_PadLibData;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < HSD_PAD_PORTS; i++) {
         mp = &HSD_PadMasterStatus[i];
         gs = &HSD_PadGameStatus[i];
 
@@ -599,7 +603,7 @@ void HSD_PadInit(u8 qnum, HSD_PadData* queue, u16 nb_list,
     p->qnum = qnum;
     p->queue = queue;
     HSD_PadRumbleInit(nb_list, listdatap);
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < HSD_PAD_PORTS; i++) {
         HSD_PadMasterStatus[i] = default_status_data;
         HSD_PadCopyStatus[i] = default_status_data;
         HSD_PadGameStatus[i] = default_status_data;

@@ -26,6 +26,10 @@
 #define PAD_ERR_TRANSFER -3
 
 #define PAD_MAX_CONTROLLERS 4
+/* Melee 4K: the ports the PC input layer serves. The GameCube API above
+ * keeps its four (PADRead fills four); PADReadPorts fills up to this many,
+ * for an 8-player match's fifth to eighth players. */
+#define PAD_PC_PORTS 8
 
 #define PAD_BUTTON_LEFT 0x0001
 #define PAD_BUTTON_RIGHT 0x0002
@@ -139,6 +143,7 @@ struct SDL_Gamepad;
 
 BOOL PADInit();
 u32 PADRead(PADStatus* status);
+u32 PADReadPorts(PADStatus* status, u32 ports); /* ports <= PAD_PC_PORTS */
 BOOL PADReset(u32 mask);
 BOOL PADRecalibrate(u32 mask);
 void PADClamp(PADStatus* status);

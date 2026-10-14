@@ -37,8 +37,8 @@ std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsStandard{{
     {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, PAD_BUTTON_RIGHT},
 }};
 
-std::array<PADStatus, PAD_CHANMAX> g_virtualPadStatus{};
-std::array<bool, PAD_CHANMAX> g_virtualPadActive{};
+std::array<PADStatus, PAD_PC_PORTS> g_virtualPadStatus{};
+std::array<bool, PAD_PC_PORTS> g_virtualPadActive{};
 
 std::array<PADButtonMapping, PAD_BUTTON_COUNT> g_defaultButtonsXBox360{{
     {SDL_GAMEPAD_BUTTON_SOUTH, PAD_BUTTON_A},
@@ -260,7 +260,7 @@ struct PADKeyboardState {
   bool m_mappingsSet = false;
 };
 
-std::array<PADKeyboardState, PAD_MAX_CONTROLLERS> g_keyboardBindings;
+std::array<PADKeyboardState, PAD_PC_PORTS> g_keyboardBindings;
 
 struct PADCLampRegion {
   uint8_t minTrigger;
@@ -299,9 +299,9 @@ bool g_initialized;
 bool g_keyboardBindingsLoaded = false;
 bool g_blockPAD = false;
 bool g_suppressHeldOnRead = false;
-std::array<PADButton, PAD_CHANMAX> g_suppressedButtons{};
-std::array<bool, PAD_CHANMAX> g_suppressLeftTrigger{};
-std::array<bool, PAD_CHANMAX> g_suppressRightTrigger{};
+std::array<PADButton, PAD_PC_PORTS> g_suppressedButtons{};
+std::array<bool, PAD_PC_PORTS> g_suppressLeftTrigger{};
+std::array<bool, PAD_PC_PORTS> g_suppressRightTrigger{};
 
 bool is_mouse_scancode(const s32 scancode) { return scancode < PAD_KEY_INVALID; }
 bool is_mouse_button_pressed(const s32 scancode) {
@@ -725,7 +725,15 @@ static void merge_virtual_status(PADStatus& status, const PADStatus& virtualStat
   status.analogB = std::max(status.analogB, virtualStatus.analogB);
 }
 
-u32 PADRead(PADStatus* status) {
+static u32 pad_read(PADStatus* status, u32 ports);
+
+u32 PADRead(PADStatus* status) { return pad_read(status, PAD_CHANMAX); }
+
+u32 PADReadPorts(PADStatus* status, u32 ports) {
+  return pad_read(status, ports < PAD_PC_PORTS ? ports : PAD_PC_PORTS);
+}
+
+static u32 pad_read(PADStatus* status, u32 ports) {
   if (!g_initialized) {
     Log.fatal("PADRead called before PADInit()!");
   }
@@ -736,7 +744,7 @@ u32 PADRead(PADStatus* status) {
   g_suppressHeldOnRead = false;
 
   uint32_t rumbleSupport = 0;
-  for (uint32_t i = 0; i < PAD_CHANMAX; ++i) {
+  for (uint32_t i = 0; i < ports; ++i) {
     memset(&status[i], 0, sizeof(PADStatus));
     // Support device rumble on port 0 regardless of whether a controller is connected.
     if (device_rumble_available_for_port(i)) {
@@ -965,7 +973,7 @@ u32 PADRead(PADStatus* status) {
 }
 
 void PADSetVirtualStatus(const u32 port, const PADStatus* virtualStatus) {
-  if (port >= PAD_CHANMAX || virtualStatus == nullptr) {
+  if (port >= PAD_PC_PORTS || virtualStatus == nullptr) {
     return;
   }
 
@@ -975,7 +983,7 @@ void PADSetVirtualStatus(const u32 port, const PADStatus* virtualStatus) {
 }
 
 void PADClearVirtualStatus(const u32 port) {
-  if (port >= PAD_CHANMAX) {
+  if (port >= PAD_PC_PORTS) {
     return;
   }
 
