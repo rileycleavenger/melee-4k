@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "textures.h"
+#include "fighter_pack.h"
 #include "pc.h"
 
 #include <dolphin/gx.h>
@@ -135,6 +136,20 @@ void load_all() {
     }
 }
 
+/* Custom fighters' own HD textures (fighter_pack.h). They are part of the
+ * fighter rather than a texture pack, so they load with Custom Textures off
+ * too, above every pack. */
+void load_fighters() {
+    const char* dirs[PC_FIGHTER_PACKS_MAX];
+    const int n = pc_fighter_pack_texture_dirs(dirs, PC_FIGHTER_PACKS_MAX);
+    std::error_code ec;
+    for (int i = 0; i < n; i++) {
+        if (std::filesystem::is_directory(dirs[i], ec)) {
+            load_group(dirs[i], kStockPriority * 2);
+        }
+    }
+}
+
 }  // namespace
 
 extern "C" void pc_textures_init(void) {
@@ -144,10 +159,10 @@ extern "C" void pc_textures_init(void) {
     }
     s_initialized = true;
 
-    if (!pc_is_custom_textures_enabled()) {
-        return;
+    if (pc_is_custom_textures_enabled()) {
+        load_all();
     }
-    load_all();
+    load_fighters();
 }
 
 extern "C" void pc_textures_reload(void) {
@@ -155,6 +170,7 @@ extern "C" void pc_textures_reload(void) {
     if (pc_is_custom_textures_enabled()) {
         load_all();
     }
+    load_fighters();
 }
 
 extern "C" void pc_textures_shutdown(void) {

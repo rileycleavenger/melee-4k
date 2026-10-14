@@ -211,6 +211,7 @@ set(PC_SOURCES
         src/pc/launcher_data.cpp
         src/pc/music_stream.cpp
         src/pc/textures.cpp
+        src/pc/fighter_pack.c
         src/pc/updater.cpp
         src/pc/version.cpp
         # Online play (docs/online.md): online.c is the lobby and lockstep

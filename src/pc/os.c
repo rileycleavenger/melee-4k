@@ -417,12 +417,17 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) {
     abort();
 }
 
+#include "pc/fighter_pack.h"
 #include "pc/input_poll.h"
 #include "pc/net.h"
+#include <melee/ft/ftcustom.h>
 
 void pc_platform_init(void) {
     s_is_game_thread = 1;
     aurora_card_set_callback_dispatch(card_dispatch);
+    /* Custom fighters before textures: their HD textures load with them. */
+    pc_fighter_packs_init();
+    ftCustom_Init();
     pc_textures_init();
 #ifndef __EMSCRIPTEN__    /* the page delivers pads; a worker cannot poll them */
     pc_input_poll_init(); /* gamepad + GC adapter at 1 kHz; no keyboard publish */

@@ -3,6 +3,7 @@
 #include <placeholder.h>
 
 #include "fighter.h"
+#include "ftcustom.h"
 #include "forward.h"
 #include "ftdata.h"
 #include "ftmaterial.h"
@@ -549,7 +550,10 @@ void ftParts_800749CC(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
 
-    ftParts_8007487C(&DP(struct ftData_x8, fp->ft_data->x8)->x0, &fp->x5AC, fp->costume_id,
+    /* A custom fighter's costume (ftcustom.h) reads the base's tables as
+     * its first costume: they are on the disc, sized by its own costumes. */
+    ftParts_8007487C(&DP(struct ftData_x8, fp->ft_data->x8)->x0, &fp->x5AC,
+                     ftCustom_DataCostume(fp->kind, fp->costume_id),
                      &fp->dobj_list, &fp->x203C);
     for (i = 0; i < fp->x5AC.model_num; i++) {
         fp->x5F4_arr[i].prev = -1;

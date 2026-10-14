@@ -1,4 +1,5 @@
 #include "ftanim.h"
+#include "ftcustom.h"
 
 #include <placeholder.h>
 
@@ -1020,8 +1021,9 @@ void ftAnim_80070200(Fighter* fp, ftData_x8_x8* r4, CostumeTObjList* r5,
         HSD_ASSERTREPORT(1228, 0, "fighter tobj num over!\n");
     }
     DiscU32* xC = DP(DiscU32, r4->xC);
-    r5->x5D0 = xC[fp->costume_id].v
-                   ? DP(DiscU16, xC[fp->costume_id].v)
+    const int costume = ftCustom_DataCostume(fp->kind, fp->costume_id);
+    r5->x5D0 = xC[costume].v
+                   ? DP(DiscU16, xC[costume].v)
                    : DP(DiscU16, xC[0].v);
 
     for (i = 0; i < r5->n_costume_tobjs; i++) {
