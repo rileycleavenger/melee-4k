@@ -15,7 +15,7 @@
 /// saved structures -- so on PC slot 6 stays empty and an 8-player match's
 /// seventh and eighth fighters take slots 7 and 8 (::gm_PlayerSlot). A match
 /// of six or fewer never touches 6-8 and plays exactly as on the disc.
-#ifdef TARGET_PC
+#if defined(TARGET_PC) && !defined(LINT) /* LINT checks the disc's layouts */
 #define GM_SLOTS 9
 #else
 #define GM_SLOTS GM_MAX_PLAYERS
