@@ -155,6 +155,33 @@ for n, over in enumerate(COSTUMES):
     if n == 0:
         # Icon: the face, close (build_ui.py fits it into the grid icon).
         shoot(os.path.join(OUT, "icon.png"), 640, 560, (0.45, -1.0, 0.08), hlo, hhi, 0.95)
+# CHECK_POSES (["/path/idle.json", ...]: game pose dumps, the game's
+# MELEE_DUMP_POSE knob; needs REPO): the first costume in each pose, front, three-
+# quarter and side, to OUT/check_<pose>.png: how it deforms in the game.
+set_costume(COSTUMES[0] if COSTUMES else {})
+for path in globals().get("CHECK_POSES", []):
+    POSE_JSON = path
+    exec(open(os.path.join(REPO, "tools", "fighter", "blender_pose.py")).read())
+    lo, hi = bounds(parts)
+    shots = []
+    for k, d in enumerate(((0.0, -1.0, 0.12), (0.7, -1.0, 0.12), (1.0, 0.0, 0.12))):
+        shot = os.path.join(OUT, f"_check{k}.png")
+        shoot(shot, 400, 520, d, lo, hi, 1.05)
+        shots.append(shot)
+    from_shots = [bpy.data.images.load(s_) for s_ in shots]
+    sheet = bpy.data.images.new("check", 1200, 520, alpha=True)
+    px = [0.0] * (1200 * 520 * 4)
+    for k, im in enumerate(from_shots):
+        src = list(im.pixels)
+        for y in range(520):
+            row = src[y * 400 * 4:(y + 1) * 400 * 4]
+            px[(y * 1200 + k * 400) * 4:(y * 1200 + k * 400 + 400) * 4] = row
+        bpy.data.images.remove(im)
+        os.remove(shots[k])
+    sheet.pixels = px
+    sheet.filepath_raw = os.path.join(OUT, "check_" + os.path.splitext(os.path.basename(path))[0] + ".png")
+    sheet.file_format = "PNG"
+    sheet.save()
 set_costume({})
 pose({})
 print("rendered", len(COSTUMES), "costume(s) ->", OUT)

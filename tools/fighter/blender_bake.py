@@ -146,7 +146,21 @@ def paint(name, key, pattern="flat", overlay=None, dark=0.72, scale=1.0):
         col = over.outputs[2]
     nt.links.new(col, emit.inputs["Color"])
     m["hsd_paint"] = True
+    m["hsd_paint_args"] = json.dumps([key, pattern, dark, scale])
     return m
+
+
+def paint_with_overlay(m, overlay, uv_map="UV"):
+    """A copy of paint material m with an overlay image on top (alpha;
+    nothing outside the image: CLIP)."""
+    key, pattern, dark, scale = json.loads(m["hsd_paint_args"])
+    v = paint(m.name + "_ov", key, pattern, overlay=overlay, dark=dark, scale=scale)
+    for n in v.node_tree.nodes:
+        if n.type == "TEX_IMAGE":
+            n.extension = "CLIP"
+        if n.type == "UVMAP":
+            n.uv_map = uv_map
+    return v
 
 
 def set_palette(pal):

@@ -117,10 +117,12 @@ def melee_icon(render, name, font_path, size=HD["icon"]):
     ImageDraw.Draw(bar).rectangle([0, bar0, w, h], fill=(24, 4, 4, 255))
     bar.putalpha(Image.composite(bar.getchannel("A"), Image.new("L", size, 0), inner))
     plate.alpha_composite(bar)
-    label = tracked_text(name.upper(), font_path, round(h * 0.19), round(w * 0.06))
+    # Bold: the font's weight plus a stroke, so the name reads at the
+    # icon's small size like the HD pack's.
+    label = tracked_text(name.upper(), font_path, round(h * 0.19), round(w * 0.05), bold=max(1, round(h * 0.012)))
     if label.width > w - 2 * fw - round(16 * k):
         label = label.resize((w - 2 * fw - round(16 * k), label.height), Image.LANCZOS)
-    tint = Image.new("RGBA", label.size, (204, 204, 204, 255))
+    tint = Image.new("RGBA", label.size, (236, 236, 236, 255))
     tint.putalpha(label)
     plate.alpha_composite(tint, ((w - label.width) // 2, bar0 + (h - fw - bar0 - label.height) // 2))
     # The frame.
@@ -132,17 +134,18 @@ def melee_icon(render, name, font_path, size=HD["icon"]):
     return plate
 
 
-def tracked_text(text, font_path, px, tracking):
-    """Coverage mask of text at px high, letters spaced by tracking."""
+def tracked_text(text, font_path, px, tracking, bold=0):
+    """Coverage mask of text at px high, letters spaced by tracking, each
+    glyph thickened by a bold-pixel stroke."""
     from PIL import Image, ImageDraw, ImageFont
     font = ImageFont.truetype(font_path, px)
     glyphs = []
     for ch in text:
-        box = font.getbbox(ch)
-        g = Image.new("L", (max(1, box[2] - box[0]), px + px // 3), 0)
-        ImageDraw.Draw(g).text((-box[0], 0), ch, font=font, fill=255)
+        box = font.getbbox(ch, stroke_width=bold)
+        g = Image.new("L", (max(1, box[2] - box[0]), px + px // 3 + 2 * bold), 0)
+        ImageDraw.Draw(g).text((-box[0], 0), ch, font=font, fill=255, stroke_width=bold, stroke_fill=255)
         glyphs.append(g if ch != " " else Image.new("L", (px // 3, px + px // 3), 0))
-    out = Image.new("L", (sum(g.width for g in glyphs) + tracking * (len(glyphs) - 1), px + px // 3), 0)
+    out = Image.new("L", (sum(g.width for g in glyphs) + tracking * (len(glyphs) - 1), px + px // 3 + 2 * bold), 0)
     x = 0
     for g in glyphs:
         out.paste(g, (x, 0))
@@ -195,7 +198,11 @@ def image_desc(w, img, size, hd=None, textures=None):
     if textures and hd:
         from build_dat import texture_key
         os.makedirs(textures, exist_ok=True)
-        if big.size != hd:
+        if big.size == size:
+            # Drawn at the game's size (pixel art, like the stock icons):
+            # the HD copy keeps its pixels square and sharp.
+            big = big.resize(hd, Image.NEAREST)
+        elif big.size != hd:
             big = big.resize(hd, Image.LANCZOS)
         big.save(os.path.join(textures, texture_key(raw, size[0], size[1], GX_TF_RGBA8) + ".png"))
     data = w.blob(raw, 32)
