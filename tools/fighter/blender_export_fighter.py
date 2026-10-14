@@ -4,7 +4,7 @@
 Exports every mesh object parented to the "Skeleton" armature that is not a
 reference mesh (name starting "Ref_"), in the rest pose, in game space (the
 Skeleton object's local space). Per mesh: triangles with position, normal,
-UV (GX convention: t = 1 - v) and weights from vertex groups named after
+UV (GX convention: t = 1 - v; each triangle moved into the 0-1 tile) and weights from vertex groups named after
 bones ("J07"). Per material: the image texture (custom property
 "hsd_texture", else the first Image Texture node's file) and whether it is
 double sided (property "hsd_double_sided").
@@ -15,6 +15,7 @@ Checks: every vertex weighted (at most 4 bones are kept by build_dat.py),
 every mesh has one material with a texture and a UV map.
 """
 import json
+import math
 import re
 
 import bpy
@@ -67,6 +68,12 @@ def export():
                 n = normals[li].vector
                 u = uv[li].uv
                 tri.append({"p": list(v.co), "n": [n.x, n.y, n.z], "uv": [u.x, 1.0 - u.y], "w": w})
+            # Into the 0-1 tile: models often keep UVs in another (v 1..2),
+            # which Blender repeats and the game's clamped textures do not.
+            for k in (0, 1):
+                shift = math.floor(min(c["uv"][k] for c in tri) + 1e-4)
+                for c in tri:
+                    c["uv"][k] -= shift
             tris.append(tri)
         if unweighted:
             problems.append(f"{ob.name}: {unweighted} corners with no bone weight")

@@ -350,26 +350,45 @@ void ftCustom_ApplyAttrs(Fighter* fp)
     fp->co_attrs.air_drift_max *= pk->air;
 }
 
-/* MELEE_DUMP_POSE=path:frame (a test knob): on that frame of the first
- * custom fighter, write every joint's world matrix (3x4, rows) as JSON,
- * for tools/fighter/blender_pose.py to pose the model like the game. */
+/* MELEE_DUMP_POSE=path:frame[,frame...] (a test knob): on those frames of
+ * the first custom fighter, write every joint's world matrix (3x4, rows) as
+ * JSON, for tools/fighter/blender_pose.py to pose the model like the game.
+ * With several frames the path holds a %d for the frame number. */
 static void dump_pose(Fighter* fp)
 {
-    static int frame = -1, at = -2;
+    static int frame = -1, n_at = -1, at[32];
     static char path[512];
+    char name[600];
     FILE* f;
-    int i, n;
-    if (at == -2) {
+    int i, n, hit = 0;
+    if (n_at < 0) {
         const char* env = getenv("MELEE_DUMP_POSE");
         const char* colon = env != NULL ? strrchr(env, ':') : NULL;
-        at = -1;
+        n_at = 0;
         if (colon != NULL && (size_t) (colon - env) < sizeof(path)) {
+            const char* c = colon + 1;
             memcpy(path, env, (size_t) (colon - env));
             path[colon - env] = '\0';
-            at = atoi(colon + 1);
+            while (*c != '\0' && n_at < (int) ARRAY_SIZE(at)) {
+                at[n_at++] = atoi(c);
+                while (*c != '\0' && *c != ',') {
+                    c++;
+                }
+                if (*c == ',') {
+                    c++;
+                }
+            }
         }
     }
-    if (at < 0 || ++frame != at || (f = fopen(path, "w")) == NULL) {
+    ++frame;
+    for (i = 0; i < n_at; i++) {
+        hit |= at[i] == frame;
+    }
+    if (!hit) {
+        return;
+    }
+    snprintf(name, sizeof(name), path, frame);
+    if ((f = fopen(name, "w")) == NULL) {
         return;
     }
     n = DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num;

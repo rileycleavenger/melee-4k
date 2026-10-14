@@ -14,7 +14,8 @@ relaxed pose, on a transparent background, with Cycles:
 
     OUT = "/path/ui"; COSTUMES = [{}, {"ge_cape_out": ".../cape_red.png"}]
     POSE = {"J08": (0, 0, -70), "J31": (0, 0, 70)}   # bone: XYZ degrees
-    CSP_POSE = {...}                                  # optional: the portrait's pose
+    CSP_POSE = {...}                                  # optional: the portrait's pose;
+                                                      # or a game pose dump (MELEE_DUMP_POSE)
     exec(open(".../blender_render_ui.py").read())
 """
 import math
@@ -125,9 +126,15 @@ def set_costume(over):
 
 
 def pose(spec):
+    """spec: {bone: XYZ degrees}, or a game pose dump's path (needs REPO)."""
     for pb in skel.pose.bones:
+        pb.matrix_basis.identity()
         pb.rotation_mode = "XYZ"
         pb.rotation_euler = Euler((0, 0, 0))
+    if isinstance(spec, str):
+        bpy.context.view_layer.update()
+        exec(open(os.path.join(REPO, "tools", "fighter", "blender_pose.py")).read(), {"POSE_JSON": spec})
+        return
     for name, deg in spec.items():
         pb = skel.pose.bones.get(name)
         if pb is not None:
@@ -150,6 +157,9 @@ for n, over in enumerate(COSTUMES):
     across = math.hypot(uhi.x - ulo.x, uhi.y - ulo.y) * 0.86  # a little cut off at the sides
     tall = across * 752 / 544
     top = hi.z + tall * 0.03
+    if tall > height * 1.06:
+        # The whole fighter fits: centred, not hung from the top.
+        top = (lo.z + hi.z) / 2 + tall / 2
     shoot(os.path.join(OUT, f"csp{n}.png"), 544, 752, (0.62, -1.0, 0.16),
           Vector((ulo.x, ulo.y, top - tall)), Vector((uhi.x, uhi.y, top)), 1.0)
     pose(POSE)
@@ -166,8 +176,7 @@ for n, over in enumerate(COSTUMES):
 # quarter and side, to OUT/check_<pose>.png: how it deforms in the game.
 set_costume(COSTUMES[0] if COSTUMES else {})
 for path in globals().get("CHECK_POSES", []):
-    POSE_JSON = path
-    exec(open(os.path.join(REPO, "tools", "fighter", "blender_pose.py")).read())
+    pose(path)
     lo, hi = bounds(parts)
     shots = []
     for k, d in enumerate(((0.0, -1.0, 0.12), (0.7, -1.0, 0.12), (1.0, 0.0, 0.12))):
