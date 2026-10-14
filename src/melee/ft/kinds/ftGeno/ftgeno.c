@@ -3,8 +3,8 @@
  * (src/melee/ft/ftcustom.h). They run on Mario's motions -- the skeleton is
  * Mario's -- and his fireball article, flown differently.
  *
- *   Geno Beam   (B)        a fast straight shot from the finger
- *   Geno Whirl  (side B)   a slower, larger shot that flies twice as far
+ *   Geno Beam   (B)        a fast straight shot from the finger, 6%
+ *   Geno Whirl  (side B)   a slower, larger shot that flies twice as far, 10%
  *   Geno Boost  (down B)   ten seconds of armour: hits push him less
  *   up B                   Mario's Super Jump Punch
  *
@@ -27,6 +27,7 @@
 #include <melee/ft/types.h>
 #include <melee/it/inlines.h>
 #include <melee/it/it_2725.h>
+#include <melee/it/itcoll.h>
 #include <melee/it/item.h>
 #include <melee/it/itgroundcoll.h>
 #include <melee/it/itmaplib.h>
@@ -39,9 +40,11 @@
 #define GE_BEAM_SPEED 3.6F
 #define GE_BEAM_LIFE 40
 #define GE_BEAM_SCALE 1.2F
+#define GE_BEAM_DAMAGE 6
 #define GE_WHIRL_SPEED 1.7F
 #define GE_WHIRL_LIFE 110
 #define GE_WHIRL_SCALE 1.8F
+#define GE_WHIRL_DAMAGE 10
 #define GE_BOOST_FRAMES 600
 #define GE_BOOST_ARMOR 40.0F
 #define GE_BOOST_COLANIM 53 /* the glow of a charged shot */
@@ -63,8 +66,32 @@ static inline int slot_of(Fighter* fp)
     return fp->player_idx < 6 ? fp->player_idx : 0;
 }
 
-/* Straight flight: no gravity, the speed it was given. */
-static void ftGe_ShotPhys(Item_GObj* gobj) {}
+/* Straight flight: no gravity, the speed it was given. The article's
+ * script makes its hitbox after the spawn, so the shot's own damage and
+ * size go on it here, once per hitbox (it_80272460 records the damage in
+ * unk_count). */
+static void shot_hitbox(Item_GObj* gobj, u32 damage, f32 scale)
+{
+    Item* it = GET_ITEM(gobj);
+    int i;
+    for (i = 0; i < 4; i++) {
+        HitCapsule* hit = &it->x5D4_hitboxes[i].hit;
+        if (hit->state != HitCapsule_Disabled && hit->unk_count != damage) {
+            it_80272460(hit, damage, gobj);
+            hit->scale *= scale;
+        }
+    }
+}
+
+static void ftGe_BeamPhys(Item_GObj* gobj)
+{
+    shot_hitbox(gobj, GE_BEAM_DAMAGE, GE_BEAM_SCALE);
+}
+
+static void ftGe_WhirlPhys(Item_GObj* gobj)
+{
+    shot_hitbox(gobj, GE_WHIRL_DAMAGE, GE_WHIRL_SCALE);
+}
 
 /* Gone at the first wall or floor it touches, or when its life runs out
  * (the article's own animation callback counts that down). */
@@ -74,7 +101,8 @@ static bool ftGe_ShotColl(Item_GObj* gobj)
     return it_8027781C(gobj) ? true : false;
 }
 
-static void spawn_shot(Fighter_GObj* gobj, f32 speed, int life, f32 scale)
+static void spawn_shot(Fighter_GObj* gobj, f32 speed, int life, f32 scale,
+                       void (*phys)(Item_GObj*))
 {
     Fighter* fp = GET_FIGHTER(gobj);
     SpawnItem spawn;
@@ -96,7 +124,7 @@ static void spawn_shot(Fighter_GObj* gobj, f32 speed, int life, f32 scale)
     it->x40_vel.x = fp->facing_dir * speed;
     it->x40_vel.y = 0.0F;
     it->xD44_lifeTimer = life;
-    it->physics_updated = ftGe_ShotPhys;
+    it->physics_updated = phys;
     it->collided = ftGe_ShotColl;
     {
         Vec3 s = { scale, scale, scale };
@@ -116,10 +144,10 @@ static void ftGe_ThrowFrame(Fighter_GObj* gobj)
     fp->throw_flags_b0 = false;
     switch (ftGe_State[slot_of(fp)].shot) {
     case GE_SHOT_BEAM:
-        spawn_shot(gobj, GE_BEAM_SPEED, GE_BEAM_LIFE, GE_BEAM_SCALE);
+        spawn_shot(gobj, GE_BEAM_SPEED, GE_BEAM_LIFE, GE_BEAM_SCALE, ftGe_BeamPhys);
         break;
     case GE_SHOT_WHIRL:
-        spawn_shot(gobj, GE_WHIRL_SPEED, GE_WHIRL_LIFE, GE_WHIRL_SCALE);
+        spawn_shot(gobj, GE_WHIRL_SPEED, GE_WHIRL_LIFE, GE_WHIRL_SCALE, ftGe_WhirlPhys);
         break;
     case GE_SHOT_BOOST:
         ftGe_State[slot_of(fp)].boost = GE_BOOST_FRAMES;
