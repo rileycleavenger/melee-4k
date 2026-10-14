@@ -694,7 +694,8 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                              last_game);
                 }
                 if ((input & HSD_PAD_START) ||
-                    (lobbyAutostart() > 0 && view.player_count >= lobbyAutostart()))
+                    (lobbyAutostart() > 0 && view.player_count >= lobbyAutostart() &&
+                     lobby_frames > 120)) /* after the B that came back here */
                 {
                     lobbyStart();
                 }

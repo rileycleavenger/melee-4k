@@ -31,12 +31,39 @@ python3 tools/online_test.py --disc "$DISC" --players 2 --games 2
 python3 tools/online_test.py --disc "$DISC" --players 4 --games 2
 python3 tools/online_test.py --disc "$DISC" --players 3 --loss 5 --delay-ms 50 --jitter-ms 20
 python3 tools/online_test.py --disc "$DISC" --players 3 --guest-rules   # joiners' own rules differ
+python3 tools/online_test.py --disc "$DISC" --games 3 --stage 3         # every game on Rainbow Cruise
+```
+
+Each player's mouse pointer is pinned to its own spot (`MELEE_MOUSE_TEST`,
+which online travels with the input like a stick), so every hand parks on its
+own portrait and the A press picks first time; `--guest-mouse U,V@FRAME`
+overrides the joiners'. `--stage` sets `MELEE_ONLINE_TEST_STAGE` on every
+machine.
+
+**Mac against Windows on one Mac.** `--guest-exe path/to/melee.exe` runs the
+joiners from a Windows build under Wine (`wine64`, Dawn's null backend, the
+build's own MSVC runtime), against the Mac host. Use the CI build
+(`gh run download <id> -n game` from Release (Windows)); a local
+`build-win` (Homebrew `mingw-w64`) links UCRT instead of msvcrt and hid the
+v1.1.0-rc2 desync. With `MELEE_NET_STATE_LOG=1 MELEE_NET_CHECKSUM_WIDE=1`
+each instance writes `<name>.state`, every frame's checksummed fields and
+items as raw bits, to diff for the first field that differs.
+
+```sh
+MELEE_NET_STATE_LOG=1 MELEE_NET_CHECKSUM_WIDE=1 python3 tools/online_test.py \
+    --disc "$DISC" --guest-exe ci/melee-windows-x86_64/melee.exe --games 2 --match-seconds 60
 ```
 
 Run live tests one at a time; competing instances affect pacing. The router is
-left alone (`MELEE_PORTMAP_OFF`). Mac against Windows is
-`tools/crossplay/` (a recording replayed on the other machine) and, for the
-real thing, two computers: see docs/online.md.
+left alone (`MELEE_PORTMAP_OFF`). For the real thing, two computers: see
+docs/online.md.
+
+**The simulation's maths.** `tools/test_sim_libm.py --build DIR [--nm NM]`
+fails when game or collision code takes a rounding libm function (sin, log,
+pow, fma, ...) from the platform rather than `src/pc/libm` or the game's own
+(`pc_trig.h` routes them). The Windows release workflow runs it on the
+x86-64 objects, where a platform `fmaf` is a call; AArch64 compiles it to an
+instruction, so the Mac build cannot show that one.
 
 ## Smoke tests
 

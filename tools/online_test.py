@@ -68,6 +68,11 @@ def sessions(path):
     return out
 
 
+# Pointer spots (u, v across the game image): the host's is a portrait on
+# character select and a stage on stage select; the guests' are portraits.
+PICK_POINTS = ["0.60,0.44", "0.30,0.25", "0.50,0.25", "0.36,0.33"]
+
+
 class Instance:
     def __init__(self, index, exe, disc, work, env):
         self.index = index
@@ -92,7 +97,11 @@ class Instance:
             "MELEE_VSYNC": "0",
             "MELEE_WINDOW_TITLE": f"melee-online-{self.name}",
             "MELEE_BOOT_SCENE": "host" if index == 0 else "join",
-            "MELEE_MOUSE_TEST": "off",  # the windows open under the real pointer
+            # A fixed pointer per player (MELEE_MOUSE_TEST, in lockstep like
+            # a stick): it parks each hand on its own portrait, so the A
+            # press picks reliably; the host's is also over a stage on stage
+            # select. The windows open under the real pointer otherwise.
+            "MELEE_MOUSE_TEST": PICK_POINTS[index] + "@0",
         })
         if e.get("MELEE_NET_STATE_LOG"):  # each instance's own file
             e["MELEE_NET_STATE_LOG"] = os.path.join(work, f"{self.name}.state")
@@ -223,12 +232,17 @@ def drive_game(insts, game, match_seconds, log):
     host.key("Q+E+X+Return 800")
     if not all(i.wait_new(r"online: enter RESULTS", 30) for i in insts):
         return False
-    # Results: Start until character select comes back.
+    # Results: Start until character select comes back. Lockstep puts every
+    # machine there on the same frame, so the host's log is enough to stop;
+    # a slower joiner's log can lag, and one more Start on character select
+    # would begin the next game.
     deadline = time.time() + 60
     while time.time() < deadline:
-        if all(i.count_new(r"online: enter CSS") >= 1 for i in insts):
-            return True
+        if host.count_new(r"online: enter CSS") >= 1:
+            return all(i.wait_new(r"online: enter CSS", 30) for i in insts)
         time.sleep(2)
+        if host.count_new(r"online: enter CSS") >= 1:
+            continue
         for inst in insts:
             inst.key("Return 100")
     return False
