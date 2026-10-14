@@ -74,28 +74,41 @@ static const Fighter_Part k_spark_bones[] = {
     FtPart_HipN,  FtPart_LKneeJ, FtPart_NeckN, FtPart_LFootJ, FtPart_RFootJ,
 };
 
+/* Where a part is on the stage; false if the base has no bone for it. */
+static bool part_pos(Fighter* fp, Fighter_Part part, Vec3* pos)
+{
+    FighterBone* bone = ftParts_GetBone(fp, part);
+    if (bone == NULL || bone->joint == NULL) {
+        return false;
+    }
+    lb_8000B1CC(bone->joint, NULL, pos);
+    return true;
+}
+
+static void spark_at(Fighter* fp, Fighter_Part part)
+{
+    Vec3 pos;
+    if (part_pos(fp, part, &pos)) {
+        efSync_Spawn(Ef_Id_Unk1001, NULL, &pos);
+    }
+}
+
 static void sparks(Fighter* fp, int every)
 {
     int n = (int) fp->cur_anim_frame;
-    Vec3 pos;
     if (every <= 0 || n % every != 0) {
         return;
     }
     n /= every;
-    lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(
-                    fp, k_spark_bones[n % ARRAY_SIZE(k_spark_bones)])].joint,
-                NULL, &pos);
-    efSync_Spawn(Ef_Id_Unk1001, NULL, &pos);
+    spark_at(fp, k_spark_bones[n % ARRAY_SIZE(k_spark_bones)]);
 }
 
 static void burst(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
-    Vec3 pos;
     for (i = 0; i < (int) ARRAY_SIZE(k_spark_bones); i++) {
-        lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, k_spark_bones[i])].joint, NULL, &pos);
-        efSync_Spawn(Ef_Id_Unk1001, NULL, &pos);
+        spark_at(fp, k_spark_bones[i]);
     }
     lbBgFlash_80021C48(4, 0);
     ftCo_800BFFD0(fp, GE_ELEC_COLANIM + 2, false);
@@ -115,7 +128,9 @@ static void spawn_shot(Fighter_GObj* gobj, GeShot shot)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     Vec3 pos;
-    lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_L1stNb)].joint, NULL, &pos);
+    if (!part_pos(fp, FtPart_L1stNb, &pos)) {
+        pos = fp->cur_pos;
+    }
     if (shot == GE_SHOT_BEAM) {
         it_80298168(gobj, &pos, fp->facing_dir);
     } else {
