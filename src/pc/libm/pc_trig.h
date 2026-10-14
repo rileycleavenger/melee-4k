@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* One trig implementation for every peer (musl's, see LICENSE). glibc,
  * mingw-w64 and bionic all return different bits for sinf/cosf/tanf/atanf,
- * which would desync netplay. Force-included into the game library
+ * which would desync netplay; so does mingw-w64's msvcrt fmaf, which rounds
+ * twice (pc_fmaf.c). Force-included into the game library
  * (compat.h) and aurora_mtx (CMakeLists.txt) so no call reaches the
  * platform libm. */
 #ifndef PC_TRIG_H
@@ -13,11 +14,13 @@ float pc_sinf(float x);
 float pc_cosf(float x);
 float pc_tanf(float x);
 float pc_atanf(float x);
+float pc_fmaf(float x, float y, float z);
 
 #define sinf pc_sinf
 #define cosf pc_cosf
 #define tanf pc_tanf
 #define atanf pc_atanf
+#define fmaf pc_fmaf
 
 /* MELEE_FP_PERTURB=<name> (CMakeLists.txt) re-routes one of them through the
  * 1-ULP wrapper in pc_perturb.c, which is how tools/net_determinism.py

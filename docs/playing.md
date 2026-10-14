@@ -27,8 +27,10 @@ internet or on the same Wi-Fi. Everyone needs the same Melee 4K version.
   open UDP port 41000 by itself. If the lobby says "Same Wi-Fi only", forward
   UDP 41000 to the host's computer in the router's settings, or let someone
   else host.
-- **B on character select** takes everyone back to the lobby; B in the lobby
-  leaves it.
+- **B on character select** takes everyone back to the lobby. To leave a
+  lobby, **hold B** (or Esc) on it.
+- **The mouse** moves your own hand on character select and the stage
+  cursor, as offline; the other players see it move.
 - **Input delay** is picked from the slowest player's connection (2 frames on
   the same Wi-Fi, more over the internet). The host can set it under
   Settings (F1) > Online.

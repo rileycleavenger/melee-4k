@@ -82,8 +82,13 @@ What else keeps every machine's simulation the same (src/pc/net.c):
   online (`pc_net_audio_deaf`).
 - **Settings.** Every setting the simulation reads is the host's or fixed
   online: Unlock All and Frozen Stadium are the host's (`pc_net_rules`), UCF
-  is on and the free camera off (launcher.cpp), and the mouse pointer does
-  not drive menu cursors (it bypasses the controller). `tools/test_sim_prefs.py`
+  is on and the free camera off (launcher.cpp).
+- **Mouse.** The pointer moves menu cursors directly, not through a stick,
+  so online it travels with the input: each tick character or stage select
+  samples this machine's pointer in its own world (`pc_mouse_menu_port`),
+  it goes out with the next input (`OnlinePad.ptr_x/ptr_y`, 1/256 units),
+  and every machine moves a port's hand to that port's pointer from the
+  bundle. A stick or d-pad in the same input cancels it. `tools/test_sim_prefs.py`
   fails on any new setting the game reads until it is classified.
 
 ## Finding the host

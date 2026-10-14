@@ -226,6 +226,7 @@ set(PC_SOURCES
         src/pc/libm/pc_atanf.c
         src/pc/libm/pc_cosdf.c
         src/pc/libm/pc_cosf.c
+        src/pc/libm/pc_fmaf.c
         src/pc/libm/pc_perturb.c
         src/pc/libm/pc_rem_pio2_large.c
         src/pc/libm/pc_rem_pio2f.c
