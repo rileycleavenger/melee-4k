@@ -157,12 +157,14 @@ static uint32_t fnv(uint32_t h, const void* p, size_t n) {
     return h;
 }
 
-/* Adds the pack's costume files to `files`; hashes them as it goes. */
+/* Adds the pack's costume files and its menu images (Pl<id>Ui.dat) to
+ * `files`; hashes them as it goes. */
 static int add_files(const PcFighterPack* pk, AuroraOverlayFile* files, char (*names)[32],
     char (*paths)[600], int n) {
-    for (int c = 0; c < pk->n_costumes; c++) {
-        snprintf(names[n], 32, "/Pl%s%s.dat", pk->id, pk->costume[c]);
-        snprintf(paths[n], 600, "%s/Pl%s%s.dat", pk->dir, pk->id, pk->costume[c]);
+    for (int c = 0; c <= pk->n_costumes; c++) {
+        const char* sfx = c < pk->n_costumes ? pk->costume[c] : "Ui";
+        snprintf(names[n], 32, "/Pl%s%s.dat", pk->id, sfx);
+        snprintf(paths[n], 600, "%s/Pl%s%s.dat", pk->dir, pk->id, sfx);
         FILE* f = fopen(paths[n], "rb");
         if (f == NULL) {
             pc_log_line("fighters: %s is missing %s", pk->id, names[n] + 1);
@@ -210,9 +212,9 @@ void pc_fighter_packs_init(void) {
         return;
     }
     qsort(s_packs, (size_t)s_count, sizeof s_packs[0], by_id);
-    static AuroraOverlayFile files[PC_FIGHTER_PACKS_MAX * PC_FIGHTER_COSTUMES_MAX];
-    static char names[PC_FIGHTER_PACKS_MAX * PC_FIGHTER_COSTUMES_MAX][32];
-    static char paths[PC_FIGHTER_PACKS_MAX * PC_FIGHTER_COSTUMES_MAX][600];
+    static AuroraOverlayFile files[PC_FIGHTER_PACKS_MAX * (PC_FIGHTER_COSTUMES_MAX + 1)];
+    static char names[PC_FIGHTER_PACKS_MAX * (PC_FIGHTER_COSTUMES_MAX + 1)][32];
+    static char paths[PC_FIGHTER_PACKS_MAX * (PC_FIGHTER_COSTUMES_MAX + 1)][600];
     int n = 0;
     s_hash = 2166136261u;
     for (int i = 0; i < s_count; i++) {

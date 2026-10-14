@@ -1,6 +1,18 @@
 #ifdef TARGET_PC
+#include "pc/fighter_pack.h"
 #include "pc/mouse_menu.h"
 #include "pc/pc.h"
+#include <melee/ft/ftcustom.h>
+#include <melee/pl/player.h>
+#include <sysdolphin/baselib/memory.h>
+#include <sysdolphin/baselib/tobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+static void cssCustomDoor(int door);
+static int cssDoorCustom(int door);
+static u8 cssCustomTeamCostume(int door);
 #endif
 #include "mncharsel.h"
 
@@ -1634,7 +1646,15 @@ void mnCharSel_8025DB34(u8 arg0)
                 mnCharSel_804D6CB0->vs.start.rules.is_teams == 0)
             {
                 color = mnCharSel_803F0DFC.doors[arg0].costume;
-            } else {
+            }
+#ifdef TARGET_PC
+            /* A custom fighter keeps its own costumes in teams: the pack's
+             * team colour if it has one (cssCustomTeamCostume). */
+            else if (cssDoorCustom(arg0) >= 0) {
+                color = cssCustomTeamCostume(arg0);
+            }
+#endif
+            else {
                 u8 ckind = icons[final_icon].char_kind;
                 switch ((int) mnCharSel_803F0DFC.doors[arg0].team) {
                 default:
@@ -1663,6 +1683,9 @@ void mnCharSel_8025DB34(u8 arg0)
             }
             hud_idx += color * 0x1E;
             mnCharSel_8025D5AC((int) arg0, hud_idx, 0);
+#ifdef TARGET_PC
+            cssCustomDoor(arg0);
+#endif
         }
     }
 }
@@ -2252,6 +2275,253 @@ s32 mnCharSel_8025FDEC(u8 door)
     return 1;
 }
 
+#ifdef TARGET_PC
+/* ---- Custom fighters (src/melee/ft/ftcustom.h) ----------------------------
+ * A custom fighter is its base fighter wearing costumes past the base's
+ * own, so on this screen it is the base's icon with one of those costumes.
+ * It gets an icon of its own -- a copy of Roy's, moved to an empty end of
+ * the bottom row, showing the pack's picture (Pl<id>Ui.dat, built by
+ * tools/fighter/build_ui.py). The coin over it picks the base's icon and
+ * the pack's first costume; X and Y then cycle the pack's costumes; the
+ * door shows the pack's name and portrait for them. Everything here
+ * follows the hands, so it is the same on every machine online. */
+/* The bottom row's right corner, otherwise a random pick; the left corner
+ * stays random. */
+#define CSS_CUSTOM_MAX 1
+
+typedef struct CssCustom {
+    int pack;
+    u8 base_icon;     /* icons[] index of the base fighter */
+    HSD_JObj* icon;   /* the copied grid icon */
+    HSD_JObj* frame;  /* its parent: a copy of Roy's icon's parent */
+    f32 l, r, u, d;   /* its bounds, as icons[] */
+    HSD_ImageDesc* icon_img;
+    HSD_ImageDesc* csp[8];
+} CssCustom;
+
+static CssCustom css_custom[CSS_CUSTOM_MAX];
+static int css_n_custom;
+
+/* Roy's icon moved right by one column. */
+static const f32 css_custom_dx[CSS_CUSTOM_MAX] = { 6.0F };
+
+static int cssBaseIcon(FighterKind base)
+{
+    int i;
+    for (i = 0; i < 0x19; i++) {
+        if (Player_800325C8(icons[i].char_kind, false) == base) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* The custom fighter a door shows, or -1. */
+static int cssDoorCustom(int door)
+{
+    int i;
+    u8 icon = mnCharSel_803F0DFC.doors[door].sel_icon;
+    if (icon >= 0x19) {
+        return -1;
+    }
+    for (i = 0; i < css_n_custom; i++) {
+        int first = ftCustom_FirstCostume(css_custom[i].pack);
+        int costume = mnCharSel_803F0DFC.doors[door].costume;
+        if (css_custom[i].base_icon == icon && costume >= first &&
+            costume < first + ftCustom_CostumeCount(css_custom[i].pack))
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void cssSetImage(HSD_JObj* jobj, int dobj_index, HSD_ImageDesc* img)
+{
+    HSD_DObj* dobj = jobj != NULL ? HSD_JObjGetDObj(jobj) : NULL;
+    while (dobj != NULL && dobj_index-- > 0) {
+        dobj = dobj->next;
+    }
+    if (dobj != NULL && dobj->mobj != NULL && dobj->mobj->tobj != NULL &&
+        img != NULL)
+    {
+        dobj->mobj->tobj->imagedesc = img;
+        dobj->mobj->tobj->tlut = NULL;
+    }
+}
+
+/* Load the packs' pictures and put their icons on the grid. */
+static void cssCustomCreate(void)
+{
+    HSD_JObj* roy = NULL;
+    int p;
+    css_n_custom = 0;
+    if (mnCharSel_804D6CF5 == 1) { /* the 1P layout has no free slot */
+        return;
+    }
+    lb_80011E24(mnCharSel_804D6CC0, &roy, ICONJOINT_EMBLEM, -1);
+    for (p = 0; p < pc_fighter_pack_count() && css_n_custom < CSS_CUSTOM_MAX; p++) {
+        CssCustom* c = &css_custom[css_n_custom];
+        const PcFighterPack* pk = pc_fighter_pack(p);
+        int base_icon = cssBaseIcon(ftCustom_BaseKind(p));
+        char name[24];
+        HSD_Archive* ui;
+        int k;
+        if (base_icon < 0 || ftCustom_FirstCostume(p) < 0 || roy == NULL) {
+            continue;
+        }
+        memset(c, 0, sizeof *c);
+        c->pack = p;
+        c->base_icon = (u8) base_icon;
+        snprintf(name, sizeof name, "Pl%sUi.dat", pk->id);
+        ui = lbArchive_80016DBC(name, (void**) &c->icon_img, "ftUiIcon", NULL);
+        for (k = 0; ui != NULL && k < pk->n_costumes && k < 8; k++) {
+            char sym[16];
+            snprintf(sym, sizeof sym, "ftUiCsp%d", k);
+            c->csp[k] = HSD_ArchiveGetPublicAddress(ui, sym);
+        }
+        {
+            /* Copies of Roy's icon joint and of its parent, with no
+             * children or siblings of their own, so loading each loads just
+             * it. They go last in the menu's joint tree: the screen finds
+             * its joints by depth-first index, and anything inserted
+             * earlier would shift them. cssCustomFrame keeps the frame on
+             * the parent's animated transform. */
+            HSD_Joint* icon = HSD_MemAlloc(sizeof(HSD_Joint));
+            HSD_Joint* frame = HSD_MemAlloc(sizeof(HSD_Joint));
+            memcpy(icon, (void*) roy->id, sizeof(HSD_Joint));
+            memset((u8*) icon + 0xC, 0, 4); /* next */
+            memcpy(frame, (void*) HSD_JObjGetParent(roy)->id, sizeof(HSD_Joint));
+            memset((u8*) frame + 0x8, 0, 8); /* child, next */
+            c->frame = HSD_JObjLoadJoint(frame);
+            c->icon = HSD_JObjLoadJoint(icon);
+            HSD_JObjAddChild(c->frame, c->icon);
+            HSD_JObjAddChild(mnCharSel_804D6CC0, c->frame);
+            HSD_JObjSetTranslateX(c->icon, css_custom_dx[css_n_custom]);
+            cssSetImage(c->icon, 1, c->icon_img);
+        }
+        c->l = icons[0x18].bound_l + css_custom_dx[css_n_custom];
+        c->r = icons[0x18].bound_r + css_custom_dx[css_n_custom];
+        c->u = icons[0x18].bound_u;
+        c->d = icons[0x18].bound_d;
+        css_n_custom++;
+    }
+}
+
+/* The custom icon under a coin, or -1. */
+static int cssCustomAt(struct CSSCharModel* m)
+{
+    int i;
+    for (i = 0; i < css_n_custom; i++) {
+        CssCustom* c = &css_custom[i];
+        if (m->x8 > c->l && m->x8 < c->r && m->xC < c->u && m->xC > c->d) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Put a door on custom fighter `i`'s first free costume. */
+static void cssEnterCustom(int door, int i)
+{
+    CssCustom* c = &css_custom[i];
+    int first = ftCustom_FirstCostume(c->pack);
+    int n = ftCustom_CostumeCount(c->pack);
+    int k;
+    if (cssDoorCustom(door) == i) {
+        return;
+    }
+    mnCharSel_803F0DFC.doors[door].sel_icon = c->base_icon;
+    mnCharSel_803F0DFC.doors[door].sel_icon_prev = c->base_icon;
+    for (k = 0; k < n; k++) {
+        mnCharSel_803F0DFC.doors[door].costume = (u8) (first + k);
+        if (!isDuplicateCostume(door)) {
+            break;
+        }
+    }
+}
+
+/* A door back on a retail icon leaves a custom costume. */
+static void cssLeaveCustom(int door)
+{
+    u8 c;
+    if (cssDoorCustom(door) < 0) {
+        return;
+    }
+    for (c = 0;; c++) {
+        mnCharSel_803F0DFC.doors[door].costume = c;
+        if (!isDuplicateCostumeExact(door)) {
+            break;
+        }
+    }
+}
+
+/* A custom fighter's costume in teams: the pack's Re/Bu/Gr costume for the
+ * door's team when it has one, else the costume it has. */
+static u8 cssCustomTeamCostume(int door)
+{
+    static const char* const team_suffix[3] = { "Re", "Bu", "Gr" };
+    int i = cssDoorCustom(door);
+    const PcFighterPack* pk;
+    int k, team = mnCharSel_803F0DFC.doors[door].team;
+    if (i < 0) {
+        return mnCharSel_803F0DFC.doors[door].costume;
+    }
+    pk = pc_fighter_pack(css_custom[i].pack);
+    for (k = 0; team >= 0 && team < 3 && k < pk->n_costumes; k++) {
+        if (strcmp(pk->costume[k], team_suffix[team]) == 0) {
+            return (u8) (ftCustom_FirstCostume(css_custom[i].pack) + k);
+        }
+    }
+    return mnCharSel_803F0DFC.doors[door].costume;
+}
+
+/* The door's name and portrait for a custom fighter. */
+static void cssCustomDoor(int door)
+{
+    int i = cssDoorCustom(door);
+    HSD_JObj* jobj = NULL;
+    int k;
+    if (i < 0 || mnCharSel_804D6CF5 == 1) {
+        return;
+    }
+    if (mnCharSel_803F0E8C[door].data->use_tag == 0) {
+        HSD_SisLib_803A70A0(mnCharSel_803F0E8C[door].data->text, 0, "%s",
+                            pc_fighter_pack(css_custom[i].pack)->name);
+    }
+    k = mnCharSel_803F0DFC.doors[door].costume -
+        ftCustom_FirstCostume(css_custom[i].pack);
+    lb_80011E24(mnCharSel_804D6CC0, &jobj,
+                mnCharSel_803F0DFC.doors[door].costume_joint, -1);
+    cssSetImage(jobj, 0, css_custom[i].csp[k]);
+}
+
+/* Each frame: the portrait's texture animation writes its own image back,
+ * and the icons follow the grid as it animates in. */
+static void cssCustomFrame(void)
+{
+    HSD_JObj* roy = NULL;
+    int door, i;
+    for (door = 0; door < 4; door++) {
+        cssCustomDoor(door);
+    }
+    if (css_n_custom > 0) {
+        lb_80011E24(mnCharSel_804D6CC0, &roy, ICONJOINT_EMBLEM, -1);
+    }
+    for (i = 0; i < css_n_custom && roy != NULL; i++) {
+        HSD_JObj* parent = HSD_JObjGetParent(roy);
+        Vec3 v;
+        Quaternion q;
+        HSD_JObjGetTranslation(parent, &v);
+        HSD_JObjSetTranslate(css_custom[i].frame, &v);
+        HSD_JObjGetScale(parent, &v);
+        HSD_JObjSetScale(css_custom[i].frame, &v);
+        HSD_JObjGetRotation(parent, &q);
+        HSD_JObjSetRotation(css_custom[i].frame, &q);
+    }
+}
+#endif
+
 void mnCharSel_CostumeChange(int door, u32 input)
 {
     u8 prev_costume = mnCharSel_803F0DFC.doors[door].costume;
@@ -2262,6 +2532,29 @@ void mnCharSel_CostumeChange(int door, u32 input)
     if (mnCharSel_803F0DFC.doors[door].sel_icon_prev >= 0x19) {
         return;
     }
+
+#ifdef TARGET_PC
+    /* A custom fighter's X and Y stay within its own costumes. */
+    if (cssDoorCustom(door) >= 0 && (input & (HSD_PAD_X | HSD_PAD_Y))) {
+        const int pack = css_custom[cssDoorCustom(door)].pack;
+        const int first = ftCustom_FirstCostume(pack);
+        const int n = ftCustom_CostumeCount(pack);
+        int k;
+        for (k = 0; k < n; k++) {
+            int c = mnCharSel_803F0DFC.doors[door].costume - first;
+            c = (input & HSD_PAD_X) ? (c + 1) % n : (c + n - 1) % n;
+            mnCharSel_803F0DFC.doors[door].costume = (u8) (first + c);
+            if (!isDuplicateCostume(door)) {
+                break;
+            }
+        }
+        if (prev_costume != mnCharSel_803F0DFC.doors[door].costume) {
+            mnCharSel_8025DB34(door);
+            sfxMove();
+        }
+        return;
+    }
+#endif
 
     if (input & HSD_PAD_X) {
         do {
@@ -2691,7 +2984,14 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                     mnCharSel_804A0BD0[door];
                                 if (m->xC < 6.0f && m->xC > -1.0f &&
                                     ((m->x8 > -30.0f && m->x8 < -24.4f) ||
-                                     (m->x8 > 24.4f && m->x8 < 30.2f)))
+                                     (m->x8 > 24.4f && m->x8 < 30.2f))
+#ifdef TARGET_PC
+                                    /* The right corner is a custom fighter's
+                                     * icon when there is one (cssCustomCreate);
+                                     * random is the left corner then. */
+                                    && cssCustomAt(m) < 0
+#endif
+                                )
                                 {
                                     s32 icon_count;
                                     for (icon_count = 0; icon_count < 25;
@@ -2729,13 +3029,39 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                 struct CSSCharModel* m2 =
                                     mnCharSel_804A0BD0[door];
                                 s32 i;
-                                for (i = 0; i < 0x19; i++) {
-                                    if (m2->x8 > icons[i].bound_l &&
-                                        m2->x8 < icons[i].bound_r &&
-                                        m2->xC < icons[i].bound_u &&
-                                        m2->xC > icons[i].bound_d &&
-                                        icons[i].state >= 1)
+                                bool custom = false;
+#ifdef TARGET_PC
+                                const s32 n_icons = 0x19 + css_n_custom;
+#else
+                                const s32 n_icons = 0x19;
+#endif
+                                for (i = 0; i < n_icons; i++) {
+                                    bool hit;
+#ifdef TARGET_PC
+                                    /* Past the retail icons: the custom
+                                     * fighters' (cssCustomCreate). */
+                                    if (i >= 0x19) {
+                                        hit = cssCustomAt(m2) == i - 0x19;
+                                        if (hit) {
+                                            cssEnterCustom(door, i - 0x19);
+                                            i = css_custom[i - 0x19].base_icon;
+                                            custom = true;
+                                        }
+                                    } else
+#endif
                                     {
+                                        hit = m2->x8 > icons[i].bound_l &&
+                                              m2->x8 < icons[i].bound_r &&
+                                              m2->xC < icons[i].bound_u &&
+                                              m2->xC > icons[i].bound_d &&
+                                              icons[i].state >= 1;
+#ifdef TARGET_PC
+                                        if (hit) {
+                                            cssLeaveCustom(door);
+                                        }
+#endif
+                                    }
+                                    if (hit) {
                                         mnCharSel_803F0DFC.doors[door]
                                             .sel_icon = (u8) i;
                                         mnCharSel_8025DB34(door);
@@ -2768,11 +3094,13 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                                     mnCharSel_804D6CC0, &sp98,
                                                     icons[i].joint_id_vs, -1);
                                             }
-                                            HSD_ForeachAnim(sp98, JOBJ_TYPE,
-                                                            TOBJ_MASK,
-                                                            HSD_AObjReqAnim,
-                                                            AOBJ_ARG_AF, 10.0);
-                                            icons[i].anim_timer = 0xC;
+                                            if (!custom) {
+                                                HSD_ForeachAnim(
+                                                    sp98, JOBJ_TYPE, TOBJ_MASK,
+                                                    HSD_AObjReqAnim,
+                                                    AOBJ_ARG_AF, 10.0);
+                                                icons[i].anim_timer = 0xC;
+                                            }
                                             mnCharSel_804A0BD0[door]->x5 = 0;
                                             HSD_GObjGXLink_803909D8(
                                                 mnCharSel_804A0BD0[door]->gobj,
@@ -2786,9 +3114,13 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                                 int sel = mnCharSel_803F0DFC
                                                               .doors[(u8) door]
                                                               .sel_icon;
-                                                lbAudioAx_80023870(
-                                                    icons[sel].sfx, 0x7F, 0x40,
-                                                    sel + 0x8A);
+                                                /* The announcer knows only
+                                                 * the retail names. */
+                                                if (!custom) {
+                                                    lbAudioAx_80023870(
+                                                        icons[sel].sfx, 0x7F,
+                                                        0x40, sel + 0x8A);
+                                                }
                                                 gm_80168C5C(
                                                     icons[sel].char_kind);
                                             }
@@ -3611,74 +3943,74 @@ void fn_80262648(HSD_GObj* gobj)
 
                 {
                     f32 x;
+                    struct { f32 l, r, u, d; } bnd = {
+                        icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon].bound_l,
+                        icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon].bound_r,
+                        icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon].bound_u,
+                        icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon].bound_d,
+                    };
+#ifdef TARGET_PC
+                    /* A custom fighter's coin rests on its own icon. */
+                    if (cssDoorCustom(model->x4) >= 0) {
+                        const CssCustom* c = &css_custom[cssDoorCustom(model->x4)];
+                        bnd.l = c->l;
+                        bnd.r = c->r;
+                        bnd.u = c->u;
+                        bnd.d = c->d;
+                    }
+#endif
 
                     x = model->x8;
                     if (x <
                         1.5f +
-                            icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                .bound_l)
+                            bnd.l)
                     {
                         model->x8 += 0.02f;
                         if (model->x8 <
-                            icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                .bound_l)
+                            bnd.l)
                         {
                             model->x8 =
-                                icons[mnCharSel_803F0DFC.doors[model->x4]
-                                          .sel_icon]
-                                    .bound_l;
+                                bnd.l;
                         }
                     }
 
                     x = model->x8;
-                    if (x > icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                    .bound_r -
+                    if (x > bnd.r -
                                 1.5f)
                     {
                         model->x8 = x - 0.02f;
                         if (model->x8 >
-                            icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                .bound_r)
+                            bnd.r)
                         {
                             model->x8 =
-                                icons[mnCharSel_803F0DFC.doors[model->x4]
-                                          .sel_icon]
-                                    .bound_r;
+                                bnd.r;
                         }
                     }
 
                     x = model->xC;
-                    if (x > icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                    .bound_u -
+                    if (x > bnd.u -
                                 1.5f)
                     {
                         model->xC = x - 0.02f;
                         if (model->xC >
-                            icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                .bound_u)
+                            bnd.u)
                         {
                             model->xC =
-                                icons[mnCharSel_803F0DFC.doors[model->x4]
-                                          .sel_icon]
-                                    .bound_u;
+                                bnd.u;
                         }
                     }
 
                     x = model->xC;
                     if (x <
                         1.5f +
-                            icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                .bound_d)
+                            bnd.d)
                     {
                         model->xC += 0.02f;
                         if (model->xC <
-                            icons[mnCharSel_803F0DFC.doors[model->x4].sel_icon]
-                                .bound_d)
+                            bnd.d)
                         {
                             model->xC =
-                                icons[mnCharSel_803F0DFC.doors[model->x4]
-                                          .sel_icon]
-                                    .bound_d;
+                                bnd.d;
                         }
                     }
                 }
@@ -4443,6 +4775,9 @@ s32 mnCharSel_802640A0(void)
                                 mnCharSel_804D6CC0);
     }
     GObj_SetupGXLink(mnCharSel_804D6CBC, HSD_GObj_JObjCallback, 1, 0x80);
+#ifdef TARGET_PC
+    cssCustomCreate();
+#endif
     HSD_GObj_SetupProc(mnCharSel_804D6CBC, fn_8025F0E0, 4);
     HSD_JObjReqAnimAll(mnCharSel_804D6CC0, 0.0f);
     HSD_JObjAnimAll(mnCharSel_804D6CC0);
@@ -5499,6 +5834,9 @@ void mnCharSel_Scene_OnFrame(void)
     int i;
 
     PAD_STACK(8);
+#ifdef TARGET_PC
+    cssCustomFrame();
+#endif
 
     mnCharSel_804D6CEC += 1;
     if (mnCharSel_804D6CF6 <= 1) {
