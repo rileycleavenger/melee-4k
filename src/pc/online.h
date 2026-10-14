@@ -101,6 +101,11 @@ bool online_copy_code(void);
 /* A lobby code on the clipboard, canonical (15 characters), or false. */
 bool online_clipboard_code(char out[16]);
 
+/* True when this lobby plays the base game only: its players are on
+ * different versions (v1.1.0 or newer, the same base simulation) or have
+ * different custom fighters. Custom fighters are hidden then. */
+bool online_base_only(void);
+
 /* Host: true once a game can start: 2+ players, everyone's ping measured,
  * nobody still finishing the last game. */
 bool online_can_start(void);

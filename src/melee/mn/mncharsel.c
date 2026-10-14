@@ -1,5 +1,7 @@
 #ifdef TARGET_PC
 #include "pc/fighter_pack.h"
+#include "pc/net.h"
+#include "pc/online.h"
 #include "pc/mouse_menu.h"
 #include "pc/pc.h"
 #include <melee/ft/ftcustom.h>
@@ -2357,6 +2359,11 @@ static void cssCustomCreate(void)
     int p;
     css_n_custom = 0;
     if (mnCharSel_804D6CF5 == 1) { /* the 1P layout has no free slot */
+        return;
+    }
+    /* Online with players on other versions or other custom fighters: the
+     * base game's fighters only (online.h). */
+    if (pc_net_active() && online_base_only()) {
         return;
     }
     lb_80011E24(mnCharSel_804D6CC0, &roy, ICONJOINT_EMBLEM, -1);

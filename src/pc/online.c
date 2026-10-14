@@ -31,6 +31,7 @@
  * Melee 4K runs on, so structs go on the wire as they are. */
 #include "online.h"
 
+#include "fighter_pack.h"
 #include "net_code.h"
 #include "net_portmap.h"
 #include "pc.h"
@@ -64,6 +65,16 @@ extern const char* pc_app_rev(void);
 extern int pc_get_net_delay(void); /* launcher.cpp: Input Delay, -1 = Auto */
 
 #define MAGIC 0x314B344Du /* "M4K1" */
+#define JOIN_EXT 0x584B344Du /* "M4KX" */
+/* The base game's simulation: same number, same frames, whatever the version
+ * and its custom fighters. v1.1.0 is revision 1. Changing anything a base
+ * fighter's match computes means a new number, and versions on different
+ * numbers cannot play together at all. */
+#define BASE_SIM_REV 1
+/* The build v1.1.0 identifies itself with (set_identity in v1.1.0: its
+ * version string and "proto1"). Base-only sessions -- different versions,
+ * v1.1.0 among them -- all speak it on the wire. */
+#define LEGACY_VERSION "v1.1.0"
 #define PROTO 2
 #define HOST_PORT 41000
 #define RING 256       /* frames of inputs and bundles kept */
@@ -104,6 +115,15 @@ typedef struct JoinMsg {
     uint32_t token;
     char name[ONLINE_NAME_LEN];
 } JoinMsg;
+/* After v1.1.0's JOIN, from v1.2 on: what a host needs to decide whether
+ * the two can play with custom fighters or only with the base game's.
+ * v1.1.0 hosts read only the JoinMsg in front of it. */
+typedef struct JoinExt {
+    uint32_t magic; /* JOIN_EXT */
+    uint32_t base_rev;
+    uint32_t content; /* pc_fighter_packs_hash() */
+    char version[16];
+} JoinExt;
 typedef struct WelcomeMsg {
     Hdr h;
     uint32_t token;
@@ -199,6 +219,9 @@ static enum OnlineError s_error;
 static bool s_is_host;
 static OnSocket s_sock = ON_INVALID;
 static uint32_t s_session, s_token, s_build;
+/* What our packets carry: s_build, or s_legacy in a base-only session. */
+static uint32_t s_wire, s_legacy;
+static bool s_base_only;
 static char s_name[ONLINE_NAME_LEN];
 static int s_slot; /* ours: 0 host, 1-3 guest */
 static Peer s_peer[ONLINE_MAX_PLAYERS];
@@ -403,7 +426,7 @@ static void hdr(Hdr* h, uint8_t type) {
     h->from = (uint8_t)s_slot;
     h->pad = 0;
     h->session = s_session;
-    h->build = s_build;
+    h->build = s_wire;
 }
 
 static void send_peer(int slot, void* msg, size_t n) {
@@ -492,10 +515,29 @@ static void reset_all(void) {
     s_held_n = 0;
 }
 
+static uint32_t build_of(const char* rev) {
+    return fnv(fnv(2166136261u, rev, strlen(rev)), "proto1", 6);
+}
+
 static void set_identity(const char* name) {
     snprintf(s_name, sizeof s_name, "%s", name != NULL && name[0] ? name : "PLAYER");
-    const char* rev = pc_app_rev();
-    s_build = fnv(fnv(2166136261u, rev, strlen(rev)), "proto1", 6);
+    s_build = build_of(pc_app_rev());
+    s_legacy = build_of(LEGACY_VERSION);
+    s_wire = s_build;
+    s_base_only = false;
+}
+
+/* From here on the session is the base game only (online.h). */
+static void go_base_only(const char* why) {
+    if (!s_base_only) {
+        s_base_only = true;
+        s_wire = s_legacy;
+        pc_log_line("online: base fighters only (%s)", why);
+    }
+}
+
+bool online_base_only(void) {
+    return s_base_only;
 }
 
 bool online_host(const char* name) {
@@ -864,7 +906,7 @@ static void prepare_lockstep(void) {
 
 static void host_lobby_tick(void);
 
-static void on_join(const JoinMsg* m, const struct sockaddr_in* from) {
+static void on_join(const JoinMsg* m, int n, const struct sockaddr_in* from) {
     if (m->token != s_token) {
         return; /* another lobby's code, met through the broadcast */
     }
@@ -878,7 +920,24 @@ static void on_join(const JoinMsg* m, const struct sockaddr_in* from) {
     hdr(&r.h, T_REFUSE);
     r.token = s_token;
     if (slot < 0) {
-        if (m->h.build != s_build) {
+        /* Same build and the same custom fighters: everything. A JOIN from
+         * v1.1.0 (no extension, its build) or from another version on the
+         * same base revision: the base game only, for the whole lobby. */
+        const JoinExt* ext = n >= (int)(sizeof *m + sizeof(JoinExt)) &&
+                                     ((const JoinExt*)(m + 1))->magic == JOIN_EXT
+                                 ? (const JoinExt*)(m + 1)
+                                 : NULL;
+        bool ok = true;
+        if (ext != NULL && m->h.build == s_build && ext->content == pc_fighter_packs_hash()) {
+            /* full */
+        } else if (ext == NULL && m->h.build == s_legacy) {
+            go_base_only("a " LEGACY_VERSION " player");
+        } else if (ext != NULL && ext->base_rev == BASE_SIM_REV) {
+            go_base_only(m->h.build == s_build ? "different custom fighters" : "different versions");
+        } else {
+            ok = false;
+        }
+        if (!ok) {
             r.reason = ONLINE_ERR_VERSION;
         } else if (s_state != ONLINE_HOSTING) {
             r.reason = ONLINE_ERR_STARTED;
@@ -917,7 +976,7 @@ static void on_join(const JoinMsg* m, const struct sockaddr_in* from) {
 static void host_receive(const uint8_t* buf, int n, const struct sockaddr_in* from) {
     const Hdr* h = (const Hdr*)buf;
     if (h->type == T_JOIN && n >= (int)sizeof(JoinMsg)) {
-        on_join((const JoinMsg*)buf, from);
+        on_join((const JoinMsg*)buf, n, from);
         return;
     }
     if (h->session != s_session || h->from == 0 || h->from >= ONLINE_MAX_PLAYERS) {
@@ -1006,10 +1065,22 @@ static void guest_receive(const uint8_t* buf, int n, const struct sockaddr_in* f
             s_session = h->session;
             s_slot = w->slot;
             s_state = ONLINE_JOINED;
+            if (h->build == s_legacy && s_build != s_legacy) {
+                go_base_only("the host's lobby is base-only");
+            }
             pc_log_line("online: joined the lobby at %s as slot %d", ip_text(from), s_slot);
         } else if (h->type == T_REFUSE && n >= (int)sizeof(RefuseMsg) &&
                    ((const RefuseMsg*)buf)->token == s_target.token)
         {
+            /* A v1.1.0 host refuses any other build. It speaks the base
+             * game's revision 1: join again as base-only, on its build. */
+            if (((const RefuseMsg*)buf)->reason == ONLINE_ERR_VERSION && h->build == s_legacy &&
+                !s_base_only && BASE_SIM_REV == 1)
+            {
+                go_base_only("the host has " LEGACY_VERSION);
+                s_join_sent_ms = 0;
+                return;
+            }
             fail((enum OnlineError)((const RefuseMsg*)buf)->reason);
         }
         return;
@@ -1144,8 +1215,17 @@ static void receive_all(void) {
         if (h->magic != MAGIC || h->proto != PROTO) {
             continue;
         }
-        if (h->build != s_build && h->type != T_JOIN && h->type != T_REFUSE) {
-            continue; /* another build: only the refusal that says so gets through */
+        if (h->build != s_wire && h->type != T_JOIN && h->type != T_REFUSE) {
+            /* A host that turned base-only (a v1.1.0 or other-version
+             * player joined) sends on the legacy build: follow it. Its
+             * WELCOME may be the first we hear of it. */
+            if (!s_is_host && h->build == s_legacy &&
+                (s_state != ONLINE_JOINING || h->type == T_WELCOME))
+            {
+                go_base_only("the host's lobby is base-only");
+            } else {
+                continue; /* another build: only the refusal that says so gets through */
+            }
         }
         if (s_is_host) {
             host_receive(buf, n, &from);
@@ -1198,10 +1278,18 @@ static void guest_tick(void) {
     if (s_state == ONLINE_JOINING) {
         if (now - s_join_sent_ms >= 500) {
             s_join_sent_ms = now;
-            JoinMsg m = {0};
-            hdr(&m.h, T_JOIN);
-            m.token = s_target.token;
-            snprintf(m.name, sizeof m.name, "%s", s_name);
+            struct {
+                JoinMsg j;
+                JoinExt x;
+            } m;
+            memset(&m, 0, sizeof m);
+            hdr(&m.j.h, T_JOIN);
+            m.j.token = s_target.token;
+            snprintf(m.j.name, sizeof m.j.name, "%s", s_name);
+            m.x.magic = JOIN_EXT;
+            m.x.base_rev = BASE_SIM_REV;
+            m.x.content = pc_fighter_packs_hash();
+            snprintf(m.x.version, sizeof m.x.version, "%s", pc_app_rev());
             struct sockaddr_in to = {0};
             to.sin_family = AF_INET;
             /* The code's address (the host's router), and a broadcast on

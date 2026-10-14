@@ -306,12 +306,12 @@ void onEnterVs(GameModeState* state)
     }
     {
         const PlayerInitData* pl = online_vs.start.players;
-        pc_log_line("online: enter VS at frame %d: stage %d, characters %d %d %d %d",
+        pc_log_line("online: enter VS at frame %d: stage %d, characters %d:%d %d:%d %d:%d %d:%d",
                     pc_net_frame(), online_vs.start.rules.stkind,
-                    pl[0].slot_type == Gm_PKind_NA ? -1 : pl[0].ckind,
-                    pl[1].slot_type == Gm_PKind_NA ? -1 : pl[1].ckind,
-                    pl[2].slot_type == Gm_PKind_NA ? -1 : pl[2].ckind,
-                    pl[3].slot_type == Gm_PKind_NA ? -1 : pl[3].ckind);
+                    pl[0].slot_type == Gm_PKind_NA ? -1 : pl[0].ckind, pl[0].color,
+                    pl[1].slot_type == Gm_PKind_NA ? -1 : pl[1].ckind, pl[1].color,
+                    pl[2].slot_type == Gm_PKind_NA ? -1 : pl[2].ckind, pl[2].color,
+                    pl[3].slot_type == Gm_PKind_NA ? -1 : pl[3].ckind, pl[3].color);
     }
 #endif
     gmVsMelee_EnterVs(state, &online_vs, NULL, NULL);
@@ -689,9 +689,10 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                              "%d players - checking everyone's connection...",
                              view.player_count);
                 } else {
-                    snprintf(view.message, sizeof view.message, "%d players - START: play%s%s",
-                             view.player_count, last_game[0] ? "   Last game: " : "",
-                             last_game);
+                    snprintf(view.message, sizeof view.message, "%d players - START: play%s%s%s",
+                             view.player_count,
+                             online_base_only() ? "   Base fighters only" : "",
+                             last_game[0] ? "   Last game: " : "", last_game);
                 }
                 if ((input & HSD_PAD_START) ||
                     (lobbyAutostart() > 0 && view.player_count >= lobbyAutostart() &&
@@ -716,7 +717,8 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             view.hint = "Hold B / Esc: stop, back to the menu";
             break;
         case ONLINE_JOINED:
-            snprintf(view.message, sizeof view.message, "In the lobby - the host starts the game%s%s",
+            snprintf(view.message, sizeof view.message, "In the lobby - the host starts the game%s%s%s",
+                     online_base_only() ? "   Base fighters only" : "",
                      last_game[0] ? "   Last game: " : "", last_game);
             view.hint = "Hold B / Esc: leave, back to the menu";
             break;
