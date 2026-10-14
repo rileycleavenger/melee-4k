@@ -29,6 +29,7 @@
 #include "pc/net_internal.h"
 #include "pc/net_sfx.h"
 #include "pc/online.h"
+#include "pc/pc.h"
 
 #include <aurora/dvd.h>
 #include <dolphin/ar.h>
@@ -76,8 +77,18 @@ void pc_net_init(void) {
     s_game_thread = SDL_GetCurrentThreadID();
 }
 
+/* Menu pointers (pc_net_pointer_sample / pc_net_pointer): this machine's,
+ * as the last tick sampled it, and every port's for the frame being
+ * simulated, from the bundle. */
+static struct {
+    bool valid;
+    int16_t x, y;
+} s_ptr_sample, s_ptr[ONLINE_MAX_PLAYERS];
+
 void pc_net_session_begin(const OnlineSetup* setup) {
     memset(&net, 0, sizeof net);
+    memset(&s_ptr, 0, sizeof s_ptr);
+    s_ptr_sample.valid = false;
     net.active = true;
     net.local = setup->local_port;
     net.players = setup->players;
@@ -344,8 +355,29 @@ static void fight_reseed(int32_t f) {
     *HSD_RandSeedPtr = x;
 }
 
+static int16_t ptr_quantize(float v) {
+    const float q = v * 256.0f;
+    return (int16_t)(q < -32767.0f ? -32767 : q > 32767.0f ? 32767 : (int)q);
+}
+
+void pc_net_pointer_sample(bool valid, float x, float y) {
+    s_ptr_sample.valid = valid;
+    s_ptr_sample.x = valid ? ptr_quantize(x) : 0;
+    s_ptr_sample.y = valid ? ptr_quantize(y) : 0;
+}
+
+bool pc_net_pointer(int port, float* x, float* y) {
+    if (!net.active || port < 0 || port >= ONLINE_MAX_PLAYERS || !s_ptr[port].valid) {
+        return false;
+    }
+    *x = (float)s_ptr[port].x / 256.0f;
+    *y = (float)s_ptr[port].y / 256.0f;
+    return true;
+}
+
 static OnlinePad to_online(const PADStatus* s) {
     OnlinePad p;
+    memset(&p, 0, sizeof p);
     p.button = s->button;
     p.stick_x = s->stickX;
     p.stick_y = s->stickY;
@@ -376,7 +408,22 @@ static void from_online(PADStatus* s, const OnlinePad* p, bool present) {
 static void submit_local(void) {
     PADStatus pads[4];
     PADRead(pads);
-    const OnlinePad mine = to_online(&pads[0]);
+    OnlinePad mine = to_online(&pads[0]);
+    /* A stick or d-pad takes the hand back from the mouse right here, as
+     * the input leaves, so no frame carries both. */
+    const PADStatus* in = &pads[0];
+    if (in->stickX < -0x1E || in->stickX > 0x1E || in->stickY < -0x1E || in->stickY > 0x1E ||
+        (in->button & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN)))
+    {
+        pc_mouse_menu_stick_moved();
+        s_ptr_sample.valid = false;
+    }
+    if (s_ptr_sample.valid) {
+        mine.has_ptr = 1;
+        mine.ptr_x = s_ptr_sample.x;
+        mine.ptr_y = s_ptr_sample.y;
+    }
+    s_ptr_sample.valid = false; /* a menu samples it again every tick it wants it */
     online_submit(net.frame + net.delay, &mine);
 }
 
@@ -420,6 +467,9 @@ void pc_net_sync(void) {
         online_bundle(net.frame, bundle);
         for (int port = 0; port < 4; port++) {
             from_online(&head[port], &bundle[port], port < net.players);
+            s_ptr[port].valid = port < net.players && bundle[port].has_ptr != 0;
+            s_ptr[port].x = bundle[port].ptr_x;
+            s_ptr[port].y = bundle[port].ptr_y;
         }
     }
     replay_feed(head);

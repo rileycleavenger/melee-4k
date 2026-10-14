@@ -87,15 +87,18 @@ def fifo_write(path, line, tries=100):
     for _ in range(tries):
         try:
             fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
-            break
         except OSError as e:
             if e.errno != errno.ENXIO:
                 raise
             time.sleep(0.1)  # reader thread not up yet
-    else:
-        raise RuntimeError(f"no reader on {path}")
-    with os.fdopen(fd, "w") as f:
-        f.write(line + "\n")
+            continue
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(line + "\n")
+            return
+        except BrokenPipeError:
+            time.sleep(0.1)  # the reader was closing to reopen (Wine)
+    raise RuntimeError(f"no reader on {path}")
 
 
 def wait_port_free(port, timeout=30):

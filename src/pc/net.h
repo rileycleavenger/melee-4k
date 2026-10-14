@@ -36,6 +36,13 @@ bool pc_net_scene_hold(void);
 /* Controller port the local player drives, 0-3. */
 int pc_net_local_player(void);
 
+/* Mouse pointers in character and stage select (pc/mouse_menu.c). Each
+ * tick a menu samples this machine's pointer in its own world, and it goes
+ * out with our next input; pc_net_pointer is `port`'s from the host's
+ * bundle for the frame being simulated, the same on every machine. */
+void pc_net_pointer_sample(bool valid, float x, float y);
+bool pc_net_pointer(int port, float* x, float* y);
+
 /* Frame of the next tick; identical on every machine in a session. */
 int32_t pc_net_frame(void);
 int32_t pc_net_start_frame(void);

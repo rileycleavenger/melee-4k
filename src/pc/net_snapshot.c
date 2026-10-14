@@ -451,6 +451,21 @@ static void log_state_bits(int32_t frame) {
             f32bits(fp->x8c_kb_vel.z));
     }
     fprintf(s_state_log, "net: bits %s\n", buf);
+    /* The wide checksum's items, one line each. */
+    if (checksum_wide() && in_fight()) {
+        for (int p = 0; p <= HSD_GObjLibInitData.p_link_max; p++) {
+            for (HSD_GObj* gobj = HSD_GObjPLinkHead[p]; gobj != NULL; gobj = gobj->next) {
+                if (gobj->classifier == HSD_GOBJ_CLASS_ITEM && gobj->user_data != NULL) {
+                    const Item* ip = gobj->user_data;
+                    fprintf(s_state_log,
+                        "net: bits f%d item kind=%d pos=%08x/%08x/%08x vel=%08x/%08x/%08x\n",
+                        frame, (int)ip->kind, f32bits(ip->pos.x), f32bits(ip->pos.y),
+                        f32bits(ip->pos.z), f32bits(ip->x40_vel.x), f32bits(ip->x40_vel.y),
+                        f32bits(ip->x40_vel.z));
+                }
+            }
+        }
+    }
 }
 
 /* Remember what went into this frame's checksum (overwritten when the

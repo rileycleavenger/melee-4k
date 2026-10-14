@@ -2577,15 +2577,17 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
         }
 
 #ifdef TARGET_PC
-        /* The keyboard's port follows the mouse pointer while it moves; a
-         * stick or d-pad hands control back (pc_mouse_menu). */
-        if (cursor->x4 == 0) {
+        /* A player's hand follows their mouse pointer while it moves (the
+         * keyboard's port offline, each player's own online); a stick or
+         * d-pad hands control back (pc_mouse_menu_port). */
+        {
             float mx, my;
+            const bool pointer =
+                mnCharSel_804D6CB8 != NULL &&
+                pc_mouse_menu_port(GET_COBJ(mnCharSel_804D6CB8), 0.0f, cursor->x4, &mx, &my);
             if (dx != 0.0f || dy != 0.0f) {
-                pc_mouse_menu_stick_moved();
-            } else if (mnCharSel_804D6CB8 != NULL &&
-                       pc_mouse_menu_world(GET_COBJ(mnCharSel_804D6CB8), 0.0f, &mx, &my))
-            {
+                pc_mouse_menu_port_stick(cursor->x4);
+            } else if (pointer) {
                 /* Melee picks with the coin the hand holds, 2.7 right and
                  * 2.0 below the hand (the held coin, below): put the coin
                  * under the pointer. */

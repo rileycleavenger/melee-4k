@@ -7,6 +7,7 @@
 #include "pc/menu_hand.h"
 
 #include "pc/mouse_menu.h"
+#include "pc/net.h"
 #include "pc/pc.h"
 #include <dolphin/vi.h>
 #include <melee/if/forward.h>
@@ -207,8 +208,10 @@ void pc_menu_hand_frame(void) {
     float x, y, u, v;
     const bool wanted = s_want_tick != 0 && VIGetRetraceCount() - s_want_tick <= 1;
     s_shown = false;
-    /* The mouse first: a controller player never loads the hand. */
-    if (!wanted || !pc_mouse_menu(&u, &v) || !build()) {
+    /* The mouse first: a controller player never loads the hand. Online,
+     * menus outside character and stage select are not the mouse's: what
+     * it picked would reach only this machine. */
+    if (!wanted || pc_net_active() || !pc_mouse_menu(&u, &v) || !build()) {
         pc_mouse_show_pointer(true);
         return;
     }

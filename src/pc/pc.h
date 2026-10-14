@@ -108,6 +108,9 @@ int pc_mouse_take_wheel(void);
  * typed (letters, digits, '\b' to delete, 0x16 for paste). */
 void pc_keyboard_text_want(void);
 int pc_keyboard_take_text(char* out, int max);
+/* Esc held down in the game window (the lobby's way back to the menu, which
+ * works while letter keys type). */
+bool pc_keyboard_escape_held(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
 /* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */

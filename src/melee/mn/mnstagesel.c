@@ -410,12 +410,33 @@ void fn_8025A310(HSD_GObj* gobj)
 
 #ifdef TARGET_PC
     /* The mouse pointer drives the cursor while it moves; a stick hands
-     * control back (pc_mouse_menu). */
-    if (mnStageSel_804D6CAC != 0 || mnStageSel_804D6CAD != 0) {
-        pc_mouse_menu_stick_moved();
-    } else if (mnStageSel_804D6C9C != NULL) {
-        float mx, my;
-        if (pc_mouse_menu_world(GET_COBJ(mnStageSel_804D6C9C), sp1C.z, &mx, &my)) {
+     * control back (pc_mouse_menu_port). Online the cursor belongs to
+     * whoever pressed Start on character select (or anyone, when nobody
+     * did), and so does the pointer that moves it; offline, this machine's
+     * mouse always does. */
+    {
+        const int owner = pc_net_active() ? mnStageSel_804D50A0 : -1;
+        float mx = 0.0F, my = 0.0F;
+        bool pointer = false;
+        if (mnStageSel_804D6C9C != NULL) {
+            for (int port = 0; port < 4; port++) {
+                float px, py;
+                if ((owner < 0 || owner == port) &&
+                    pc_mouse_menu_port(GET_COBJ(mnStageSel_804D6C9C), sp1C.z, port, &px,
+                                       &py) &&
+                    !pointer)
+                {
+                    pointer = true;
+                    mx = px;
+                    my = py;
+                }
+            }
+        }
+        if (mnStageSel_804D6CAC != 0 || mnStageSel_804D6CAD != 0) {
+            for (int port = 0; port < 4; port++) {
+                pc_mouse_menu_port_stick(port);
+            }
+        } else if (pointer) {
             sp1C.x = mx < -27.0F ? -27.0F : mx > 27.0F ? 27.0F : mx;
             sp1C.y = my < -19.0F ? -19.0F : my > 19.0F ? 19.0F : my;
         }

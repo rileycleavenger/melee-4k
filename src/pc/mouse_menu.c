@@ -5,6 +5,7 @@
  * pointer). Game C, since it reads the HSD camera. */
 #include "pc/mouse_menu.h"
 
+#include "pc/net.h"
 #include "pc/pc.h"
 #include "pc/widescreen.h"
 #include <dolphin/gx/GXAurora.h>
@@ -136,4 +137,22 @@ bool pc_mouse_menu_world(HSD_CObj* cobj, float plane_z, float* x, float* y) {
     *x = a.x + k * (b.x - a.x);
     *y = a.y + k * (b.y - a.y);
     return true;
+}
+
+bool pc_mouse_menu_port(HSD_CObj* cobj, float plane_z, int port, float* x, float* y) {
+    if (!pc_net_active()) {
+        return port == 0 && pc_mouse_menu_world(cobj, plane_z, x, y);
+    }
+    if (port == pc_net_local_player()) {
+        float lx = 0.0f, ly = 0.0f;
+        const bool live = pc_mouse_menu_world(cobj, plane_z, &lx, &ly);
+        pc_net_pointer_sample(live, lx, ly);
+    }
+    return pc_net_pointer(port, x, y);
+}
+
+void pc_mouse_menu_port_stick(int port) {
+    if (port == (pc_net_active() ? pc_net_local_player() : 0)) {
+        pc_mouse_menu_stick_moved();
+    }
 }

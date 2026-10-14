@@ -64,10 +64,10 @@ extern const char* pc_app_rev(void);
 extern int pc_get_net_delay(void); /* launcher.cpp: Input Delay, -1 = Auto */
 
 #define MAGIC 0x314B344Du /* "M4K1" */
-#define PROTO 1
+#define PROTO 2
 #define HOST_PORT 41000
 #define RING 256       /* frames of inputs and bundles kept */
-#define SEND_SPAN 32   /* frames repeated per input/bundle packet */
+#define SEND_SPAN 20   /* frames repeated per input/bundle packet (a bundle stays under 1200 bytes) */
 #define CHUNK 1024     /* setup data per packet */
 #define MAX_CHUNKS 128 /* 128 KB of setup data at most */
 #define LOBBY_SILENCE_MS 10000

@@ -174,14 +174,14 @@ static bool mouse_menu_live(void) {
 /* `u`, `v` in [0,1] across the game image (letterboxing removed). True when
  * the pointer is over it and is driving the hand. */
 bool pc_mouse_menu(float* u, float* v) {
-    /* The pointer moves menu cursors without going through a controller, so
-     * the other machines in an online game would never see it. */
-    if (pc_net_active()) {
+    atomic_store_explicit(&s_mouse_wanted_ms, SDL_GetTicks(), memory_order_relaxed);
+    /* "u,v[@frame]": a fixed pointer, for tests; from that frame on.
+     * "off": no pointer at all (test drivers whose windows open under the
+     * real one). */
+    const char* test = getenv("MELEE_MOUSE_TEST");
+    if (test != NULL && strcmp(test, "off") == 0) {
         return false;
     }
-    atomic_store_explicit(&s_mouse_wanted_ms, SDL_GetTicks(), memory_order_relaxed);
-    /* "u,v[@frame]": a fixed pointer, for tests; from that frame on. */
-    const char* test = getenv("MELEE_MOUSE_TEST");
     if (test != NULL && test[0] != '\0') {
         const char* at = strchr(test, '@');
         if (at != NULL && VIGetRetraceCount() < (u32)atoi(at + 1)) {
@@ -290,6 +290,15 @@ static bool text_key(const SDL_KeyboardEvent* k) {
     }
     unlock_keys();
     return true;
+}
+
+bool pc_keyboard_escape_held(void) {
+    if (!atomic_load(&s_focused) || pc_menu_is_open()) {
+        return false;
+    }
+    int n = 0;
+    const bool* keys = SDL_GetKeyboardState(&n);
+    return keys != NULL && n > SDL_SCANCODE_ESCAPE && keys[SDL_SCANCODE_ESCAPE];
 }
 
 int pc_mouse_take_wheel(void) {

@@ -162,6 +162,7 @@ OnlineKind gmOnline_GetKind(void)
 /* Set in the lobby when the setup is in: the next CSS is the game's first
  * frame. */
 static bool session_pending;
+#define LOBBY_HOLD_FRAMES 40 /* hold B this long to leave a lobby */
 static OnlineSetup session_setup;
 /* This machine's own game data, put back when the session ends. */
 static struct gmm_x0 own_data;
@@ -298,7 +299,20 @@ void onExitSss(GameModeState* state)
 void onEnterVs(GameModeState* state)
 {
 #ifdef TARGET_PC
-    pc_log_line("online: enter VS at frame %d", pc_net_frame());
+    /* MELEE_ONLINE_TEST_STAGE=<stage kind>: every game on that stage, for
+     * tests (set on every machine alike). */
+    if (getenv("MELEE_ONLINE_TEST_STAGE") != NULL) {
+        online_vs.start.rules.stkind = (u8) atoi(getenv("MELEE_ONLINE_TEST_STAGE"));
+    }
+    {
+        const PlayerInitData* pl = online_vs.start.players;
+        pc_log_line("online: enter VS at frame %d: stage %d, characters %d %d %d %d",
+                    pc_net_frame(), online_vs.start.rules.stkind,
+                    pl[0].slot_type == Gm_PKind_NA ? -1 : pl[0].ckind,
+                    pl[1].slot_type == Gm_PKind_NA ? -1 : pl[1].ckind,
+                    pl[2].slot_type == Gm_PKind_NA ? -1 : pl[2].ckind,
+                    pl[3].slot_type == Gm_PKind_NA ? -1 : pl[3].ckind);
+    }
 #endif
     gmVsMelee_EnterVs(state, &online_vs, NULL, NULL);
 }
@@ -432,9 +446,9 @@ static void lobbyJoin(const char* code)
     online_join(code, pc_get_net_name());
 }
 
-/* One frame of the code keyboard. False once it gives the screen up: a
- * code was entered, or B on an empty code (`*leave`). */
-static bool codeEntryFrame(OnlineLobbyView* view, u64 input, bool* leave)
+/* One frame of the code keyboard. False once a code was entered and the
+ * screen moves on to joining. */
+static bool codeEntryFrame(OnlineLobbyView* view, u64 input)
 {
     u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
     char typed[64];
@@ -484,9 +498,6 @@ static bool codeEntryFrame(OnlineLobbyView* view, u64 input, bool* leave)
         if (len > 0) {
             code_typed[--len] = '\0';
             sfxBack();
-        } else {
-            *leave = true;
-            return false;
         }
     } else if (input & HSD_PAD_START) {
         PcNetLobbyCode code;
@@ -513,7 +524,7 @@ static bool codeEntryFrame(OnlineLobbyView* view, u64 input, bool* leave)
              slots + 5, slots + 10);
     snprintf(view->message, sizeof view->message, "%s",
              code_note[0] ? code_note : "Type the code the host shows, or paste it");
-    view->hint = "A: type   B: delete   Y: paste   START: join";
+    view->hint = "A: type   B: delete   Y: paste   START: join   Hold B / Esc: menu";
     view->phase = LOBBY_PHASE_FOUND;
     return true;
 }
@@ -633,13 +644,10 @@ void gm_Scene_OnlineLobby_OnFrame(void)
     online_poll();
     const enum OnlineState st = online_state();
     if (code_entry) {
-        if (codeEntryFrame(&view, input, &leave)) {
-            input = 0;
-        } else if (!leave) {
-            input = 0; /* the START that joined */
-        }
+        codeEntryFrame(&view, input);
+        input = 0; /* typed, or the START that joined */
     }
-    if (!code_entry && !leave) {
+    if (!code_entry) {
         const unsigned secs = lobby_frames / 60;
         char code[18];
         int reach = PC_PORTMAP_WORKING;
@@ -691,7 +699,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                     lobbyStart();
                 }
             }
-            view.hint = "START: play   Y: copy the code   B: close the lobby";
+            view.hint = "START: play   Y: copy the code   Hold B / Esc: close the lobby";
             if (input & HSD_PAD_Y) {
                 if (online_copy_code()) {
                     snprintf(view.message, sizeof view.message,
@@ -704,12 +712,12 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             view.phase = LOBBY_PHASE_CONNECTING;
             snprintf(view.message, sizeof view.message, "Connecting to the host...  %u:%02u",
                      secs / 60, secs % 60);
-            view.hint = "B: stop";
+            view.hint = "Hold B / Esc: stop, back to the menu";
             break;
         case ONLINE_JOINED:
             snprintf(view.message, sizeof view.message, "In the lobby - the host starts the game%s%s",
                      last_game[0] ? "   Last game: " : "", last_game);
-            view.hint = "B: leave";
+            view.hint = "Hold B / Esc: leave, back to the menu";
             break;
         case ONLINE_STARTING:
             view.phase = LOBBY_PHASE_STARTING;
@@ -736,7 +744,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             view.phase = LOBBY_PHASE_ERROR;
             snprintf(view.message, sizeof view.message, "%s - START: try again",
                      online_error_text());
-            view.hint = "START: try again   B: back";
+            view.hint = "START: try again   Hold B / Esc: back to the menu";
             if (input & HSD_PAD_START) {
                 sfxForward();
                 online_leave();
@@ -747,13 +755,31 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             view.phase = LOBBY_PHASE_ERROR;
             snprintf(view.message, sizeof view.message, "%s",
                      last_game[0] ? last_game : "Not connected - START: try again");
+            view.hint = "START: try again   Hold B / Esc: back to the menu";
             if (input & HSD_PAD_START) {
                 sfxForward();
                 lobbyOpen();
             }
             break;
         }
-        if (input & (HSD_PAD_B | PAD_CANCEL)) {
+    }
+    /* Hold B (or Esc, which still works while letters type) to go back to
+     * the menu from any lobby screen; a tap of B deletes in code entry. */
+    {
+        /* Counts only once B has been up in the lobby: the B held on
+         * character select to come back here is not a second request. */
+        static int held;
+        const bool down = (gm_GetButtonsPressed(PAD_MAX_CONTROLLERS) & HSD_PAD_B) ||
+                          pc_keyboard_escape_held();
+        if (lobby_frames == 1) {
+            held = down ? -1 : 0;
+        }
+        held = !down ? 0 : held < 0 ? -1 : held + 1;
+        if (held > 0 && !session_pending) {
+            snprintf(view.message, sizeof view.message, "Keep holding to go back to the menu");
+        }
+        if (held >= LOBBY_HOLD_FRAMES) {
+            held = 0;
             leave = true;
         }
     }

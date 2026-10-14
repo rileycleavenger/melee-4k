@@ -30,6 +30,11 @@ typedef struct OnlinePad { /* one player's input for one frame */
     uint16_t button;
     int8_t stick_x, stick_y, sub_x, sub_y;
     uint8_t trigger_l, trigger_r;
+    /* The mouse pointer in a menu's world (character and stage select), in
+     * 1/256 units, when `has_ptr`: menus move the player's hand there, so it
+     * travels with the input like a stick. */
+    uint8_t has_ptr, unused;
+    int16_t ptr_x, ptr_y;
 } OnlinePad;
 
 enum OnlineState {

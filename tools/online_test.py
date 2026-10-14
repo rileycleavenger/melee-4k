@@ -92,7 +92,10 @@ class Instance:
             "MELEE_VSYNC": "0",
             "MELEE_WINDOW_TITLE": f"melee-online-{self.name}",
             "MELEE_BOOT_SCENE": "host" if index == 0 else "join",
+            "MELEE_MOUSE_TEST": "off",  # the windows open under the real pointer
         })
+        if e.get("MELEE_NET_STATE_LOG"):  # each instance's own file
+            e["MELEE_NET_STATE_LOG"] = os.path.join(work, f"{self.name}.state")
         if "AURORA_SCREENSHOT_FRAMES" in e:  # each instance's own folder
             e["AURORA_SCREENSHOT_DIR"] = os.path.join(work, f"{self.name}-shots")
             os.makedirs(e["AURORA_SCREENSHOT_DIR"])
@@ -105,8 +108,14 @@ class Instance:
         if extra:
             self.env.update(extra)
         self.log = open(self.log_path, "wb")
-        self.proc = subprocess.Popen([self.exe, "--no-card", self.disc], env=self.env,
-                                     stdout=self.log, stderr=subprocess.STDOUT)
+        cmd = [self.exe, "--no-card", self.disc]
+        if self.exe.lower().endswith(".exe"):
+            # The Windows build under Wine: no GPU there, so Dawn's null
+            # backend, and the app's own MSVC runtime over Wine's.
+            cmd = ["wine64", self.exe, "--no-card", "Z:" + self.disc]
+            self.env.update({"WINEDEBUG": "-all", "MELEE_BACKEND": "null",
+                             "WINEDLLOVERRIDES": "msvcp140_atomic_wait=n;msvcp140=n"})
+        self.proc = subprocess.Popen(cmd, env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
 
     def key(self, line):
         net_test.fifo_write(self.fifo, line)
@@ -228,6 +237,7 @@ def drive_game(insts, game, match_seconds, log):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--exe", default=os.path.join(ROOT, "build", "macos", "melee"))
+    ap.add_argument("--guest-exe", help="the joiners' game (a Windows melee.exe runs under Wine)")
     ap.add_argument("--disc", required=True)
     ap.add_argument("--players", type=int, default=2)
     ap.add_argument("--games", type=int, default=2)
@@ -237,6 +247,11 @@ def main():
     ap.add_argument("--jitter-ms", type=int, default=0)
     ap.add_argument("--guest-rules", action="store_true",
                     help="joiners start with their own different rules (teams, 1 stock)")
+    ap.add_argument("--guest-mouse", metavar="U,V@FRAME",
+                    help="the joiners' mouse pointer, fixed there from that frame "
+                         "(MELEE_MOUSE_TEST): their hands follow it through lockstep")
+    ap.add_argument("--stage", type=int, help="play every game on this stage kind "
+                    "(MELEE_ONLINE_TEST_STAGE; 3 = Rainbow Cruise)")
     ap.add_argument("--work", default=None)
     ap.add_argument("--keep", action="store_true", help="leave the instances running at the end")
     a = ap.parse_args()
@@ -251,13 +266,16 @@ def main():
         print(f"[{time.time() - t0:6.1f}s] {msg}", flush=True)
 
     env = {}
+    if a.stage is not None:
+        env["MELEE_ONLINE_TEST_STAGE"] = str(a.stage)
     if a.loss:
         env["MELEE_ONLINE_LOSS"] = str(a.loss)
     if a.delay_ms:
         env["MELEE_ONLINE_DELAY_MS"] = str(a.delay_ms)
     if a.jitter_ms:
         env["MELEE_ONLINE_JITTER_MS"] = str(a.jitter_ms)
-    insts = [Instance(i, a.exe, a.disc, work, env) for i in range(a.players)]
+    insts = [Instance(i, a.guest_exe if i and a.guest_exe else a.exe, a.disc, work, env)
+             for i in range(a.players)]
     ok = False
     try:
         insts[0].start({"MELEE_ONLINE_AUTOSTART": str(a.players)})
@@ -270,6 +288,8 @@ def main():
             extra = {"MELEE_ONLINE_JOIN": code}
             if a.guest_rules:
                 extra["MELEE_TEST_LOCAL_RULES"] = "1"
+            if a.guest_mouse:
+                extra["MELEE_MOUSE_TEST"] = a.guest_mouse
             inst.start(extra)
         for game in range(1, a.games + 1):
             if not all(i.wait(r"online: lockstep from frame 0", 240, game) for i in insts):
