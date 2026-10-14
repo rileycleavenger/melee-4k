@@ -144,8 +144,14 @@ for n, over in enumerate(COSTUMES):
     pose(CSP_POSE)
     lo, hi = bounds(parts)
     height = hi.z - lo.z
+    # A wide upper body would leave sky above the head: the box keeps the
+    # portrait's shape, hung from the top of the head.
+    ulo, uhi = bounds_above(parts, lo.z + height * 0.5)
+    across = math.hypot(uhi.x - ulo.x, uhi.y - ulo.y) * 0.86  # a little cut off at the sides
+    tall = across * 752 / 544
+    top = hi.z + tall * 0.03
     shoot(os.path.join(OUT, f"csp{n}.png"), 544, 752, (0.62, -1.0, 0.16),
-          Vector((lo.x, lo.y, lo.z + height * 0.5)), hi, 0.86)
+          Vector((ulo.x, ulo.y, top - tall)), Vector((uhi.x, uhi.y, top)), 1.0)
     pose(POSE)
     lo, hi = bounds(parts)
     height = hi.z - lo.z
