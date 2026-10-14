@@ -85,6 +85,9 @@ uint16_t VIPadFrameBufferWidth(uint16_t width);
 
 /* Feature queries */
 bool pc_is_custom_textures_enabled(void);
+/* Character select shows custom fighters (its CUSTOM switch; saved). */
+bool pc_is_custom_fighters_enabled(void);
+void pc_set_custom_fighters_enabled(bool on);
 bool pc_is_unlock_all_enabled(void);
 bool pc_is_frozen_stadium_enabled(void);
 bool pc_is_free_camera_enabled(void);

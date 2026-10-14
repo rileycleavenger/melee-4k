@@ -373,7 +373,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
             float value;
             if (row >> value && std::isfinite(value) && value >= 0.75f && value <= 1.5f)
                 prefs.scale = value;
-        } else if (key == "check_updates" || key == "custom_textures" || key == "unlock_all" ||
+        } else if (key == "check_updates" || key == "custom_textures" || key == "custom_fighters" ||
+                   key == "unlock_all" ||
                    key == "frozen_stadium" || key == "free_camera" || key == "ucf" ||
                    key == "reverb")
         {
@@ -383,6 +384,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
                     prefs.check_updates = value;
                 else if (key == "custom_textures")
                     prefs.custom_textures = value;
+                else if (key == "custom_fighters")
+                    prefs.custom_fighters = value;
                 else if (key == "unlock_all")
                     prefs.unlock_all = value;
                 else if (key == "frozen_stadium")
@@ -445,7 +448,7 @@ bool save_preferences(
          << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera << "\nucf " << prefs.ucf
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
-    text << "reverb " << prefs.reverb << '\n';
+    text << "reverb " << prefs.reverb << "\ncustom_fighters " << prefs.custom_fighters << '\n';
     text << "interp " << prefs.interp << "\nstock_style " << std::quoted(prefs.stock_style) << '\n';
     auto data = text.str();
     size_t done = 0;

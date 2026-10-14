@@ -37,6 +37,7 @@ struct Preferences {
     bool mute = false, fps = false, reverb = true;
     bool check_updates = false;
     bool custom_textures = true;
+    bool custom_fighters = true;  // character select shows the fighter packs' fighters
     bool unlock_all = true;  // Melee 4K: every character, stage and mode from the start
     int hud_mode = 1;        // 0 classic, 1 wide (anchored to the 16:9 edges)
     // Frame rate (src/pc/vi.c): 2 60 fps, 4 120 fps, 5 144 fps. The game itself

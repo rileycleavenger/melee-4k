@@ -2,6 +2,7 @@
 #include "pc/fighter_pack.h"
 #include "pc/net.h"
 #include "pc/online.h"
+#include "pc/menu_label.h"
 #include "pc/mouse_menu.h"
 #include "pc/pc.h"
 #include <melee/ft/ftcustom.h>
@@ -15,6 +16,7 @@
 static void cssCustomDoor(int door);
 static int cssDoorCustom(int door);
 static u8 cssCustomTeamCostume(int door);
+static void cssLeaveCustom(int door);
 #endif
 #include "mncharsel.h"
 
@@ -2308,6 +2310,19 @@ static int css_n_custom;
  * ICONBNDS_COL*). */
 static const f32 css_custom_dx[CSS_CUSTOM_MAX] = { 7.0F };
 
+/* The CUSTOM switch: shows or hides the custom fighters' icons. A copy of
+ * Dr. Mario's icon one column left of him, showing pc_menu_toggle_tile.
+ * Offline it starts from the saved setting and saves each change; online it
+ * starts on for everyone and a press by any hand flips it for everyone, as
+ * the rest of this screen follows the hands. */
+static struct {
+    HSD_JObj* icon;
+    HSD_JObj* frame;
+    f32 l, r, u, d;
+} css_toggle;
+static bool css_custom_on = true;
+#define CSS_TOGGLE_DX (-7.0F)
+
 static int cssBaseIcon(FighterKind base)
 {
     int i;
@@ -2353,12 +2368,78 @@ static void cssSetImage(HSD_JObj* jobj, int dobj_index, HSD_ImageDesc* img)
     }
 }
 
+/* A copy of a grid icon's joint and of its parent, with no children or
+ * siblings of their own, so loading each loads just it. They go last in
+ * the menu's joint tree: the screen finds its joints by depth-first index,
+ * and anything inserted earlier would shift them. cssCustomFrame keeps the
+ * frame on the parent's animated transform. */
+static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, HSD_JObj** frame_out)
+{
+    HSD_Joint* icon = HSD_MemAlloc(sizeof(HSD_Joint));
+    HSD_Joint* frame = HSD_MemAlloc(sizeof(HSD_Joint));
+    HSD_JObj* jicon;
+    memcpy(icon, (void*) src->id, sizeof(HSD_Joint));
+    memset((u8*) icon + 0xC, 0, 4); /* next */
+    memcpy(frame, (void*) HSD_JObjGetParent(src)->id, sizeof(HSD_Joint));
+    memset((u8*) frame + 0x8, 0, 8); /* child, next */
+    *frame_out = HSD_JObjLoadJoint(frame);
+    jicon = HSD_JObjLoadJoint(icon);
+    HSD_JObjAddChild(*frame_out, jicon);
+    HSD_JObjAddChild(mnCharSel_804D6CC0, *frame_out);
+    HSD_JObjSetTranslateX(jicon, HSD_JObjGetTranslationX(jicon) + dx);
+    return jicon;
+}
+
+/* Show the custom icons or not; doors on a custom fighter go back to its
+ * base's own costume when they are hidden. */
+static void cssApplyToggle(void)
+{
+    int i, door;
+    for (i = 0; i < css_n_custom; i++) {
+        if (css_custom_on) {
+            HSD_JObjClearFlagsAll(css_custom[i].frame, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(css_custom[i].frame, JOBJ_HIDDEN);
+        }
+    }
+    if (!css_custom_on) {
+        for (door = 0; door < 4; door++) {
+            if (cssDoorCustom(door) >= 0) {
+                cssLeaveCustom(door);
+                mnCharSel_8025DB34(door);
+            }
+        }
+    }
+    if (css_toggle.icon != NULL) {
+        cssSetImage(css_toggle.icon, 1, pc_menu_toggle_tile(css_custom_on));
+    }
+}
+
+/* The switch under the coin (the point a held coin picks with). */
+static bool cssToggleAt(f32 x, f32 y)
+{
+    return css_toggle.icon != NULL && x > css_toggle.l && x < css_toggle.r && y < css_toggle.u &&
+           y > css_toggle.d;
+}
+
+static void cssToggle(void)
+{
+    css_custom_on = !css_custom_on;
+    if (!pc_net_active()) {
+        pc_set_custom_fighters_enabled(css_custom_on);
+    }
+    cssApplyToggle();
+    sfxMove();
+}
+
 /* Load the packs' pictures and put their icons on the grid. */
 static void cssCustomCreate(void)
 {
     HSD_JObj* roy = NULL;
     int p;
     css_n_custom = 0;
+    memset(&css_toggle, 0, sizeof css_toggle);
+    css_custom_on = pc_net_active() ? true : pc_is_custom_fighters_enabled();
     if (mnCharSel_804D6CF5 == 1) { /* the 1P layout has no free slot */
         return;
     }
@@ -2388,39 +2469,33 @@ static void cssCustomCreate(void)
             snprintf(sym, sizeof sym, "ftUiCsp%d", k);
             c->csp[k] = HSD_ArchiveGetPublicAddress(ui, sym);
         }
-        {
-            /* Copies of Roy's icon joint and of its parent, with no
-             * children or siblings of their own, so loading each loads just
-             * it. They go last in the menu's joint tree: the screen finds
-             * its joints by depth-first index, and anything inserted
-             * earlier would shift them. cssCustomFrame keeps the frame on
-             * the parent's animated transform. */
-            HSD_Joint* icon = HSD_MemAlloc(sizeof(HSD_Joint));
-            HSD_Joint* frame = HSD_MemAlloc(sizeof(HSD_Joint));
-            memcpy(icon, (void*) roy->id, sizeof(HSD_Joint));
-            memset((u8*) icon + 0xC, 0, 4); /* next */
-            memcpy(frame, (void*) HSD_JObjGetParent(roy)->id, sizeof(HSD_Joint));
-            memset((u8*) frame + 0x8, 0, 8); /* child, next */
-            c->frame = HSD_JObjLoadJoint(frame);
-            c->icon = HSD_JObjLoadJoint(icon);
-            HSD_JObjAddChild(c->frame, c->icon);
-            HSD_JObjAddChild(mnCharSel_804D6CC0, c->frame);
-            HSD_JObjSetTranslateX(c->icon, css_custom_dx[css_n_custom]);
-            cssSetImage(c->icon, 1, c->icon_img);
-        }
+        c->icon = cssCloneIcon(roy, css_custom_dx[css_n_custom], &c->frame);
+        cssSetImage(c->icon, 1, c->icon_img);
         c->l = icons[0x18].bound_l + css_custom_dx[css_n_custom];
         c->r = icons[0x18].bound_r + css_custom_dx[css_n_custom];
         c->u = icons[0x18].bound_u;
         c->d = icons[0x18].bound_d;
         css_n_custom++;
     }
+    if (css_n_custom > 0) {
+        HSD_JObj* drmario = NULL;
+        lb_80011E24(mnCharSel_804D6CC0, &drmario, ICONJOINT_DRMARIO, -1);
+        if (drmario != NULL && pc_menu_toggle_tile(true) != NULL) {
+            css_toggle.icon = cssCloneIcon(drmario, CSS_TOGGLE_DX, &css_toggle.frame);
+            css_toggle.l = icons[0].bound_l + CSS_TOGGLE_DX;
+            css_toggle.r = icons[0].bound_r + CSS_TOGGLE_DX;
+            css_toggle.u = icons[0].bound_u;
+            css_toggle.d = icons[0].bound_d;
+        }
+    }
+    cssApplyToggle();
 }
 
 /* The custom icon under a coin, or -1. */
 static int cssCustomAt(struct CSSCharModel* m)
 {
     int i;
-    for (i = 0; i < css_n_custom; i++) {
+    for (i = 0; i < css_n_custom && css_custom_on; i++) {
         CssCustom* c = &css_custom[i];
         if (m->x8 > c->l && m->x8 < c->r && m->xC < c->u && m->xC > c->d) {
             return i;
@@ -2515,16 +2590,30 @@ static void cssCustomFrame(void)
     if (css_n_custom > 0) {
         lb_80011E24(mnCharSel_804D6CC0, &roy, ICONJOINT_EMBLEM, -1);
     }
-    for (i = 0; i < css_n_custom && roy != NULL; i++) {
-        HSD_JObj* parent = HSD_JObjGetParent(roy);
+    for (i = 0; i <= css_n_custom && roy != NULL; i++) {
+        /* the custom icons, then the switch (Dr. Mario's frame) */
+        HSD_JObj* src = roy;
+        HSD_JObj* frame = i < css_n_custom ? css_custom[i].frame : css_toggle.frame;
+        HSD_JObj* parent;
         Vec3 v;
         Quaternion q;
+        if (i == css_n_custom) {
+            src = NULL;
+            lb_80011E24(mnCharSel_804D6CC0, &src, ICONJOINT_DRMARIO, -1);
+        }
+        if (frame == NULL || src == NULL) {
+            continue;
+        }
+        parent = HSD_JObjGetParent(src);
         HSD_JObjGetTranslation(parent, &v);
-        HSD_JObjSetTranslate(css_custom[i].frame, &v);
+        HSD_JObjSetTranslate(frame, &v);
         HSD_JObjGetScale(parent, &v);
-        HSD_JObjSetScale(css_custom[i].frame, &v);
+        HSD_JObjSetScale(frame, &v);
         HSD_JObjGetRotation(parent, &q);
-        HSD_JObjSetRotation(css_custom[i].frame, &q);
+        HSD_JObjSetRotation(frame, &q);
+    }
+    if (css_toggle.icon != NULL) {
+        cssSetImage(css_toggle.icon, 1, pc_menu_toggle_tile(css_custom_on));
     }
 }
 #endif
@@ -2898,6 +2987,15 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
 #endif
         cursor->xC = (f32) ((0.0002f * dx) + cursor->xC);
         cursor->x10 = (f32) ((0.0002f * dy) + cursor->x10);
+#ifdef TARGET_PC
+        /* A over the CUSTOM switch flips it (and does nothing else). */
+        if ((trigger & HSD_PAD_A) && mnCharSel_803F0E8C[cursor->x4].data->state == 0 &&
+            cssToggleAt(cursor->xC + 2.7f, cursor->x10 - 2.0f))
+        {
+            cssToggle();
+            trigger &= ~HSD_PAD_A;
+        }
+#endif
 
         mnCharSel_803F0E8C[cursor->x4].data->scroll_amt = 0.0f;
 
@@ -2939,9 +3037,16 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                 if (26.0f < cursor->xC) {
                     cursor->xC = 26.0f;
                 }
+#ifdef TARGET_PC
+                /* far enough left to reach the CUSTOM switch */
+                if ((css_toggle.icon != NULL ? css_toggle.l - 2.7f : -35.0f) > cursor->xC) {
+                    cursor->xC = css_toggle.icon != NULL ? css_toggle.l - 2.7f : -35.0f;
+                }
+#else
                 if (-35.0f > cursor->xC) {
                     cursor->xC = -35.0f;
                 }
+#endif
             }
         }
 

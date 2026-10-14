@@ -1991,6 +1991,17 @@ extern "C" void pc_menu_update(void) {
 extern "C" bool pc_is_custom_textures_enabled(void) {
     return prefs.custom_textures;
 }
+extern "C" bool pc_is_custom_fighters_enabled(void) {
+    return prefs.custom_fighters;
+}
+extern "C" void pc_set_custom_fighters_enabled(bool on) {
+    if (prefs.custom_fighters == on)
+        return;
+    prefs.custom_fighters = on;
+    std::string error;
+    if (!launcher::save_preferences(config_path, prefs, error))
+        pc_log_line("settings: %s", error.c_str());
+}
 extern "C" bool pc_net_rules(bool* unlock_all, bool* frozen_stadium);
 extern "C" bool pc_is_unlock_all_enabled(void) {
     bool unlock_all, frozen;
