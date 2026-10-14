@@ -227,6 +227,7 @@ set(PC_SOURCES
         src/pc/libm/pc_cosdf.c
         src/pc/libm/pc_cosf.c
         src/pc/libm/pc_fmaf.c
+        src/pc/libm/pc_logf.c
         src/pc/libm/pc_perturb.c
         src/pc/libm/pc_rem_pio2_large.c
         src/pc/libm/pc_rem_pio2f.c
@@ -439,6 +440,12 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_tests_properties(net_code PROPERTIES LABELS melee)
     add_dependencies(unit_tests net_code_test)
 
+    add_executable(fmaf_test EXCLUDE_FROM_ALL tools/test_fmaf.c src/pc/libm/pc_fmaf.c)
+    target_compile_options(fmaf_test PRIVATE ${MELEE_FP_FLAGS})
+    add_test(NAME fmaf COMMAND fmaf_test)
+    set_tests_properties(fmaf PROPERTIES LABELS melee)
+    add_dependencies(unit_tests fmaf_test)
+
     add_executable(version_test EXCLUDE_FROM_ALL tools/test_version.cpp src/pc/version.cpp)
     target_include_directories(version_test PRIVATE src)
     target_compile_options(version_test PRIVATE -UNDEBUG)
@@ -483,6 +490,9 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         add_test(NAME gcadapter COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gcadapter.py --build ${CMAKE_BINARY_DIR})
         set_tests_properties(pad_regressions gcadapter PROPERTIES LABELS melee TIMEOUT 60)
+        add_test(NAME sim_libm COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_sim_libm.py --build ${CMAKE_BINARY_DIR})
+        set_tests_properties(sim_libm PROPERTIES LABELS melee TIMEOUT 120)
         add_test(NAME wobble COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_wobble.py)
         set_tests_properties(wobble PROPERTIES LABELS melee TIMEOUT 60)
