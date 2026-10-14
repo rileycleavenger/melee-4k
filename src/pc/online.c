@@ -71,6 +71,17 @@ extern int pc_get_net_delay(void); /* launcher.cpp: Input Delay, -1 = Auto */
  * fighter's match computes means a new number, and versions on different
  * numbers cannot play together at all. */
 #define BASE_SIM_REV 1
+
+/* BASE_SIM_REV, or MELEE_TEST_BASE_REV: a test build posing as another base
+ * revision, to see versions on different revisions refused. */
+static int base_rev(void) {
+    static int rev = -1;
+    if (rev < 0) {
+        const char* e = getenv("MELEE_TEST_BASE_REV");
+        rev = e != NULL ? atoi(e) : BASE_SIM_REV;
+    }
+    return rev;
+}
 /* The build v1.1.0 identifies itself with (set_identity in v1.1.0: its
  * version string and "proto1"). Base-only sessions -- different versions,
  * v1.1.0 among them -- all speak it on the wire. */
@@ -620,7 +631,7 @@ const char* online_error_text(void) {
     case ONLINE_ERR_FULL:
         return "That lobby is full";
     case ONLINE_ERR_VERSION:
-        return "The host runs another version of Melee 4K";
+        return "Another Melee 4K version: update both to play";
     case ONLINE_ERR_STARTED:
         return "That lobby's game has already started";
     case ONLINE_ERR_HOST_LEFT:
@@ -932,7 +943,7 @@ static void on_join(const JoinMsg* m, int n, const struct sockaddr_in* from) {
             /* full */
         } else if (ext == NULL && m->h.build == s_legacy) {
             go_base_only("a " LEGACY_VERSION " player");
-        } else if (ext != NULL && ext->base_rev == BASE_SIM_REV) {
+        } else if (ext != NULL && ext->base_rev == (uint32_t)base_rev()) {
             go_base_only(m->h.build == s_build ? "different custom fighters" : "different versions");
         } else {
             ok = false;
@@ -1075,7 +1086,7 @@ static void guest_receive(const uint8_t* buf, int n, const struct sockaddr_in* f
             /* A v1.1.0 host refuses any other build. It speaks the base
              * game's revision 1: join again as base-only, on its build. */
             if (((const RefuseMsg*)buf)->reason == ONLINE_ERR_VERSION && h->build == s_legacy &&
-                !s_base_only && BASE_SIM_REV == 1)
+                !s_base_only && base_rev() == 1)
             {
                 go_base_only("the host has " LEGACY_VERSION);
                 s_join_sent_ms = 0;
@@ -1287,7 +1298,7 @@ static void guest_tick(void) {
             m.j.token = s_target.token;
             snprintf(m.j.name, sizeof m.j.name, "%s", s_name);
             m.x.magic = JOIN_EXT;
-            m.x.base_rev = BASE_SIM_REV;
+            m.x.base_rev = (uint32_t)base_rev();
             m.x.content = pc_fighter_packs_hash();
             snprintf(m.x.version, sizeof m.x.version, "%s", pc_app_rev());
             struct sockaddr_in to = {0};

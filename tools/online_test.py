@@ -266,6 +266,8 @@ def main():
                          "(MELEE_MOUSE_TEST): their hands follow it through lockstep")
     ap.add_argument("--stage", type=int, help="play every game on this stage kind "
                     "(MELEE_ONLINE_TEST_STAGE; 3 = Rainbow Cruise)")
+    ap.add_argument("--guest-env", action="append", default=[], metavar="K=V",
+                    help="an environment variable for the joiners only (repeatable)")
     ap.add_argument("--work", default=None)
     ap.add_argument("--keep", action="store_true", help="leave the instances running at the end")
     a = ap.parse_args()
@@ -288,7 +290,9 @@ def main():
         env["MELEE_ONLINE_DELAY_MS"] = str(a.delay_ms)
     if a.jitter_ms:
         env["MELEE_ONLINE_JITTER_MS"] = str(a.jitter_ms)
-    insts = [Instance(i, a.guest_exe if i and a.guest_exe else a.exe, a.disc, work, env)
+    guest_env = dict(kv.split("=", 1) for kv in a.guest_env)
+    insts = [Instance(i, a.guest_exe if i and a.guest_exe else a.exe, a.disc, work,
+                      dict(env, **guest_env) if i else env)
              for i in range(a.players)]
     ok = False
     try:

@@ -117,13 +117,41 @@ local-network use, so macOS asks once.
 
 One UDP socket per machine. Every datagram starts with a header: magic
 `M4K1`, protocol version, message type, the sender's slot, the session id and
-the build id (a hash of the app version), and a datagram from another build
-is refused with the reason shown in the lobby ("another version of Melee
-4K"). Messages, inputs and bundles are listed at the top of
+the build id (a hash of the app version). Datagrams from another build are
+dropped, except as the next section says. Messages, inputs and bundles are listed at the top of
 src/pc/online.c. Inputs and bundles are unreliable and redundant: every packet
 repeats each frame the other side has not acknowledged, up to 32, so a lost
 packet costs only the next one. The setup data goes in 1 KB chunks, resent
 until each guest's bitmap has them all and the data's hash matches.
+
+## Versions and custom fighters
+
+Who can play whom is decided once, when a player joins (`on_join` in
+src/pc/online.c). Since v2 a JOIN carries an extension (`JoinExt`, magic
+`M4KX`): the base game's simulation revision (`BASE_SIM_REV`), the
+content hash of the custom fighter packs (docs/fighters.md), and the
+version string.
+
+| Joiner | Session |
+|---|---|
+| same build, same packs (same content hash) | **full**: custom fighters available |
+| another version, or other packs, same `BASE_SIM_REV` | **base fighters only**, for the whole lobby |
+| v1.1.0 (no extension, its build id) | **base fighters only** |
+| another `BASE_SIM_REV` | refused: "Another Melee 4K version: update both to play" |
+
+In a base-only lobby every player speaks v1.1.0's build id on the wire,
+custom fighter icons are hidden on character select, and the lobby shows
+"Base fighters only". A v2 player joining a v1.1.0 host is refused by it
+(v1.1.0 refuses other builds) and joins again as base-only on v1.1.0's
+build id. This is sound only while the base fighters' simulation is
+bit-identical across versions: `BASE_SIM_REV` changes, and old and new
+versions stop playing together, if it ever is not.
+
+Tests: `tools/online_test.py` with `--guest-exe` set to another version's
+binary (the released v1.1.0 Mac app plays both ways), with packs on one
+side only (`MELEE_FIGHTERS_DIR` in `--guest-env`), or posing as another
+version (`--guest-env MELEE_APP_REV=v9.0.0`, plus `MELEE_TEST_BASE_REV=2`
+for the refusal).
 
 Timeouts: 10 s of silence in the lobby, 15 s in a game, 20 s for a join to
 be answered.
