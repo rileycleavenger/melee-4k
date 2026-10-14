@@ -188,3 +188,26 @@ struct HSD_ImageDesc* ftCustom_StockImage(int slot)
     snprintf(sym, sizeof sym, "ftUiStock%d", costume - s_custom[pack].first);
     return ftCustom_UiImage(pack, sym);
 }
+
+struct HSD_ImageDesc* ftCustom_SlotImage(int slot, const char* symbol)
+{
+    const int ckind = Player_GetPlayerCharacter(slot);
+    if (ckind < 0 || ckind >= CKind_Playable_Count) {
+        return NULL;
+    }
+    {
+        const int pack = ftCustom_Pack(Player_800325C8(ckind, false), Player_GetCostumeId(slot));
+        return pack >= 0 ? ftCustom_UiImage(pack, symbol) : NULL;
+    }
+}
+
+const char* ftCustom_SlotName(int slot)
+{
+    const int ckind = Player_GetPlayerCharacter(slot);
+    int pack;
+    if (ckind < 0 || ckind >= CKind_Playable_Count) {
+        return NULL;
+    }
+    pack = ftCustom_Pack(Player_800325C8(ckind, false), Player_GetCostumeId(slot));
+    return pack >= 0 ? pc_fighter_pack(pack)->name : NULL;
+}

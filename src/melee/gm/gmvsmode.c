@@ -231,7 +231,7 @@ void onEnterDebugVs(GameModeState* state)
             if (*end == ':') {
                 color = strtol(end + 1, &end, 10);
             }
-            if (ckind >= 0 && ckind < CKind_Playable_Count && color >= 0 && color < 6) {
+            if (ckind >= 0 && ckind < CKind_Playable_Count && color >= 0 && color < 16) {
                 start->players[i].ckind = (CharacterKind) ckind;
                 start->players[i].color = (u8) color;
                 start->players[i].slot_type = Gm_PKind_Cpu;

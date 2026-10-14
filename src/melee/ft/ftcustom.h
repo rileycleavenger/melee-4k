@@ -35,5 +35,9 @@ struct HSD_ImageDesc* ftCustom_UiImage(int pack, const char* symbol);
 /* The stock icon of the fighter in player slot `slot`, or NULL for a
  * retail one. */
 struct HSD_ImageDesc* ftCustom_StockImage(int slot);
+/* Image `symbol` of the custom fighter in player slot `slot`, or NULL. */
+struct HSD_ImageDesc* ftCustom_SlotImage(int slot, const char* symbol);
+/* The name of the custom fighter in player slot `slot`, or NULL. */
+const char* ftCustom_SlotName(int slot);
 
 #endif

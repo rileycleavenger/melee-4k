@@ -1,4 +1,8 @@
 #include "gmscene.h"
+
+#ifdef TARGET_PC
+#include <melee/ft/ftcustom.h>
+#endif
 #ifdef TARGET_PC
 #include "pc/interp.h"
 #include "pc/menu_hand.h"
@@ -203,6 +207,8 @@ void gm_801A4B88(struct GameSceneInfo* info)
     if (info != NULL) {
         OSReport("[scene] kind 0x%02x\n", info->scene_kind);
     }
+    /* A new scene, a new heap: custom fighters' images reload into it. */
+    ftCustom_UiReset();
     /* Every scene is widened except the pre-rendered movies, which are
      * pillarboxed at their authored aspect, and the results screen: its
      * stat tags are parked as stacked pages just past the 4:3 left edge and

@@ -1,4 +1,8 @@
 #include "gm_1601.h"
+
+#ifdef TARGET_PC
+#include <melee/ft/ftcustom.h>
+#endif
 #include <stdlib.h>
 
 #include "pc/pc.h"
@@ -962,6 +966,13 @@ const char* gm_80160A60(int arg0)
     u8 ckind;
 
     if (Player_GetPlayerSlotType(arg0) != Gm_PKind_NA) {
+#ifdef TARGET_PC
+        /* A custom fighter's own name (ftcustom.h). */
+        const char* custom = ftCustom_SlotName(arg0);
+        if (custom != NULL) {
+            return custom;
+        }
+#endif
         ckind = Player_GetPlayerCharacter(arg0);
         if (ckind == CKind_Zelda || ckind == CKind_Seak) {
             if (Player_80036394(arg0) == Ft_Kind_Seak) {

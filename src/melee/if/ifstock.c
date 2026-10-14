@@ -594,9 +594,6 @@ void ifStock_802F98E8(u8 player, u8 b)
     GXColor c1;
 
     if (stock->x0 != NULL) {
-#ifdef TARGET_PC
-        ftCustom_UiReset(); /* a new match: its heap holds the images */
-#endif
         ifStock_804A157C[player].player = player;
         ifStock_804A157C[player].mode = b;
         ifStock_804A157C[player].flag = 1;

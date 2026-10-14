@@ -1,5 +1,12 @@
 #include "gmresultplayer.h"
 
+#ifdef TARGET_PC
+#include <melee/ft/ftcustom.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/tobj.h>
+#endif
+
 #include <placeholder.h>
 
 #ifdef TARGET_PC
@@ -452,6 +459,44 @@ static inline void inline0(HSD_JObj* jobj, float f)
                     AOBJ_ARG_AF, f);
     HSD_JObjAnimAll(jobj);
 }
+
+#ifdef TARGET_PC
+/* Custom fighters (ftcustom.h) have no name plate or winner banner on the
+ * disc: put theirs over the base fighter's, each frame, after the texture
+ * animations have run. */
+static void resultsSetImage(HSD_JObj* jobj, HSD_ImageDesc* img)
+{
+    if (img != NULL && jobj != NULL && jobj->u.dobj != NULL && jobj->u.dobj->mobj != NULL &&
+        jobj->u.dobj->mobj->tobj != NULL)
+    {
+        jobj->u.dobj->mobj->tobj->imagedesc = img;
+        jobj->u.dobj->mobj->tobj->tlut = NULL;
+    }
+}
+
+static void resultsCustomBanner(void)
+{
+    ResultsData* data = &lbl_8046DBE8;
+    MatchEnd* me = fn_80174274();
+    int i;
+    /* Each panel's name plate and its player's stock icon. */
+    for (i = 0; i < 4; i++) {
+        if (me->player_standings[i].pkind == Gm_PKind_NA) {
+            continue;
+        }
+        resultsSetImage(data->player_data[i].jobjs[5], ftCustom_SlotImage(i, "ftUiName"));
+        resultsSetImage(data->player_data[i].jobjs[7], ftCustom_StockImage(i));
+    }
+    if (data->x30 != NULL && data->x30->u.dobj != NULL && data->x30->u.dobj->next != NULL) {
+        HSD_ImageDesc* img = ftCustom_SlotImage(data->x6, "ftUiBanner");
+        HSD_TObj* tobj = data->x30->u.dobj->next->mobj->tobj;
+        if (img != NULL && tobj != NULL) {
+            tobj->imagedesc = img;
+            tobj->tlut = NULL;
+        }
+    }
+}
+#endif
 
 void fn_80177748(void)
 {
@@ -1281,7 +1326,13 @@ static inline void fn_80179350_update(ResultsData* data, MatchEnd* match_end,
     } else if ((u32) data->x8 == 0x9A) {
         if (gm_WasMatchCanceled(match_end->outcome) != 0) {
             lbAudioAx_800237A8(0xC350, 0x7F, 0x40);
-        } else {
+        }
+#ifdef TARGET_PC
+        /* The announcer has no name for a custom fighter. */
+        else if (ftCustom_SlotImage(data->x6, "ftUiName") != NULL) {
+        }
+#endif
+        else {
             fn_80168E54(match_end->player_standings[data->x6].ckind,
                         match_end->player_standings[data->x6].ftkind,
                         match_end->player_standings[data->x6].team,
@@ -1295,6 +1346,9 @@ static inline void fn_80179350_update(ResultsData* data, MatchEnd* match_end,
         }
     } else {
         HSD_JObjAnimAll((HSD_JObj*) arg0->hsd_obj);
+#ifdef TARGET_PC
+        resultsCustomBanner();
+#endif
         switch (data->x1) {
         case 1: {
             ResultsData* d = &lbl_8046DBE8;
