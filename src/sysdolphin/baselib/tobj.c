@@ -171,6 +171,14 @@ static HSD_ImageDesc* TObjPinned(HSD_TObj* tobj)
     return NULL;
 }
 
+/* A scene's heap is dropped whole, without releasing its objects: forget
+ * every pin when one ends, or a new texture object at a freed one's address
+ * would get its (freed) image. */
+void HSD_TObjUnpinAll(void)
+{
+    s_n_pins = 0;
+}
+
 void HSD_TObjPinImage(HSD_TObj* tobj, HSD_ImageDesc* img)
 {
     int i;

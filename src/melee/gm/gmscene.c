@@ -2,6 +2,7 @@
 
 #ifdef TARGET_PC
 #include <melee/ft/ftcustom.h>
+#include <sysdolphin/baselib/tobj.h>
 #endif
 #ifdef TARGET_PC
 #include "pc/interp.h"
@@ -209,6 +210,7 @@ void gm_801A4B88(struct GameSceneInfo* info)
     }
     /* A new scene, a new heap: custom fighters' images reload into it. */
     ftCustom_UiReset();
+    HSD_TObjUnpinAll();
     /* Every scene is widened except the pre-rendered movies, which are
      * pillarboxed at their authored aspect, and the results screen: its
      * stat tags are parked as stacked pages just past the 4:3 left edge and

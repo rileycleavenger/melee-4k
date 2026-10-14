@@ -279,6 +279,8 @@ void HSD_TObjRemoveAnimAll(HSD_TObj* tobj);
 #ifdef TARGET_PC
 /* Keep img on tobj whatever its texture animation picks (NULL unpins). */
 void HSD_TObjPinImage(HSD_TObj* tobj, HSD_ImageDesc* img);
+/* Forget every pin (each scene change: the heap goes with its objects). */
+void HSD_TObjUnpinAll(void);
 #endif
 void HSD_TObjAddAnim(HSD_TObj* tobj, HSD_TexAnim* texanim);
 void HSD_TObjAddAnimAll(HSD_TObj* tobj, HSD_TexAnim* texanim);
