@@ -23,7 +23,13 @@ a list of `Move`s. `ctx` gives the base's skeleton and poses:
                              one), the base's effects (0x28) and model
                              swaps (0xA0) left out
     Move(motion, frames, keys=[(frame, Poser)], script=Script, flags=None,
-         translate=[joints with authored positions], also=[more motions])
+         translate=[joints with authored positions], also=[more motions],
+         root=False)
+
+`root=True` keeps the base animation's root motion: its TransN (joint 1)
+position track, time-scaled to the move's length, sampled every frame.
+Motions whose row flags have 0x80000000 move the fighter by it (up B
+recoveries, dash attacks, ledge attacks): without it they go nowhere.
 
 `motion` is the base's motion name ("Attack11" for PlyMario5K_Share_ACTION_
 Attack11_figatree); `also` gives other motions the same move replaces
@@ -58,6 +64,7 @@ class Move:
     flags: int = None
     translate: list = field(default_factory=list)
     also: list = field(default_factory=list)
+    root: bool = False
 
 
 class Ctx:
@@ -143,6 +150,13 @@ def tracks_for(ctx, move):
                 tr[name] = [(f, L[j][1][k]) for f, L in keys]
         if tr:
             out[j] = tr
+    if move.root:
+        base_frames, base = ctx.tracks(move.motion)
+        k = base_frames / move.frames
+        for t, name in ((5, "tx"), (6, "ty"), (7, "tz")):
+            keys = base.get(1, {}).get(t)
+            if keys:
+                out.setdefault(1, {})[name] = [(f, anim.sample(keys, f * k)) for f in range(move.frames + 1)]
     return out
 
 

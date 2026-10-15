@@ -74,6 +74,9 @@ inside Blender with globals as shown.
 | `validate.py PACK` | checks a pack (cfg, symbols, skeleton, weights, budgets, UI, textures) | `--base-dir $DEV/base/BASE --disc DISC`; exit 1 on errors |
 | `preview.py DISC PACKS ID OUT` | CPU matches screenshotted into `OUT/sheet.jpg` | `--costumes 0,1,2 --stages 32,31,3 --frames 900` |
 | `closeup.py DISC PACKS ID OUT` | the fighter idle in a match, paused: the pause camera zoomed in and turned round it, screenshots into `OUT/closeups.jpg` (frames `OUT/frame_*.png`, full 4K) | `--costume 0 --stage 32`; the in-game model, shading and textures up close |
+| `base_joints.py BASE_DIR` | the base's skeleton as a tree: joint numbers, positions, deforming or helper, guessed limb roles | before fit.py and moves.py |
+| `frame_data.py BASE_DIR [MOTION...]` | the base's frame data: length, hitboxes, timers, IASA, charge, throw frames per motion | before moves.py |
+| `melee_texture.py ALBEDO OUT [--ao] [--normal] [--strength]` | the Melee-ified costume's texture: AO and relief painted into the colour map | make_pack.sh runs it |
 | `play.py DISC PACKS ID OUT "SCRIPT"` | plays the fighter (human, port 1) from a key script against an idle base fighter: screenshots every `--every` frames into `OUT/sheet.jpg` (frames `OUT/frame_*.png`), and on a crash the exit code and log tails | script: `"Right 700, wait 300, X 50, wait 600, Up+Z 100, wait 2000"` (Z B, X A, V jump, arrows the stick, I/J/K/L the C-stick: smashes on the ground, aerials in the air); `--boot 8 --stage 32` |
 | `blender_retarget.py` | Blender: a rigged glTF moved onto the base's skeleton bone by bone, its weights summed onto the base's bones | see §6b |
 | `blender_fit_ai.py` | Blender: an image-to-3D mesh dressed with a primitive proxy's parts, paint and weights | see §6 |
@@ -246,8 +249,16 @@ unusable on a Mac without it.
 A model with its own skeleton (a game rip from The Models Resource, the
 user's own): its mesh, UVs and textures are used as they are.
 
+The character's `make_pack.sh` (templates/model/) runs this whole route;
+`./make_pack.sh --inspect` prints the model's objects, meshes, materials,
+textures and bones (position, parent, skinned vertex count), and
+`--check` renders the fitted model in every `poses/*.json`.
+
 1. Convert to glTF if needed (Blender 5 has no COLLADA importer):
-   `brew install assimp; assimp export Model.dae model.glb -f glb2`.
+   `brew install assimp; assimp export Model.dae model.glb -f glb2` (also
+   .fbx, .obj, .smd...). Textures: the model's PNG/TGA files beside it
+   (DDS: convert with PIL or `sips`); materials whose image is embedded
+   are written out by `save_textures`.
    assimp's .dae output can leave the meshes turned 90 deg about X from the
    bones: render the meshes alone, then set `SRC_MESH_ROT_X`.
 2. List the model's bones and which carry skin (a Blender script: bone
@@ -282,10 +293,21 @@ exec(open(f"{REPO}/tools/fighter/blender_retarget.py").read()); OBS = retarget()
 # then: material["hsd_texture"] per costume texture, blender_export_fighter.py
 ```
 
-A Melee-styled costume from the same model: fewer triangles (a Decimate
-modifier, weights quantised again) and the model's ambient occlusion and
-normal-map relief painted into its albedo (Melee bakes shading into
-textures).
+The two costumes (the user's rule): the Melee-ified one is
+`melee_mesh(OBS, ratio)` (decimated to ~3-4k triangles, weights quantised
+again) with `melee_texture.py` textures (the model's own AO map and normal
+map painted into its albedo, else `bake_ao(OBS, dir)` bakes AO into the
+texture's UV space); the other is the model's own mesh and textures.
+Rendered side by side they differ subtly; in the game the Melee-ified one
+reads chunkier and more contrasted. Raise `--strength` if asked for more.
+
+Models with **several textures** (body, face, eyes, hair): one object per
+material comes out of retarget(); each gets its own PNG. Textures with
+**alpha** (hair cards, eyelashes) keep it (build_dat.py stores RGB5A3);
+mark such materials `m["hsd_double_sided"] = True` if the model's cards
+are single sheets. Very high-poly models (>30k triangles): decimate the
+"as given" costume too (to ~10-15k), or the game's envelope limits
+(build_dat.py splits PObjs at 10 envelopes) cost draw calls.
 
 ## 6c. AssetFurnace (Pixal3D image-to-3D)
 
@@ -349,11 +371,11 @@ render with `blender_render_ui.py`'s `POSE`.
 ## 8. fighter.cfg
 
 ```
-id       Xx                 two letters, unused (SKILL.md)
-name     "NAME"             menus; <= 31 characters
+id       Xx                 two letters (below)
+name     "Name"             title case like Melee's door names; <= 31 characters
 base     Mr                 base fighter code
 symbol   PlyName5K          joint symbol stem (§3)
-costumes Nr Re Gr Bk        files Pl<id><C>.dat; first is the default; <= 8
+costumes Nr Bu              files Pl<id><C>.dat; first is the default (the Melee-ified one); <= 8
 teams    Re Nr Gr           optional: red, blue, green team costumes (default Re Bu Gr)
 moves    Name               optional: compiled specials (moves.md)
 voice    none               optional: none of the base fighter's voice clips (a silent character)
@@ -361,7 +383,13 @@ weight   0.95               optional multipliers on the base: weight walk dash
 jump     1.05                 jump gravity fall air (0.5-2 sensible)
 ```
 
-fighter.cfg and every costume file are hashed for online play (same packs
+**Ids.** A capital and a lower-case letter, not used by the disc's
+`Pl??.dat` files (`validate.py --disc` checks) or another pack. Taken on
+the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb Kp Lg Lk
+Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is Ganondorf); Ge is
+Geno's pack.
+
+fighter.cfg, motions.bin and every costume file are hashed for online play (same packs
 on both machines = custom fighters allowed; otherwise base fighters only).
 
 ## 9. The game's test knobs

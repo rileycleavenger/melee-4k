@@ -1,5 +1,10 @@
 # Fighter review checklist
 
+The three requirements first:
+- [ ] **Two costumes**: Nr the Melee-ified model (fewer triangles, shading painted in), the second the provided model as given; no others.
+- [ ] **Original moveset**: notes.md names a source for every slot; validate.py reports no motion left the base's; nothing of the base's moves shows in play.py sheets.
+- [ ] **Character select icon** indistinguishable in format from its neighbours (font, warm grey, size, spacing, bar, frame), checked in the game with the HD pack.
+
 Go through every line with images in front of you (renders, `preview.py`
 sheets, in-game screenshots). Note anything approximate in the report.
 

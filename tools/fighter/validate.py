@@ -228,6 +228,39 @@ def check_textures(d, r):
                 r.warn(f"textures/{f}: {w}x{h}, larger than 2048")
 
 
+# The moveset a custom fighter replaces (make-fighter: every attack, the
+# taunt and the specials' animations are its own).
+MOVESET = ("Attack11 Attack12 Attack13 AttackDash AttackS3S AttackS3Hi AttackS3Lw AttackHi3 AttackLw3 "
+           "AttackS4S AttackS4Hi AttackS4Lw AttackHi4 AttackLw4 AttackAirN AttackAirF AttackAirB "
+           "AttackAirHi AttackAirLw Appeal SpecialN SpecialAirN SpecialS SpecialSAir SpecialHi "
+           "SpecialAirHi SpecialLw SpecialAirLw").split()
+
+
+def check_motions(path, r):
+    """motions.bin (build_moves.py): readable, and which of the moveset's
+    motions still show the base's animation."""
+    import struct
+    if not os.path.exists(path):
+        r.warn("no motions.bin: every attack is the base's (build_moves.py)")
+        return []
+    data = open(path, "rb").read()
+    if data[:4] != b"M4MV" or struct.unpack(">I", data[4:8])[0] != 1:
+        r.error("motions.bin: not a version 1 M4MV file")
+        return []
+    names = []
+    for k in range(struct.unpack(">I", data[8:12])[0]):
+        name_off, anim, size, script, ssize, _ = struct.unpack(">6I", data[12 + 24 * k:36 + 24 * k])
+        names.append(data[name_off:data.index(b"\0", name_off)].decode())
+        if size and (anim + size > len(data) or size > 0x8000):
+            r.error(f"motions.bin: {names[-1]}: animation out of the file or over 0x8000 bytes")
+        if ssize and script + ssize > len(data):
+            r.error(f"motions.bin: {names[-1]}: script out of the file")
+    left = [m for m in MOVESET if m not in names]
+    if left:
+        r.warn("motions.bin leaves the base's: " + " ".join(left))
+    return names
+
+
 def disc_names(disc):
     sys.path.insert(0, os.path.join(HERE, "..", "textures"))
     from extract import Disc  # noqa: E402
@@ -275,10 +308,12 @@ def main():
         counts[c] = check_costume(p, cfg, c, base_skel, r)
     check_ui(os.path.join(a.pack, f"Pl{pid}Ui.dat"), cfg, r)
     check_textures(os.path.join(a.pack, "textures"), r)
+    motions = check_motions(os.path.join(a.pack, "motions.bin"), r)
 
     print(f"{pid} \"{cfg.get('name', pid)}\" on {cfg.get('base')}: {len(cfg['costumes'])} costume(s) "
           + ", ".join(f"{c} ~{n} tris" for c, n in counts.items() if n is not None)
-          + (f", moves {cfg['moves']}" if "moves" in cfg else ""))
+          + (f", moves {cfg['moves']}" if "moves" in cfg else "")
+          + (f", {len(motions)} own motions" if motions else ""))
     for w in r.warnings:
         print(f"warning: {w}")
     for e in r.errors:

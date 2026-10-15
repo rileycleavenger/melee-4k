@@ -17,6 +17,9 @@ relaxed pose, on a transparent background, with Cycles:
     CSP_POSE = {...}                                  # optional: the portrait's pose;
                                                       # or a game pose dump (MELEE_DUMP_POSE)
     exec(open(".../blender_render_ui.py").read())
+
+CHECK_POSES (game pose dumps) adds check_<pose>.png sheets; CHECK_ONLY = True
+renders only those.
 """
 import math
 import os
@@ -143,7 +146,8 @@ def pose(spec):
 
 
 lights()
-for n, over in enumerate(COSTUMES):
+# CHECK_ONLY: only the CHECK_POSES sheets, no menu images.
+for n, over in enumerate([] if globals().get("CHECK_ONLY") else COSTUMES):
     set_costume(over)
     # Portrait: the character select door's picture, Melee-HD sized
     # (544x752 for the disc's 136x188): big, in CSP_POSE, the upper body

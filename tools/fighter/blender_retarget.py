@@ -31,7 +31,13 @@ ready for blender_export_fighter.py. Run blender_import_base.py first.
     OFFSET = {"Head": (0, 0.3, 0)}  # game units added to a bone's target
     WEIGHT_STEP = 0.1; MAX_BONES = 3   # quantise weights (few envelopes)
     NAME = "Fx"                 # object/material name prefix
-    exec(open(".../blender_retarget.py").read()); OBS = retarget()
+    exec(open("./blender_retarget.py").read()); OBS = retarget()
+
+Then `save_textures(OBS, dir)` writes every material's image as a PNG
+(embedded ones too) and sets it as the material's texture for the
+exporter; `bake_ao(OBS, dir)` bakes ambient occlusion into those images'
+UV space for a model without an AO map (melee_texture.py);
+`melee_mesh(OBS, 0.6)` decimates the meshes for the Melee-ified costume.
 
 Bones not in MAP follow their nearest mapped ancestor (rigidly) and weight
 to its joint. Game space is Y up, +Z front; the model is taken as glTF
@@ -170,6 +176,17 @@ def retarget():
             print(f"{ob.name}: {unmapped} vertices on no mapped bone, removed")
         bmesh.ops.delete(bm, geom=dead, context="VERTS")
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4 * SCALE)
+        # Each face's UVs into the 0-1 tile (models often use another;
+        # the game clamps, and bakes only see 0-1).
+        import math
+        uvl = bm.loops.layers.uv.active
+        if uvl is not None:
+            for f in bm.faces:
+                for k in (0, 1):
+                    lo = math.floor(min(l[uvl].uv[k] for l in f.loops) + 1e-4)
+                    if lo:
+                        for l in f.loops:
+                            l[uvl].uv[k] -= lo
         bm.to_mesh(me)
         bm.free()
         bpy.data.objects.remove(tmp)
@@ -208,3 +225,97 @@ def retarget():
     print(f"retargeted {len(out)} meshes, {n} faces onto {skel.name}")
     return out
 
+
+
+def save_textures(obs, out_dir):
+    """Each mesh's material image as a PNG in out_dir (glTF models often
+    embed theirs), set as the material's hsd_texture. Returns {material
+    name: png path}. Materials sharing an image share the file."""
+    import os
+    os.makedirs(out_dir, exist_ok=True)
+    out, done = {}, {}
+    for o in obs.values():
+        for m in o.data.materials:
+            img = next((n.image for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image), None) \
+                if m.use_nodes else None
+            if img is None:
+                raise SystemExit(f"material {m.name} has no image texture")
+            if img.name not in done:
+                path = os.path.join(out_dir, bpy.path.clean_name(os.path.splitext(img.name)[0]) + ".png")
+                if img.filepath and os.path.exists(bpy.path.abspath(img.filepath)) and \
+                        bpy.path.abspath(img.filepath).lower().endswith(".png"):
+                    import shutil
+                    shutil.copyfile(bpy.path.abspath(img.filepath), path)
+                else:
+                    img.filepath_raw = path
+                    img.file_format = "PNG"
+                    img.save()
+                done[img.name] = path
+            m["hsd_texture"] = done[img.name]
+            out[m.name] = done[img.name]
+    return out
+
+
+def bake_ao(obs, out_dir, size=1024, samples=64):
+    """Ambient occlusion baked into each material image's UV space, for a
+    model that has no AO map (melee_texture.py --ao). One PNG per image
+    (out_dir/<image>_ao.png), in the bind pose. Returns {image path: ao
+    path} for the images save_textures wrote."""
+    import os
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = samples
+    groups = {}
+    for o in obs.values():
+        for m in o.data.materials:
+            groups.setdefault(m["hsd_texture"], set()).add(o)
+    out = {}
+    for tex, objs in groups.items():
+        img = bpy.data.images.new(os.path.basename(tex) + "_ao", size, size)
+        nodes = []
+        for o in objs:
+            for m in o.data.materials:
+                n = m.node_tree.nodes.new("ShaderNodeTexImage")
+                n.image = img
+                m.node_tree.nodes.active = n
+                nodes.append((m, n))
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in objs:
+            o.select_set(True)
+            o.hide_render = False
+        bpy.context.view_layer.objects.active = next(iter(objs))
+        bpy.ops.object.bake(type="AO", margin=8)
+        path = os.path.join(out_dir, os.path.basename(tex).rsplit(".", 1)[0] + "_ao.png")
+        img.filepath_raw = path
+        img.file_format = "PNG"
+        img.save()
+        for m, n in nodes:
+            m.node_tree.nodes.remove(n)
+        out[tex] = path
+    return out
+
+
+def melee_mesh(obs, ratio=0.6, step=0.1, max_bones=3):
+    """The Melee-ified costume's mesh: each mesh decimated to `ratio` of
+    its triangles (Melee's 1-4k budget for a ~5-15k model), UV seams kept,
+    weights quantised again (decimation blends them; few distinct
+    envelopes keep the game's skinning right). In place."""
+    for o in obs.values():
+        bpy.context.view_layer.objects.active = o
+        d = o.modifiers.new("Decimate", "DECIMATE")
+        d.ratio = ratio
+        o.modifiers.move(len(o.modifiers) - 1, 0)
+        bpy.ops.object.modifier_apply(modifier="Decimate")
+        for v in o.data.vertices:
+            ws = sorted(((g.group, g.weight) for g in v.groups if g.weight > 0), key=lambda t: -t[1])[:max_bones]
+            if not ws:
+                continue
+            s = sum(w for _, w in ws)
+            q = [(gi, round(w / s / step) * step) for gi, w in ws]
+            q = [t for t in q if t[1] > 0] or [ws[0]]
+            q[0] = (q[0][0], q[0][1] + 1.0 - sum(w for _, w in q))
+            for g in list(v.groups):
+                o.vertex_groups[g.group].remove([v.index])
+            for gi, w in q:
+                o.vertex_groups[gi].add([v.index], w, "REPLACE")
+    print(f"melee mesh: {sum(len(o.data.polygons) for o in obs.values())} faces")
