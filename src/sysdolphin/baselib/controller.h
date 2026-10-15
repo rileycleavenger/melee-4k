@@ -42,16 +42,8 @@ typedef enum _HSD_FlushType {
     HSD_PAD_FLUSH_QUEUE_TERMINATE,
 } HSD_FlushType;
 
-/* The pads read each frame: the GameCube's four, and on PC four more for an
- * 8-player match's fifth to eighth players (PAD_PC_PORTS). */
-#ifdef TARGET_PC
-#define HSD_PAD_PORTS PAD_PC_PORTS
-#else
-#define HSD_PAD_PORTS 4
-#endif
-
 struct HSD_PadData {
-    PADStatus stat[HSD_PAD_PORTS];
+    PADStatus stat[4];
 };
 
 struct HSD_PadStatus {
@@ -112,17 +104,17 @@ struct PadLibData {
     /*0x2C*/ struct RumbleInfo rumble_info;
 };
 
-extern HSD_PadStatus HSD_PadMasterStatus[HSD_PAD_PORTS];
+extern HSD_PadStatus HSD_PadMasterStatus[4];
 #ifdef TARGET_PC
 /* The main stick's X as the queue delivered it, before the octagon clamp,
  * for the master and game status of each port. UCF's dashback reads the
  * raw stick (a flick past the 80-unit rim measures longer than its clamped
  * value), and this is where the raw value still exists. */
-extern s8 pc_pad_master_raw_x[HSD_PAD_PORTS];
-extern s8 pc_pad_game_raw_x[HSD_PAD_PORTS];
+extern s8 pc_pad_master_raw_x[4];
+extern s8 pc_pad_game_raw_x[4];
 #endif
-extern HSD_PadStatus HSD_PadGameStatus[HSD_PAD_PORTS];
-extern HSD_PadStatus HSD_PadCopyStatus[HSD_PAD_PORTS];
+extern HSD_PadStatus HSD_PadGameStatus[4];
+extern HSD_PadStatus HSD_PadCopyStatus[4];
 
 static inline float HSD_PadGetNmlStickY(u8 slot)
 {

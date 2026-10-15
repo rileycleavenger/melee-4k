@@ -1636,7 +1636,7 @@ public:
             return;
         }
         if (id == "pad-port") {
-            pad_port = (pad_port + 1) % PAD_PC_PORTS; /* 8: an 8-player match's pads */
+            pad_port = (pad_port + 1) % 4;
             binding = -1;
             lbAudioAx_80024030(SFX_CONFIRM);
             refresh_bindings();
