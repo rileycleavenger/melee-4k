@@ -160,7 +160,8 @@ def check_costume(path, cfg, costume, base_skel, r):
         return
     seen = set()
     for m in meshes:
-        key = (m["dobj"], m["pobj"]) if "dobj" in m and "pobj" in m else id(m)
+        # A mesh in several slots (low detail, every state) is one PObj.
+        key = m.get("pobj_at", id(m))
         if key in seen:
             continue
         seen.add(key)
@@ -171,8 +172,7 @@ def check_costume(path, cfg, costume, base_skel, r):
                     r.error(f"{name}: a vertex's weights sum to {w:.3f}")
                     break
         tris += len(m["tris"])
-    # The base's low-detail slots repeat the meshes: count what one table shows.
-    shown = tris // 2 if tris else 0
+    shown = tris
     if not TRI_WARN[0] <= shown <= TRI_WARN[1]:
         r.warn(f"{name}: ~{shown} triangles drawn, outside {TRI_WARN[0]}-{TRI_WARN[1]}")
     for w, h in textures:

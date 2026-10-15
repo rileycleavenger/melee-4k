@@ -188,6 +188,6 @@ def read_meshes(a, skel, joint_sym):
                             nrm = apply(w, nrm, 0.0)
                         tv.append({"pos": pos, "nrm": nrm, "uv": uv, "weights": weights})
                     tris.append(tv)
-                out.append({"dobj": dobj_index, "pobj": pi, "texture": tex, "tris": tris})
+                out.append({"dobj": dobj_index, "pobj": pi, "pobj_at": p["at"], "texture": tex, "tris": tris})
             dobj_index += 1
     return out
