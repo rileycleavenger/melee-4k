@@ -586,6 +586,26 @@ builder gives every joint the base's animations move a track); animation
 archives over 0x8000 bytes do not fit the game's buffer.
 
 
+## 11b. A part shown only in some moves (a tongue, a weapon drawn)
+
+Skin the part to a joint none of the base's animations move (find one:
+print which joints have tracks across the base's figatrees; Jigglypuff's
+J11), wholly (every vertex of the part's loose piece: fit.py), place it with
+the body (`WEIGHT_AS` while its bones FOLLOW the body). `build_dat.py
+--hide-joints J11` (both costumes in make_pack.sh) rests it at scale ~0;
+in moves.py every Move gets `scale=[11]` and its keys set
+`p.locals[11][1]` to 1 inside the moves' windows and ~0 elsewhere, with a
+hidden key the frame before and after each window (crisp edges).
+
+## 11c. Grabs
+
+A custom fighter on Link or Young Link has no hookshot: the grab code asks
+`ftCustom_GrabKind` and treats it as an ordinary grabber, so its Catch,
+CatchDash (catch-element hitboxes, `k.hit(..., element="catch")` on the
+base's Catch script), CatchWait and CatchAttack are its own (Yoda's Force
+grab). Other bases' grabs are already ordinary: give them the character's
+own animations the same way.
+
 ## 12. Effects (`vfx.cfg`, `src/melee/ft/ftcustomvfx.c`)
 
 Each pack's own effects, one per line, drawn by the game from the
