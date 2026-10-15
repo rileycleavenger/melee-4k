@@ -462,7 +462,11 @@ void ftPr_Init_8013C360(HSD_GObj* gobj)
     HSD_Joint** joints = ft_8045A1E0;
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (ftPr_Init_803D05B4[fp->costume_id]) {
+    /* PC: costumes past the retail five (custom fighters' costumes on
+     * Jigglypuff, src/melee/ft/ftcustom.c) wear no hat; the table ends at 5. */
+    if (fp->costume_id < sizeof ftPr_Init_803D05B4 / sizeof ftPr_Init_803D05B4[0] &&
+        ftPr_Init_803D05B4[fp->costume_id])
+    {
         /// @todo clean up memory accesses - this looks similar to
         /// ftKb_SpecialN_800EFB4C
         DiscU32* items = DP(DiscU32, fp->ft_data->x48_items);

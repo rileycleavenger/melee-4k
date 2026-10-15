@@ -10,9 +10,25 @@
 #include "inlines.h"
 #include "types.h"
 
+#include "ft_081B.h"
+#include "ft_084E.h"
+#include "ft_0892.h"
+#include "ftanim.h"
+#include "ftcommon.h"
+#include "kinds/ftCommon/ftCo_Fall.h"
+#include "kinds/ftCommon/ftCo_FallSpecial.h"
+#include "kinds/ftCommon/ftCo_Landing.h"
+#include "kinds/ftCommon/inlines.h"
+
 #include "pc/fighter_pack.h"
 #include "pc/pc.h"
 
+#include <melee/ef/efsync.h>
+#include <melee/ft/ftcolanim.h>
+#include <melee/it/kinds/itlgunray.h>
+#include <melee/it/kinds/itstarrodstar.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_0219.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/jobj.h>
@@ -38,7 +54,19 @@ static struct {
 
 /* Every custom fighter's compiled moves, by the name fighter.cfg uses. */
 extern const FtCustomMoves ftGe_Moves;
-static const FtCustomMoves* const k_moves[] = { &ftGe_Moves };
+extern const FtCustomMoves ftSh_Moves;
+extern const FtCustomMoves ftWa_Moves;
+extern const FtCustomMoves ftTh_Moves;
+extern const FtCustomMoves ftFr_Moves;
+extern const FtCustomMoves ftOp_Moves;
+extern const FtCustomMoves ftYo_Moves;
+extern const FtCustomMoves ftKr_Moves;
+extern const FtCustomMoves ftKg_Moves;
+extern const FtCustomMoves ftCr_Moves;
+static const FtCustomMoves* const k_moves[] = {
+    &ftGe_Moves, &ftSh_Moves, &ftWa_Moves, &ftTh_Moves, &ftFr_Moves,
+    &ftOp_Moves, &ftYo_Moves, &ftKr_Moves, &ftKg_Moves, &ftCr_Moves,
+};
 
 /* The base fighter's own special entries, for the fighters not wearing a
  * custom costume with moves: the tables below are shared by all of them. */
@@ -389,6 +417,145 @@ void ftCustom_Motions(Fighter* fp)
     fp->x24 = rows;
 }
 
+/* ---- generic special moves (ftcustom.h FtCustomSpecial) ---------------- */
+
+static const FtCustomSpecial* s_special[8];
+
+static const FtCustomSpecial* special_of(Fighter* fp)
+{
+    return fp->player_idx < 8 ? s_special[fp->player_idx] : NULL;
+}
+
+static void special_install(Fighter_GObj* gobj);
+
+static void special_anim(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const FtCustomSpecial* d = special_of(fp);
+    if (ftAnim_IsFramesRemaining(gobj)) {
+        return;
+    }
+    s_special[fp->player_idx] = NULL;
+    if (fp->ground_or_air == GA_Ground) {
+        ft_8008A2BC(gobj);
+    } else if (d != NULL && d->helpless) {
+        ftCo_80096900(gobj, 0, 1, 0, d->mobility, d->landing_lag);
+    } else {
+        ftCo_Fall_Enter(gobj);
+    }
+}
+
+static void special_phys(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const FtCustomSpecial* d = special_of(fp);
+    if (fp->ground_or_air == GA_Ground) {
+        if (d != NULL && d->root_motion) {
+            ft_80084FA8(gobj);
+        } else {
+            ft_80084F3C(gobj);
+        }
+    } else if (d != NULL && d->root_motion) {
+        ft_80085154(gobj);
+    } else if (d == NULL || d->gravity == 1.0F) {
+        ft_80084DB0(gobj);
+    } else {
+        ftCommon_Fall(fp, fp->co_attrs.gravity * d->gravity, fp->co_attrs.terminal_velocity);
+        ftCommon_CalcSelfAccel_DeaccelQuickAir(fp);
+    }
+}
+
+static void special_landing(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const FtCustomSpecial* d = special_of(fp);
+    s_special[fp->player_idx] = NULL;
+    ftCo_LandingFallSpecial_Enter(gobj, false, d != NULL ? d->landing_lag : 10.0F);
+}
+
+#define SPECIAL_MF (Ft_MF_SkipColAnim | Ft_MF_UpdateCmd)
+
+static void special_coll(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const FtCustomSpecial* d = special_of(fp);
+    if (d == NULL) {
+        return;
+    }
+    if (fp->ground_or_air == GA_Ground) {
+        if (!ft_80082708(gobj)) {
+            ftCommon_GroundToAirStateChange(gobj, fp, d->msid_air, SPECIAL_MF);
+            special_install(gobj);
+        }
+    } else if (d->helpless) {
+        if (fp->self_vel.y >= 0.0F) {
+            ft_80083B68(gobj);
+        } else {
+            ft_800831CC(gobj, &ftCo_80096CC8, &special_landing);
+        }
+    } else if (ft_80081D0C(gobj)) {
+        ftCommon_AirToGroundStateChange(gobj, fp, d->msid_ground, SPECIAL_MF);
+        special_install(gobj);
+    }
+}
+
+static void special_install(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->anim_cb = special_anim;
+    fp->input_cb = NULL;
+    fp->phys_cb = special_phys;
+    fp->coll_cb = special_coll;
+}
+
+void ftCustom_SpecialEnter(Fighter_GObj* gobj, const FtCustomSpecial* d)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const bool air = fp->ground_or_air == GA_Air || d->vel_y > 0.0F;
+    if (fp->player_idx >= 8) {
+        return;
+    }
+    fp->cmd_vars[0] = 0;
+    fp->throw_flags = 0;
+    if (air && fp->ground_or_air == GA_Ground) {
+        ftCommon_8007D60C(fp);
+    }
+    Fighter_ChangeMotionState(gobj, air ? d->msid_air : d->msid_ground, Ft_MF_None, 0, 1, 0, NULL);
+    ftAnim_8006EBA4(gobj);
+    s_special[fp->player_idx] = d;
+    special_install(gobj);
+    if (d->vel_x != 0.0F || d->vel_y != 0.0F) {
+        fp->self_vel.x = d->vel_x * fp->facing_dir;
+        fp->self_vel.y = d->vel_y;
+        if (!air) {
+            fp->gr_vel = d->vel_x * fp->facing_dir; /* a slide: friction slows it */
+        }
+    }
+}
+
+const FtCustomSpecial* ftCustom_SpecialActive(Fighter* fp)
+{
+    const FtCustomSpecial* d = special_of(fp);
+    if (d == NULL) {
+        return NULL;
+    }
+    /* Left by anything else (hit, grabbed...): not in the move. */
+    if (fp->motion_id != d->msid_ground && fp->motion_id != d->msid_air) {
+        s_special[fp->player_idx] = NULL;
+        return NULL;
+    }
+    return d;
+}
+
+bool ftCustom_SpecialEvent(Fighter* fp)
+{
+    if (ftCustom_SpecialActive(fp) == NULL || !fp->throw_flags_b0) {
+        return false;
+    }
+    fp->throw_flags_b0 = false;
+    return true;
+}
+
 void ftCustom_ApplyAttrs(Fighter* fp)
 {
     const int p = ftCustom_Pack(fp->kind, fp->costume_id);
@@ -466,9 +633,83 @@ static void dump_pose(Fighter* fp)
     fclose(f);
 }
 
+/* FtCustomFx: what the special does on this frame. The armour is set and
+ * cleared here only for fighters whose moves asked for it. */
+static bool s_fx_armor[8], s_fx_vanish[8];
+
+static bool fx_part_pos(Fighter* fp, int part, Vec3* pos)
+{
+    FighterBone* bone = ftParts_GetBone(fp, (Fighter_Part) part);
+    if (bone == NULL || bone->joint == NULL) {
+        return false;
+    }
+    lb_8000B1CC(bone->joint, NULL, pos);
+    return true;
+}
+
+static void fx_frame(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    const FtCustomSpecial* d = fp->player_idx < 8 ? ftCustom_SpecialActive(fp) : NULL;
+    const FtCustomFx* fx = d != NULL ? d->fx : NULL;
+    const int f = (int) fp->cur_anim_frame;
+    Vec3 pos;
+    if (fp->player_idx >= 8) {
+        return;
+    }
+    if (s_fx_armor[fp->player_idx] && (fx == NULL || fx->armor <= 0.0F)) {
+        fp->dmg.armor0 = 0.0F;
+        s_fx_armor[fp->player_idx] = false;
+    }
+    if (s_fx_vanish[fp->player_idx] && (fx == NULL || fx->vanish_end <= fx->vanish_start)) {
+        fp->invisible = false;
+        s_fx_vanish[fp->player_idx] = false;
+    }
+    if (fx == NULL) {
+        return;
+    }
+    if (fx->armor > 0.0F) {
+        fp->dmg.armor0 = fx->armor;
+        s_fx_armor[fp->player_idx] = true;
+    }
+    if (fx->shot != FT_CUSTOM_SHOT_NONE && f == fx->shot_frame && fx_part_pos(fp, fx->shot_part, &pos)) {
+        if (fx->shot == FT_CUSTOM_SHOT_RAY) {
+            it_80298168(gobj, &pos, fp->facing_dir);
+        } else {
+            it_802988E4(gobj, &pos, 1, fp->facing_dir);
+        }
+    }
+    if (fx->vanish_end > fx->vanish_start) {
+        fp->invisible = f >= fx->vanish_start && f < fx->vanish_end;
+        s_fx_vanish[fp->player_idx] = true;
+        if (fp->invisible) {
+            if (fp->ground_or_air == GA_Ground) {
+                fp->gr_vel = fx->vanish_vx * fp->facing_dir;
+            } else {
+                fp->self_vel.x = fx->vanish_vx * fp->facing_dir;
+                fp->self_vel.y = fx->vanish_vy;
+            }
+        }
+    }
+    if (fx->spark_every > 0 && f >= fx->spark_from && f <= fx->spark_to &&
+        (f - fx->spark_from) % fx->spark_every == 0 && fx_part_pos(fp, fx->spark_part, &pos))
+    {
+        efSync_Spawn(fx->spark_ef != 0 ? fx->spark_ef : Ef_Id_Unk1001, NULL, &pos);
+    }
+    if (fx->flash_frame > 0 && f == fx->flash_frame) {
+        lbBgFlash_80021C48(4, 0);
+        if (fx->flash_colanim > 0) {
+            ftCo_800BFFD0(fp, fx->flash_colanim, false);
+        }
+    }
+}
+
 void ftCustom_Frame(Fighter_GObj* gobj)
 {
     const FtCustomMoves* m = ftCustom_Moves(GET_FIGHTER(gobj));
+    if (m != NULL) {
+        fx_frame(gobj);
+    }
     if (ftCustom_Pack(GET_FIGHTER(gobj)->kind, GET_FIGHTER(gobj)->costume_id) >= 0) {
         dump_pose(GET_FIGHTER(gobj));
     }
@@ -479,6 +720,11 @@ void ftCustom_Frame(Fighter_GObj* gobj)
 
 void ftCustom_Reset(Fighter* fp)
 {
+    if (fp->player_idx < 8 && (s_fx_armor[fp->player_idx] || s_fx_vanish[fp->player_idx])) {
+        fp->dmg.armor0 = 0.0F;
+        fp->invisible = false;
+        s_fx_armor[fp->player_idx] = s_fx_vanish[fp->player_idx] = false;
+    }
     const FtCustomMoves* m = ftCustom_Moves(fp);
     if (m != NULL && m->on_reset != NULL) {
         m->on_reset(fp);

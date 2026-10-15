@@ -320,7 +320,7 @@ static void tile_text(float* img, const char* text, float x0, float y0, float x1
     free(cov);
 }
 
-static void render_tile(bool on, u8* texels) {
+static void render_tile(const char* word, bool on, u8* texels) {
     float* img = calloc(TILE_W * TILE_H * 4, sizeof(float));
     const float fw = 10.0f, rad = 22.0f, bar0 = 0.735f * TILE_H;
     for (int y = 0; y < TILE_H; y++) {
@@ -360,7 +360,7 @@ static void render_tile(bool on, u8* texels) {
     const float green[3] = {120 / 255.0f, 236 / 255.0f, 120 / 255.0f};
     const float off[3] = {150 / 255.0f, 150 / 255.0f, 156 / 255.0f};
     tile_text(img, "CUSTOM", 26, bar0 + 12, TILE_W - 26, TILE_H - fw - 10, grey, dark, 0.0f);
-    tile_text(img, on ? "ON" : "OFF", 40, 40, TILE_W - 40, bar0 - 26, on ? green : off, dark, OUTLINE);
+    tile_text(img, word, 40, 40, TILE_W - 40, bar0 - 26, on ? green : off, dark, OUTLINE);
     /* GX RGBA8: 4x4 tiles of AR pairs, then GB pairs */
     for (int ty = 0; ty < TILE_H; ty += 4) {
         for (int tx = 0; tx < TILE_W; tx += 4) {
@@ -387,15 +387,28 @@ static void render_tile(bool on, u8* texels) {
 }
 
 HSD_ImageDesc* pc_menu_toggle_tile(bool on) {
-    static HSD_ImageDesc desc[2];
-    static u8* texels[2];
-    const int i = on ? 1 : 0;
+    return pc_menu_page_tile(on ? 1 : 0, 1);
+}
+
+HSD_ImageDesc* pc_menu_page_tile(int page, int pages) {
+    /* 0: OFF; with one page: ON; else "page/pages" (up to 7 pages). */
+    static HSD_ImageDesc desc[64];
+    static u8* texels[64];
+    const int i = pages <= 1 ? (page ? 1 : 0) : page == 0 ? 0 : (pages * 8 + page) & 63;
+    char word[8];
     if (!load_font()) {
         return NULL;
     }
     if (texels[i] == NULL) {
         texels[i] = malloc((size_t)TILE_W * TILE_H * 4);
-        render_tile(on, texels[i]);
+        if (page == 0) {
+            snprintf(word, sizeof word, "OFF");
+        } else if (pages <= 1) {
+            snprintf(word, sizeof word, "ON");
+        } else {
+            snprintf(word, sizeof word, "%d/%d", page, pages);
+        }
+        render_tile(word, page != 0, texels[i]);
         DP_SET(desc[i].image_ptr, texels[i]);
         desc[i].width = TILE_W;
         desc[i].height = TILE_H;

@@ -91,6 +91,7 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
     memset(pk, 0, sizeof *pk);
     snprintf(pk->dir, sizeof pk->dir, "%s", dir);
     pk->weight = pk->walk = pk->dash = pk->jump = pk->gravity = pk->fall = pk->air = 1.0f;
+    pk->order = 100;
     snprintf(pk->team[0], sizeof pk->team[0], "Re");
     snprintf(pk->team[1], sizeof pk->team[1], "Bu");
     snprintf(pk->team[2], sizeof pk->team[2], "Gr");
@@ -129,6 +130,8 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
             snprintf(pk->symbol, sizeof pk->symbol, "%s", val);
         } else if (strcmp(key, "moves") == 0) {
             snprintf(pk->moves, sizeof pk->moves, "%s", val);
+        } else if (strcmp(key, "order") == 0) {
+            pk->order = atoi(val);
         } else if (strcmp(key, "voice") == 0) {
             pk->mute = strcmp(val, "none") == 0;
         } else {
@@ -265,8 +268,14 @@ static int add_files(PcFighterPack* pk, AuroraOverlayFile* files, char (*names)[
     return n;
 }
 
-static int by_id(const void* a, const void* b) {
-    return strcmp(((const PcFighterPack*)a)->id, ((const PcFighterPack*)b)->id);
+/* Pack order: fighter.cfg's "order", then the id. */
+static int by_order(const void* a, const void* b) {
+    const PcFighterPack* x = (const PcFighterPack*)a;
+    const PcFighterPack* y = (const PcFighterPack*)b;
+    if (x->order != y->order) {
+        return x->order < y->order ? -1 : 1;
+    }
+    return strcmp(x->id, y->id);
 }
 
 void pc_fighter_packs_init(void) {
@@ -301,7 +310,7 @@ void pc_fighter_packs_load(const char* root) {
     if (s_count == 0) {
         return;
     }
-    qsort(s_packs, (size_t)s_count, sizeof s_packs[0], by_id);
+    qsort(s_packs, (size_t)s_count, sizeof s_packs[0], by_order);
     static AuroraOverlayFile files[PC_FIGHTER_PACKS_MAX * (PC_FIGHTER_COSTUMES_MAX + 1)];
     static char names[PC_FIGHTER_PACKS_MAX * (PC_FIGHTER_COSTUMES_MAX + 1)][32];
     static char paths[PC_FIGHTER_PACKS_MAX * (PC_FIGHTER_COSTUMES_MAX + 1)][600];

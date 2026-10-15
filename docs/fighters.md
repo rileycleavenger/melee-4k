@@ -24,14 +24,16 @@ Put the pack's folder (for example `Ge/`, with `fighter.cfg` in it) into
   `%APPDATA%\melee-pc\fighters\` on Windows).
 
 For testing, `MELEE_FIGHTERS_DIR=/path/to/packs` is used instead of both.
-Up to 4 packs load, each with up to 8 costumes. The log says what loaded
+Up to 16 packs load, each with up to 8 costumes. The log says what loaded
 (`fighters: Ge "GENO" on Mr, 5 costume(s)`, and `fighters: Ge is Mr
 costumes 5-9`).
 
 ## In the game
 
-- **Character select.** Each custom fighter gets an icon to the right of
-  the bottom row (one at present). Picking it shows its portrait and name;
+- **Character select.** Custom fighters get icons in six free places of
+  the grid (right of each row, under Falco, left of him), in pack order
+  (`order` in fighter.cfg, then the id). With more than six, the **CUSTOM**
+  tile pages through them (OFF, 1/2, 2/2...). Picking one shows its portrait and name;
   X/Y cycle its costumes. In team battles it wears the costumes its
   `teams` line names. Random never picks a custom fighter. The **CUSTOM**
   switch left of the top row turns custom fighters off and on (saved as
@@ -86,7 +88,7 @@ online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
 - **Pack loading** (`src/pc/fighter_pack.c`). This parses each
   `fighter.cfg`. It then puts every pack file on the game's virtual disc
   (aurora DVD overlay files), so the game opens `/PlGeNr.dat` as though
-  it were on the disc. It also hashes the packs in id order.
+  it were on the disc. It also hashes the packs in pack order (fighter.cfg's `order`, then the id).
 - **Costumes** (`src/melee/ft/ftcustom.c`). This extends the base fighter's
   costume list and costume-string table with the pack's costumes (Geno is
   Mario's costumes 5 and up). The fighter's kind stays the base's, so every
@@ -102,7 +104,14 @@ online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
   entries with shims. Each shim calls the custom fighter's function if the
   fighter wears a costume whose pack has moves, and otherwise the base's.
   Attributes are multiplied where the game copies them from the data file
-  (`ftchangeparam.c`).
+  (`ftchangeparam.c`). Most specials are data: `FtCustomSpecial` (the
+  base's motion rows, entry velocity, gravity, a helpless fall) and
+  `FtCustomFx` (a shot from a body part, a vanish window, sparks, a flash,
+  armour), run by `ftCustom_SpecialEnter` and `ftCustom_Frame`.
+- **Bases with costume tables.** A costume past the base's retail ones
+  must not index the base's own per-costume tables: Jigglypuff's hats are
+  bounded (`ftpurin.c`); `build_dat.py` writes an empty eye animation
+  where the base's costumes need one (Captain Falcon, Ganondorf, Samus).
 - **Menus** (`mncharsel.c`, `ifstock.c`, `gmresultplayer.c`). These load
   `Pl<id>Ui.dat` into the screen's heap and pin its images on the right
   texture objects (`HSD_TObjPinImage`, `src/sysdolphin/baselib/tobj.c`):

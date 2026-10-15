@@ -2296,12 +2296,18 @@ s32 mnCharSel_8025FDEC(u8 door)
  * the pack's first costume; X and Y then cycle the pack's costumes; the
  * door shows the pack's name and portrait for them. Everything here
  * follows the hands, so it is the same on every machine online. */
-/* The bottom row's right corner, otherwise a random pick; the left corner
- * stays random. */
-#define CSS_CUSTOM_MAX 1
+/* Six slots for custom icons, all on screen in 4:3: the bottom row's right
+ * corner (otherwise a random pick; the left one stays random), the three
+ * rows one column right of the grid, the middle and bottom rows one column
+ * left (the CUSTOM switch has the top). More custom fighters go on pages
+ * of six: the switch steps OFF, 1/2, 2/2... The same layout on every
+ * screen shape, so online every hand picks the same fighter. */
+#define CSS_CUSTOM_MAX 12
+#define CSS_SLOTS 6
 
 typedef struct CssCustom {
     int pack;
+    int page;         /* 1.. */
     u8 base_icon;     /* icons[] index of the base fighter */
     HSD_JObj* icon;   /* the copied grid icon */
     HSD_JObj* frame;  /* its parent: a copy of Roy's icon's parent */
@@ -2313,9 +2319,13 @@ typedef struct CssCustom {
 static CssCustom css_custom[CSS_CUSTOM_MAX];
 static int css_n_custom;
 
-/* Roy's icon moved right by one column (the icon columns are 7.0 apart,
- * ICONBNDS_COL*). */
-static const f32 css_custom_dx[CSS_CUSTOM_MAX] = { 7.0F };
+/* Each slot as Roy's icon moved by whole columns (7.0 apart, ICONBNDS_COL*)
+ * and rows up from his: right of each row, then under Falco and left of
+ * him. Rows are 7.0 apart in the bounds (ICONROWHT_*) but CSS_ROW_JOINT in
+ * the icon joints' translation. */
+static const f32 css_slot_dx[CSS_SLOTS] = { 7.0F, 14.0F, 14.0F, 14.0F, -49.0F, -56.0F };
+static const int css_slot_row[CSS_SLOTS] = { 0, 2, 1, 0, 0, 1 };
+#define CSS_ROW_JOINT 5.8F
 
 /* The CUSTOM switch: shows or hides the custom fighters' icons. A copy of
  * Dr. Mario's icon one column left of him, showing pc_menu_toggle_tile.
@@ -2328,6 +2338,8 @@ static struct {
     f32 l, r, u, d;
 } css_toggle;
 static bool css_custom_on = true;
+static int css_page = 1;   /* the page of custom icons shown, 1..; 0 with them off */
+static int css_pages = 1;
 #define CSS_TOGGLE_DX (-7.0F)
 
 static int cssBaseIcon(FighterKind base)
@@ -2380,7 +2392,7 @@ static void cssSetImage(HSD_JObj* jobj, int dobj_index, HSD_ImageDesc* img)
  * the menu's joint tree: the screen finds its joints by depth-first index,
  * and anything inserted earlier would shift them. cssCustomFrame keeps the
  * frame on the parent's animated transform. */
-static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, HSD_JObj** frame_out)
+static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, f32 dy, HSD_JObj** frame_out)
 {
     HSD_Joint* icon = HSD_MemAlloc(sizeof(HSD_Joint));
     HSD_Joint* frame = HSD_MemAlloc(sizeof(HSD_Joint));
@@ -2394,6 +2406,7 @@ static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, HSD_JObj** frame_out)
     HSD_JObjAddChild(*frame_out, jicon);
     HSD_JObjAddChild(mnCharSel_804D6CC0, *frame_out);
     HSD_JObjSetTranslateX(jicon, HSD_JObjGetTranslationX(jicon) + dx);
+    HSD_JObjSetTranslateY(jicon, HSD_JObjGetTranslationY(jicon) + dy);
     return jicon;
 }
 
@@ -2402,8 +2415,9 @@ static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, HSD_JObj** frame_out)
 static void cssApplyToggle(void)
 {
     int i, door;
+    css_custom_on = css_page != 0;
     for (i = 0; i < css_n_custom; i++) {
-        if (css_custom_on) {
+        if (css_custom_on && css_custom[i].page == css_page) {
             HSD_JObjClearFlagsAll(css_custom[i].frame, JOBJ_HIDDEN);
         } else {
             HSD_JObjSetFlagsAll(css_custom[i].frame, JOBJ_HIDDEN);
@@ -2418,7 +2432,7 @@ static void cssApplyToggle(void)
         }
     }
     if (css_toggle.icon != NULL) {
-        cssSetImage(css_toggle.icon, 1, pc_menu_toggle_tile(css_custom_on));
+        cssSetImage(css_toggle.icon, 1, pc_menu_page_tile(css_page, css_pages));
     }
 }
 
@@ -2431,9 +2445,9 @@ static bool cssToggleAt(f32 x, f32 y)
 
 static void cssToggle(void)
 {
-    css_custom_on = !css_custom_on;
+    css_page = (css_page + 1) % (css_pages + 1);
     if (!pc_net_active()) {
-        pc_set_custom_fighters_enabled(css_custom_on);
+        pc_set_custom_fighters_enabled(css_page != 0);
     }
     cssApplyToggle();
     sfxMove();
@@ -2447,6 +2461,7 @@ static void cssCustomCreate(void)
     css_n_custom = 0;
     memset(&css_toggle, 0, sizeof css_toggle);
     css_custom_on = pc_net_active() ? true : pc_is_custom_fighters_enabled();
+    css_page = css_custom_on ? 1 : 0;
     if (mnCharSel_804D6CF5 == 1) { /* the 1P layout has no free slot */
         return;
     }
@@ -2476,19 +2491,27 @@ static void cssCustomCreate(void)
             snprintf(sym, sizeof sym, "ftUiCsp%d", k);
             c->csp[k] = HSD_ArchiveGetPublicAddress(ui, sym);
         }
-        c->icon = cssCloneIcon(roy, css_custom_dx[css_n_custom], &c->frame);
-        cssSetImage(c->icon, 1, c->icon_img);
-        c->l = icons[0x18].bound_l + css_custom_dx[css_n_custom];
-        c->r = icons[0x18].bound_r + css_custom_dx[css_n_custom];
-        c->u = icons[0x18].bound_u;
-        c->d = icons[0x18].bound_d;
+        {
+            const int slot = css_n_custom % CSS_SLOTS;
+            c->page = css_n_custom / CSS_SLOTS + 1;
+            c->icon = cssCloneIcon(roy, css_slot_dx[slot], css_slot_row[slot] * CSS_ROW_JOINT, &c->frame);
+            cssSetImage(c->icon, 1, c->icon_img);
+            c->l = icons[0x18].bound_l + css_slot_dx[slot];
+            c->r = icons[0x18].bound_r + css_slot_dx[slot];
+            c->u = icons[0x18].bound_u + css_slot_row[slot] * 7.0F;
+            c->d = icons[0x18].bound_d + css_slot_row[slot] * 7.0F;
+        }
         css_n_custom++;
+    }
+    css_pages = (css_n_custom + CSS_SLOTS - 1) / CSS_SLOTS;
+    if (css_pages < 1) {
+        css_pages = 1;
     }
     if (css_n_custom > 0) {
         HSD_JObj* drmario = NULL;
         lb_80011E24(mnCharSel_804D6CC0, &drmario, ICONJOINT_DRMARIO, -1);
         if (drmario != NULL && pc_menu_toggle_tile(true) != NULL) {
-            css_toggle.icon = cssCloneIcon(drmario, CSS_TOGGLE_DX, &css_toggle.frame);
+            css_toggle.icon = cssCloneIcon(drmario, CSS_TOGGLE_DX, 0.0F, &css_toggle.frame);
             css_toggle.l = icons[0].bound_l + CSS_TOGGLE_DX;
             css_toggle.r = icons[0].bound_r + CSS_TOGGLE_DX;
             css_toggle.u = icons[0].bound_u;
@@ -2504,6 +2527,9 @@ static int cssCustomAt(struct CSSCharModel* m)
     int i;
     for (i = 0; i < css_n_custom && css_custom_on; i++) {
         CssCustom* c = &css_custom[i];
+        if (c->page != css_page) {
+            continue;
+        }
         if (m->x8 > c->l && m->x8 < c->r && m->xC < c->u && m->xC > c->d) {
             return i;
         }
@@ -2620,7 +2646,7 @@ static void cssCustomFrame(void)
         HSD_JObjSetRotation(frame, &q);
     }
     if (css_toggle.icon != NULL) {
-        cssSetImage(css_toggle.icon, 1, pc_menu_toggle_tile(css_custom_on));
+        cssSetImage(css_toggle.icon, 1, pc_menu_page_tile(css_page, css_pages));
     }
 }
 #endif

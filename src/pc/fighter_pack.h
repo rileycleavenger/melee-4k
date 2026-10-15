@@ -40,7 +40,7 @@
 extern "C" {
 #endif
 
-#define PC_FIGHTER_PACKS_MAX 4
+#define PC_FIGHTER_PACKS_MAX 16
 #define PC_FIGHTER_COSTUMES_MAX 8
 
 typedef struct PcFighterPack {
@@ -53,6 +53,7 @@ typedef struct PcFighterPack {
     char team[3][4]; /* red, blue, green team costume suffixes */
     char moves[24];
     bool mute; /* "voice none": none of the base fighter's voice clips */
+    int order; /* "order N": place among the packs (character select), lowest first; 100 */
     /* Multipliers on the base fighter's attributes, 1 when not given. */
     float weight, walk, dash, jump, gravity, fall, air;
     uint8_t* motions; /* motions.bin, or NULL */
@@ -68,7 +69,7 @@ void pc_fighter_packs_init(void);
 void pc_fighter_packs_load(const char* root);
 int pc_fighter_pack_count(void);
 const PcFighterPack* pc_fighter_pack(int i);
-/* FNV-1a over every pack's files in id order: equal on two machines only
+/* FNV-1a over every pack's files in pack order (order, then id): equal on two machines only
  * when they have the same custom fighters (online). 0 with none. */
 uint32_t pc_fighter_packs_hash(void);
 /* The packs' textures/ folders, for the texture loader. */

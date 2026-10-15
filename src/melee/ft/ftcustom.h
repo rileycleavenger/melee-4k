@@ -38,6 +38,46 @@ typedef struct FtCustomMoves {
     void (*on_reset)(Fighter*);
 } FtCustomMoves;
 
+/* A custom fighter's special move on the base's own motion rows (their
+ * animations and scripts are the pack's, motions.bin) with generic
+ * behaviour instead of the base's special code (which would bring the
+ * base's guns, reflectors and flames along): it plays the move, follows
+ * the fighter between ground and air, and ends standing/falling or, for a
+ * recovery, in a helpless fall. The character's own code adds what is
+ * special (projectiles, effects) from its on_frame, on the move's script
+ * event (ftCustom_SpecialEvent). */
+/* What a special does besides moving, read off its frame counter while it
+ * runs (all optional, 0 = none): a shot from a body part, a vanish (the
+ * fighter invisible and travelling between two frames), sparks along the
+ * way, a flash, armour for the whole move. */
+enum { FT_CUSTOM_SHOT_NONE, FT_CUSTOM_SHOT_RAY, FT_CUSTOM_SHOT_STAR };
+typedef struct FtCustomFx {
+    int shot, shot_frame, shot_part;          /* FT_CUSTOM_SHOT_*, frame, FtPart_* */
+    int vanish_start, vanish_end;             /* invisible from..to (frames) */
+    float vanish_vx, vanish_vy;               /* velocity meanwhile (x toward the front) */
+    int spark_part, spark_from, spark_to, spark_every; /* sparks at a part */
+    int spark_ef;                             /* effect id (0: Ef_Id_Unk1001, sparks) */
+    int flash_frame, flash_colanim;           /* screen flash and the fighter's glow */
+    float armor;                              /* damage armour while the move runs */
+} FtCustomFx;
+
+typedef struct FtCustomSpecial {
+    int msid_ground, msid_air; /* the base's motion states whose rows hold the move */
+    bool helpless;             /* a recovery: a helpless fall after it in the air */
+    bool root_motion;          /* the animation moves the fighter (rows with root motion) */
+    float vel_x, vel_y;        /* set on entry (x toward the front; on the ground a
+                                * slide); both 0: kept */
+    float gravity;             /* in the air: x the fighter's gravity (0: hover; 1: normal) */
+    float mobility, landing_lag; /* the helpless fall's */
+    const FtCustomFx* fx;      /* run by ftCustom_Frame while the move is on */
+} FtCustomSpecial;
+void ftCustom_SpecialEnter(Fighter_GObj* gobj, const FtCustomSpecial* d);
+/* The move a fighter is in (ftCustom_SpecialEnter's), or NULL. */
+const FtCustomSpecial* ftCustom_SpecialActive(Fighter* fp);
+/* True once each time the move's script fires its event (the base's
+ * "throw" flag: where a projectile leaves the hand). */
+bool ftCustom_SpecialEvent(Fighter* fp);
+
 /* The custom fighter's moves, or NULL (a retail fighter, or no "moves"). */
 const FtCustomMoves* ftCustom_Moves(Fighter* fp);
 /* The pack says "voice none": the base's voice clips stay silent (as for
