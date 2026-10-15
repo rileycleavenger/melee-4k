@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Attack100.h"
 #include "ftCo_Fall.h"
 #include "ftCo_Throw.h"
@@ -41,7 +42,7 @@ void fn_800D9CE8(Fighter_GObj* gobj)
         nextMotion = 0xD7;
     }
 
-    switch (fp->kind) {
+    switch (ftCustom_GrabKind(fp)) {
     case Ft_Kind_CLink:
     case Ft_Kind_Link:
         item = fp->u.lk.xC;
@@ -73,7 +74,7 @@ void ftCo_CatchPull_Anim(Fighter_GObj* gobj)
     int should_transition = false;
     PAD_STACK(16);
 
-    switch (fp->kind) {
+    switch (ftCustom_GrabKind(fp)) {
     case Ft_Kind_Link:
     case Ft_Kind_CLink: {
         Item_GObj* item_gobj = fp->u.lk.xC;

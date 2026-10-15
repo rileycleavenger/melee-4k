@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_AttackAir.h"
 
 #include <Runtime/platform.h>
@@ -73,7 +74,7 @@ bool ftCo_AttackAir_CheckItemThrowInput(Fighter_GObj* gobj)
 
 static void decideFighter(Fighter_GObj* gobj)
 {
-    switch (GET_FIGHTER(gobj)->kind) {
+    switch (ftCustom_GrabKind(GET_FIGHTER(gobj))) {
     case Ft_Kind_Link:
     case Ft_Kind_CLink:
         ftLk_AttackAir_Enter(gobj);

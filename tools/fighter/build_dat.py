@@ -447,6 +447,9 @@ def main():
                     "plus the costume suffix for every costume but Nr (PlyGeno5KRe)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--textures")
+    ap.add_argument("--hide-joints", default="", help="joints (J11,...) whose rest scale is ~0: a part "
+                    "shown only where the fighter's own moves scale it up (a tongue); no animation of the "
+                    "base may move them")
     ap.add_argument("--lowres", type=int, default=128)
     ap.add_argument("--texture", action="append", default=[], metavar="MATERIAL=PNG",
                     help="use PNG for that material instead of mesh.json's (a costume's recolour); repeatable")
@@ -467,6 +470,9 @@ def main():
         for m in mats:
             m["texture"] = png
     keys, n = b.build(mesh, vis_groups, low_groups, eyes, a.lowres, a.textures)
+    for name in filter(None, a.hide_joints.split(",")):
+        j = b.joints[int(name.lstrip("J"))]
+        b.w.put(j["at"] + 0x20, "fff", 0.01, 0.01, 0.01)  # its scale (HSD_Joint +0x20)
     data = b.finish(a.symbol)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     open(a.out, "wb").write(data)

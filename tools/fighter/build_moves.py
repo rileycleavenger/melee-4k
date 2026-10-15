@@ -23,8 +23,13 @@ a list of `Move`s. `ctx` gives the base's skeleton and poses:
                              one), the base's effects (0x28) and model
                              swaps (0xA0) left out
     Move(motion, frames, keys=[(frame, Poser)], script=Script, flags=None,
-         translate=[joints with authored positions], also=[more motions],
-         root=False)
+         translate=[joints with authored positions], scale=[joints with
+         authored scale], also=[more motions], root=False)
+
+`scale` writes the joints' scale (Poser locals[j][1]) even where the base
+never scales them: a part shown only in some moves (a tongue scaled to
+nothing the rest of the time). A joint no animation of the base moves
+keeps the last scale set, so set it in every move.
 
 `root=True` keeps the base animation's root motion: its TransN (joint 1)
 position track, time-scaled to the move's length, sampled every frame.
@@ -63,6 +68,7 @@ class Move:
     script: object = None
     flags: int = None
     translate: list = field(default_factory=list)
+    scale: list = field(default_factory=list)
     also: list = field(default_factory=list)
     root: bool = False
 
@@ -155,7 +161,7 @@ def tracks_for(ctx, move):
             if (j, k + 5) in ctx.channels or j in move.translate:
                 tr[name] = [(f, L[j][2][k]) for f, L in keys]
         for k, name in enumerate(("sx", "sy", "sz")):
-            if (j, k + 8) in ctx.channels:
+            if (j, k + 8) in ctx.channels or j in move.scale:
                 tr[name] = [(f, L[j][1][k]) for f, L in keys]
         if tr:
             out[j] = tr

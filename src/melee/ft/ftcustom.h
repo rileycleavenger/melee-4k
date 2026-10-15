@@ -88,6 +88,10 @@ bool ftCustom_Mute(Fighter* fp);
 /* fighter.cfg's attribute multipliers, on the attributes just copied from
  * the data file (ftchangeparam.c). */
 void ftCustom_ApplyAttrs(Fighter* fp);
+/* The fighter's kind as the grab code sees it: a custom fighter on Link or
+ * Young Link grabs at close range (its own Catch motions) with no hookshot,
+ * as an ordinary grabber; everyone else is their kind. */
+FighterKind ftCustom_GrabKind(Fighter* fp);
 void ftCustom_Frame(Fighter_GObj* gobj);
 /* The pack's own animations and action scripts (motions.bin): the fighter's
  * motion table becomes a copy with those rows replaced. After its

@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Attack100.h"
 #include "ftCo_CapturePulled.h"
 #include "ftCo_CatchPull.h"
@@ -181,7 +182,7 @@ void ftCo_CatchDash_Coll(Fighter_GObj* gobj)
 bool fn_800D8E94(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    FighterKind kind = fp->kind;
+    FighterKind kind = ftCustom_GrabKind(fp);
     if (((kind == Ft_Kind_Link) || (kind == Ft_Kind_CLink)) &&
         (fp->u.lk.xC != NULL))
     {

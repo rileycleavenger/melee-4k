@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Attack100.h"
 #include <melee/ft/ft_0877.h>
 #include <melee/ft/ft_0892.h>
@@ -40,7 +41,7 @@ bool fn_800D8EC8(Fighter_GObj* gobj)
     UNUSED u32 unused3;
     UNUSED u32 unused4;
 
-    if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
         attrs = fp->dat_attrs;
         fp->mv.ca.specials.grav += 1.0;
         grav = fp->mv.ca.specials.grav;
@@ -111,7 +112,7 @@ bool fn_800D9228(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if ((fp->kind == Ft_Kind_Link) || (fp->kind == Ft_Kind_CLink)) {
+    if ((ftCustom_GrabKind(fp) == Ft_Kind_Link) || (ftCustom_GrabKind(fp) == Ft_Kind_CLink)) {
         ftCo_LinkCatchAttrs* da = fp->dat_attrs;
 
         fp->mv.co.catch_.x0 += 1.0;
@@ -171,7 +172,7 @@ void fn_800D949C(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
         it_802A2B10(fp->u.lk.xC);
     }
 }

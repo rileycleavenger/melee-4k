@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Attack100.h"
 #include "ftCo_CaptureCut.h"
 #include <melee/ft/fighter.h>
@@ -49,7 +50,7 @@ void fn_800DB6C8(Fighter_GObj* gobj)
         fn_800DBAE4(gobj);
     }
 
-    switch (victim_fp->kind) {
+    switch (ftCustom_GrabKind(victim_fp)) {
     case Ft_Kind_Yoshi:
         ftCo_800DB368(victim_fp, fp);
         break;

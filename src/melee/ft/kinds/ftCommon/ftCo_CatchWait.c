@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Attack100.h"
 #include "ftCo_Fall.h"
 #include "ftCo_Throw.h"
@@ -47,13 +48,13 @@ void ftCo_CatchWait_IASA(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
 
     if (fn_800DA4C0(gobj)) {
-        if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+        if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
             it_802A7AAC(gobj);
         } else if (fp->kind == Ft_Kind_Samus) {
             it_802BAC3C(gobj);
         }
     } else if (ftCo_800DD1E4(gobj)) {
-        if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+        if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
             it_802A7AAC(gobj);
         } else if (fp->kind == Ft_Kind_Samus) {
             it_802BAC3C(gobj);

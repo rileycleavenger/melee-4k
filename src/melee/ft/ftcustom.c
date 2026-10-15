@@ -556,6 +556,14 @@ bool ftCustom_SpecialEvent(Fighter* fp)
     return true;
 }
 
+FighterKind ftCustom_GrabKind(Fighter* fp)
+{
+    if ((fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) && ftCustom_Pack(fp->kind, fp->costume_id) >= 0) {
+        return Ft_Kind_Mars;
+    }
+    return fp->kind;
+}
+
 void ftCustom_ApplyAttrs(Fighter* fp)
 {
     const int p = ftCustom_Pack(fp->kind, fp->costume_id);

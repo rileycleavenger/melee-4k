@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_AirCatch.h"
 
 #include <Runtime/platform.h>
@@ -57,7 +58,7 @@ bool ftCo_800C3B10(Fighter_GObj* gobj)
     if (fp->used_tether) {
         return false;
     }
-    if (fp->kind != Ft_Kind_Link && fp->kind != Ft_Kind_CLink &&
+    if (ftCustom_GrabKind(fp) != Ft_Kind_Link && ftCustom_GrabKind(fp) != Ft_Kind_CLink &&
         fp->kind != Ft_Kind_Samus)
     {
         return false;
@@ -88,7 +89,7 @@ void ftCo_800C3BE8(Fighter_GObj* gobj)
         fp->mv.co.aircatch.x0 = 0;
         fp->x74_self_accel = anim_vel;
 
-        if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+        if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
             Fighter_ChangeMotionState(gobj, ftLk_MS_AirCatch, Ft_MF_None, 0, 1,
                                       0, NULL);
         } else if (fp->kind == Ft_Kind_Samus) {
@@ -103,7 +104,7 @@ void ftCo_800C3CC0(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     f32 drift;
-    if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
         Fighter_ChangeMotionState(gobj, ftLk_MS_AirCatchHit,
                                   Ft_MF_KeepFastFall, 0, 1, 0, NULL);
     } else {
@@ -123,7 +124,7 @@ void ftCo_AirCatch_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
         ftLk_DatAttrs* da = fp->dat_attrs;
         fp->mv.co.aircatch.x0 += 1.0;
         if (fp->mv.co.aircatch.x0 == da->xA4) {
