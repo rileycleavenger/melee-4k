@@ -30,7 +30,7 @@ sheets, in-game screenshots). Note anything approximate in the report.
 
 ## Menus and screens
 - [ ] Character select: the icon shows (to the right of the bottom row), picking it shows the portrait and the name (title case, like "Mario"); cycling costumes (X/Y) changes the portrait; random never picks it by accident.
-- [ ] Icon: the face, as big and crisp as the Melee HD icons beside it (HD replacement in textures/), the name on the bar in bold capitals.
+- [ ] Icon: the face, as big and crisp as the Melee HD icons beside it (HD replacement in textures/), the name on the bar exactly like its neighbours' (Roy, Link: same font, warm grey, size, spacing, dark red bar) - check on character select with the HD pack loaded.
 - [ ] Portrait: big in the door like Melee's (upper body, the character's own pose), every costume.
 - [ ] CUSTOM switch (left of the top row): OFF hides the icon, ON shows it.
 - [ ] HUD stock icon: hand-made pixel art of the head (not a render), readable at 24x24, crisp (nearest-neighbour HD copy), every costume.

@@ -32,7 +32,9 @@ Ask for (or take from the request) only what is missing:
 
 1. **Name** in title case (`Geno`): fighter.cfg `name`, shown on the
    character select door like every Melee fighter's; `build_ui.py` draws
-   the grid icon's label upper-case and bold itself. And a
+   the grid icon's label upper-case itself, matched to the Melee HD
+   icons' (font, warm grey, size, spacing, dark red bar): compare with
+   the neighbours on character select. And a
    **two-letter id** (`Ge`): capital + lower-case letter, not used by the
    disc's `Pl??.dat` files (`validate.py --disc` checks) or another pack.
    Taken on the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb

@@ -84,8 +84,9 @@ def melee_icon(render, name, font_path, size=HD["icon"]):
     """A character select icon in the style of Melee HD's: the face, big
     and cut off by the frame, on a transparent ground (the game draws its
     striped backdrop behind), a light grey rounded frame with a soft inner
-    shadow, and the name in widely spaced light capitals on a black bar
-    across the bottom quarter. Measured from the HD pack's icons (320x288)."""
+    shadow, and the name in spaced warm grey capitals on a black and dark
+    red bar across the bottom quarter. Measured from the HD pack's icons
+    (320x288)."""
     from PIL import Image, ImageDraw, ImageFilter
     w, h = size
     k = w / 320.0
@@ -111,26 +112,50 @@ def melee_icon(render, name, font_path, size=HD["icon"]):
                                             outline=170, width=round(6 * k))
     shade = Image.composite(shade.filter(ImageFilter.GaussianBlur(2 * k)), Image.new("L", size, 0), inner)
     plate.alpha_composite(Image.merge("RGBA", (Image.new("L", size, 36),) * 3 + (shade,)))
-    # The name bar and the name.
+    # The name bar and the name, as the HD pack's (measured at 320x288):
+    # black from 72% of the height, a dark red band with a faint grain
+    # from 76.5% to 92.5%, the name in flat warm grey capitals (195, 185,
+    # 185) of the rounded font, 16% of the height, from the band's top,
+    # spaced 5% of the width apart, stems a quarter of the height.
     d = ImageDraw.Draw(plate)
+    bar0 = round(h * 0.719)
+    red0, red1 = round(h * 0.765), round(h * 0.926)
+    import random
+    rnd = random.Random(1)
     bar = Image.new("RGBA", size, (0, 0, 0, 0))
-    ImageDraw.Draw(bar).rectangle([0, bar0, w, h], fill=(24, 4, 4, 255))
+    bd = ImageDraw.Draw(bar)
+    bd.rectangle([0, bar0, w, h], fill=(0, 0, 0, 255))
+    for y in range(red0, red1):
+        t = (y - red0) / max(1, red1 - red0 - 1)
+        for x in range(w):
+            g = rnd.randint(-5, 5)
+            bd.point((x, y), fill=(max(0, round(32 + 16 * t) + g), max(0, round(12 * t) + g // 2),
+                                   max(0, round(9 * t) + g // 2), 255))
     bar.putalpha(Image.composite(bar.getchannel("A"), Image.new("L", size, 0), inner))
     plate.alpha_composite(bar)
-    # Bold: the font's weight plus a stroke, so the name reads at the
-    # icon's small size like the HD pack's.
-    label = tracked_text(name.upper(), font_path, round(h * 0.19), round(w * 0.05), bold=max(1, round(h * 0.012)))
-    if label.width > w - 2 * fw - round(16 * k):
-        label = label.resize((w - 2 * fw - round(16 * k), label.height), Image.LANCZOS)
-    tint = Image.new("RGBA", label.size, (236, 236, 236, 255))
+    cap = round(h * 0.160)
+    from PIL import ImageFont
+    probe = ImageFont.truetype(font_path, 200).getbbox("H")
+    label = tracked_text(name.upper(), font_path, round(200 * cap / (probe[3] - probe[1])), round(w * 0.05),
+                         bold=max(1, round(h * 0.004)))
+    room = w - 2 * fw - round(12 * k)
+    if label.width > room:
+        label = label.resize((room, label.height), Image.LANCZOS)
+    tint = Image.new("RGBA", label.size, (195, 185, 185, 255))
     tint.putalpha(label)
-    plate.alpha_composite(tint, ((w - label.width) // 2, bar0 + (h - fw - bar0 - label.height) // 2))
+    plate.alpha_composite(tint, ((w - label.width) // 2, red0 + round(h * 0.003)))
     # The frame.
     frame = Image.new("L", size, 0)
     ImageDraw.Draw(frame).rounded_rectangle([0, 0, w - 1, h - 1], radius, fill=255)
     frame = Image.composite(Image.new("L", size, 0), frame, inner)
     plate.alpha_composite(Image.merge("RGBA", (Image.new("L", size, 197),) * 3 + (frame,)))
-    d.rounded_rectangle([0, 0, w - 1, h - 1], radius, outline=(224, 224, 224, 255), width=max(1, round(2 * k)))
+    # Its edges as the HD pack's: a light line where the bar meets it, the
+    # bottom edge darker.
+    d.line([fw + radius // 2, h - fw, w - fw - radius // 2, h - fw], fill=(235, 235, 235, 255), width=max(1, round(k)))
+    edge = Image.new("L", size, 0)
+    ImageDraw.Draw(edge).rectangle([0, h - round(3 * k), w, h], fill=255)
+    plate.alpha_composite(Image.merge("RGBA", (Image.new("L", size, 100),) * 3 +
+                                      (Image.composite(edge, Image.new("L", size, 0), frame),)))
     return plate
 
 
