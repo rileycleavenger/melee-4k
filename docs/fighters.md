@@ -109,8 +109,8 @@ online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
   `FtCustomFx` (a shot from a body part, a vanish window, sparks, a flash,
   armour), run by `ftCustom_SpecialEnter` and `ftCustom_Frame`.
 - **Bases with costume tables.** A costume past the base's retail ones
-  must not index the base's own per-costume tables: Jigglypuff's hats are
-  bounded (`ftpurin.c`); `build_dat.py` writes an empty eye animation
+  must not index the base's own per-costume tables: Jigglypuff's hats and
+  Kirby's copy hats are bounded (`ftpurin.c`, `ftkirby.c`); `build_dat.py` writes an empty eye animation
   where the base's costumes need one (Captain Falcon, Ganondorf, Samus).
 - **Menus** (`mncharsel.c`, `ifstock.c`, `gmresultplayer.c`). These load
   `Pl<id>Ui.dat` into the screen's heap and pin its images on the right

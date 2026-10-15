@@ -201,9 +201,10 @@ larger only.
   resolves aliases and writes each row under its real name (the game
   matches exactly); `k.family("SpecialHi")` covers every row of a special.
 - Three crashes only a match finds: a costume past the base's retail
-  ones indexing the base's per-costume tables (Jigglypuff's hats hung the
-  load: check `ft<Base>*.c` for `[fp->costume_id]` tables and bound
-  them); a base whose costumes need an eye animation (Falcon, Ganondorf,
+  ones indexing the base's per-costume tables (Jigglypuff's hats and
+  Kirby's copy hats hung the load, Kirby's only with certain opponents in
+  the match: check `ft<Base>*.c` for `[fp->costume_id]` tables and bound
+  them, and test a 4-fighter match); a base whose costumes need an eye animation (Falcon, Ganondorf,
   Samus: "Cannot find symbol ..._Share_matanim_joint"; build_dat writes an
   empty one); a stray return (0x18) left in a flattened script (a
   segfault in Command_06 on that move; read_script ends there now and
