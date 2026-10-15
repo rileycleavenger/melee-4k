@@ -53,6 +53,16 @@ sheets, in-game screenshots). Note anything approximate in the report.
 - [ ] Attributes feel distinct but sane (0.5-2x).
 - [ ] It does not feel like its base: its voice (`voice none` if it should be silent), projectiles and hit effects are its own.
 
+## Hits (every fighter, every rebuild)
+
+- [ ] Step test: `play.py DISC PACKS <Id> OUT "Right 140, wait 80, X 60,
+      wait 900, Right 140, wait 80, Right+X 60, wait 900, ..."` (a short step,
+      then a different attack, again and again) against the idle Mario:
+      his damage climbs through the run (crop the HUD of a few frames).
+- [ ] No crash with a CPU of the fighter (`MELEE_DEBUG_VS_CHARS="<Id>:0,8:0"`):
+      it uses every move, the specials included, within a minute.
+- [ ] `validate.py` passes (it refuses scripts with goto/call/return).
+
 ## Gates
 - [ ] `validate.py --base-dir --disc`: OK.
 - [ ] `interp_determinism.py` with the fighter: every row PASS.

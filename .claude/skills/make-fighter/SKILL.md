@@ -200,6 +200,20 @@ larger only.
   AppealR/Appeal, AttackS4/AttackS4S, Marth's AttackS31): build_moves
   resolves aliases and writes each row under its real name (the game
   matches exactly); `k.family("SpecialHi")` covers every row of a special.
+- Three crashes only a match finds: a costume past the base's retail
+  ones indexing the base's per-costume tables (Jigglypuff's hats hung the
+  load: check `ft<Base>*.c` for `[fp->costume_id]` tables and bound
+  them); a base whose costumes need an eye animation (Falcon, Ganondorf,
+  Samus: "Cannot find symbol ..._Share_matanim_joint"; build_dat writes an
+  empty one); a stray return (0x18) left in a flattened script (a
+  segfault in Command_06 on that move; read_script ends there now and
+  validate.py refuses one). Play every pack before calling it done.
+- Hits must be checked against an idle foe at close range (the step test
+  in `checklist.md`): a fixed walk overshoots or falls short with every
+  walk speed, and a level 9 CPU proves nothing when it wins every exchange.
+- Read a move's direction off the side view of a check render, and
+  measure rather than guess a whole-body pitch (the base's fall pose may
+  already lean: print hips->head for a few angles with `Poser.world()`).
 - Editing a script that a running bash loop is executing can corrupt
   that run; and never splice files by the first match of a common word
   (`index("weight ")` hit Python code): match whole lines.
