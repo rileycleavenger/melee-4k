@@ -95,13 +95,17 @@ C for the character's specials (`src/melee/ft/kinds/ft<Name>/`, no art).
    faces), accessories on loose bones. Write `notes.md` "Source model".
 5. **Fit it** (`fit.py`, `tools.md` §6b): map its bones onto the base's
    joints (hips, chest, head, arms, fingers, legs), drop spare parts,
-   pick SCALE. Dump game poses into `poses/` (idle, run, jab, a smash,
-   jump, an aerial: `play.py` + `MELEE_DUMP_POSE`, `tools.md` §9) and
+   pick SCALE. Dump the base's poses into `poses/` (`base_poses.py
+   base/<Base> <Id>/poses --base <Base>`: idle, run, jab, smashes, jump,
+   aerials, from its own animations, no game needed) and
    `./make_pack.sh --check`: look at every `ui/check_*.png`. No spikes, no
    parts through the face, feet on the ground, hands where the base's
-   hands are. Iterate.
+   hands are. Iterate. A model with no skeleton: `blender_autorig.py`
+   first (`tools.md` §6d). Non-humanoids (a dog, a ghost, a bean): see
+   "Fitting any body" in `tools.md` §6b.
 6. **Costumes** (requirement 1): `make_pack.sh` builds both: Nr = the
-   mesh decimated (`LO_RATIO`, ~3-4k triangles) with `melee_texture.py`
+   mesh decimated (`LO_RATIO` = ~5000 / the model's triangles: a 27k-
+   triangle model needs 0.18, a 7k one 0.6) with `melee_texture.py`
    textures (the model's AO and normal maps painted in, or AO baked when
    it has none); the second = the model's own mesh and textures.
 7. **Menu images**: the portrait renders in an attack's game pose (`CSP`,
@@ -112,9 +116,13 @@ C for the character's specials (`src/melee/ft/kinds/ft<Name>/`, no art).
 8. **Moveset** (requirement 2, `moves.md`): research the character
    (games, anime, comics: its attacks, spells, weapons, signature
    poses), fill `notes.md` "Moveset research" for every slot, then pose
-   each move in `moves.py` on the base's frame data and write the
-   specials' C (`src/melee/ft/kinds/ft<Name>/`). Preview poses in
-   Blender before the game.
+   each move in `moves.py` (`moveskit.py`: arms, legs, kick, punch,
+   hit, attack, special, taunt, family) on the base's frame data, covering
+   every Attack/Appeal/Special row the base has (`validate.py` lists the
+   ones left), and write the specials' C (`src/melee/ft/kinds/ft<Name>/`:
+   mostly data, `FtCustomSpecial` + `FtCustomFx`, `moves.md` §5).
+   Set `MOVES` when NAME has spaces, `ORDER` for its place on character
+   select, the attribute multipliers in the cfg block.
 9. **Build the pack**: `./make_pack.sh` (model, both costumes, menus,
    motions.bin, stock, fighter.cfg, `validate.py`).
 10. **Check in the game** (`tools.md` §9, `checklist.md`): `closeup.py`
@@ -169,6 +177,32 @@ larger only.
   to the sides (a V), or `stretch` the limb for that pose.
 - A custom costume's metal form and character select emblems used to
   show the base: both fixed in the engine; check them anyway.
+- Several meshes sharing one material used to overwrite each other in
+  the retarget (only the last survived): it joins them first now.
+- Parts skinned to a second root (eyes, teeth, collar on their own
+  bones at the origin): `FOLLOW` them to the bone they sit on. Parts with
+  no material at all (teeth): they get "Plain"; colour it in
+  `TEX_COLORS`. A material with no image: `TEX_ASSIGN` it the right file
+  or a `TEX_COLORS` flat colour (look at the render: a wrong guess paints
+  a ghost maroon).
+- Rigid shells (an animatronic's torso) mapped as segments get stretched
+  to the base's limb lengths: map them by position only (a plain joint
+  name) and nudge with `OFFSET`.
+- Smooth single-surface bodies (a bean) ripple where the weights blend
+  at 0.1 steps: `WEIGHT_STEP = 0.025`.
+- A base's sword hitboxes sit along its sword joint: a weaponless model
+  on a sword base gets every hitbox put on its limbs (`k.hit` sets the
+  bone and a zero offset), and a model that should hold a weapon the
+  model lacks gets one built in `fit.py` on the sword joint (a hilt and
+  a blade, rigid on it) with hitboxes along the joint's axis (read the
+  axis off the base's own sword hitboxes).
+- Base motion names differ (Wait/Wait1, SquatWait/SquatWait1,
+  AppealR/Appeal, AttackS4/AttackS4S, Marth's AttackS31): build_moves
+  resolves aliases and writes each row under its real name (the game
+  matches exactly); `k.family("SpecialHi")` covers every row of a special.
+- Editing a script that a running bash loop is executing can corrupt
+  that run; and never splice files by the first match of a common word
+  (`index("weight ")` hit Python code): match whole lines.
 
 ## No model
 

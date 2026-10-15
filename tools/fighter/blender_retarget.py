@@ -14,9 +14,19 @@ ready for blender_export_fighter.py. Run blender_import_base.py first.
     SRC_MESH_ROT_X = 0          # degrees: turn the meshes (not the bones) about X
                                 # if the converter left them out of line with
                                 # the bones (assimp's .dae: 90)
+    SRC_ARMATURE = r"Body"      # the model's armature (regex on its name) when
+                                # it has several; the first otherwise
+    SRC_ROT_Z = 0               # degrees: turn the whole model about the up
+                                # axis first (180 for one facing +Y: its toes
+                                # point +Y, its left is -X)
     SCALE = 11.0                # model units -> game units, before fitting
     DROP = [r"Hand[12]$", ...]  # bones (regex) whose faces are removed (spare
                                 # parts the model keeps out of sight)
+    DROP_MESHES = [r"^Hands$"]  # mesh objects (regex) left out
+    REWEIGHT = [(r"^Robe", {"J07": ("J04", 0.7)})]
+                                # per mesh (regex): move that share of a
+                                # joint's weight to another (a long robe or
+                                # skirt mostly on the hips, not the thighs)
     MAP = {                     # model bone -> base joint
         "Hips": "J04",
         "LeftArm": ("J08", "LeftForeArm"),   # segment to that child bone
@@ -52,6 +62,8 @@ from mathutils import Matrix, Vector
 
 SRC = globals()["SRC"]
 SRC_MESH_ROT_X = globals().get("SRC_MESH_ROT_X", 0.0)
+SRC_ROT_Z = globals().get("SRC_ROT_Z", 0.0)
+SRC_ARMATURE = globals().get("SRC_ARMATURE")
 SCALE = globals().get("SCALE", 1.0)
 DROP = globals().get("DROP", [])
 MAP = globals()["MAP"]
@@ -62,6 +74,8 @@ OFFSET = globals().get("OFFSET", {})
 WEIGHT_STEP = globals().get("WEIGHT_STEP", 0.1)
 MAX_BONES = globals().get("MAX_BONES", 3)
 NAME = globals().get("NAME", "Fx")
+DROP_MESHES = globals().get("DROP_MESHES", [])
+REWEIGHT = globals().get("REWEIGHT", [])
 
 # Blender (Z up, -Y front) -> game (Y up, +Z front).
 TO_GAME = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, -1, 0, 0), (0, 0, 0, 1)))
@@ -87,11 +101,28 @@ def retarget():
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=SRC)
     new = [o for o in bpy.data.objects if o not in before]
-    arm = next(o for o in new if o.type == "ARMATURE")
-    meshes = [o for o in new if o.type == "MESH" and any(m.type == "ARMATURE" for m in o.modifiers)]
+    arm = next(o for o in new if o.type == "ARMATURE"
+               and (SRC_ARMATURE is None or re.search(SRC_ARMATURE, o.name)))
+    meshes = [o for o in new if o.type == "MESH" and any(m.type == "ARMATURE" for m in o.modifiers)
+              and not any(re.search(p, o.name) for p in DROP_MESHES)]
+    # One mesh: parts sharing a material (eyes, teeth, collar as separate
+    # objects) become one output object per material, not one each.
+    # Parts with no material (teeth, spikes left plain): one "Plain"
+    # material, coloured by save_textures' colors ({"Plain": (r, g, b)}).
+    for o in meshes:
+        if not o.data.materials:
+            o.data.materials.append(bpy.data.materials.get("Plain") or bpy.data.materials.new("Plain"))
+    if len(meshes) > 1:
+        names = [o.name for o in new]
+        with bpy.context.temp_override(active_object=meshes[0], selected_editable_objects=meshes):
+            bpy.ops.object.join()
+        new = [bpy.data.objects[n] for n in names if n in bpy.data.objects]
+        meshes = meshes[:1]
+
+    face = Matrix.Rotation(SRC_ROT_Z * 3.141592653589793 / 180.0, 4, "Z")
 
     def game(p):
-        return (TO_GAME @ p) * SCALE
+        return (TO_GAME @ face @ p) * SCALE
 
     # Bone names without the importer's prefix ("Armature_Hips" -> "Hips").
     def short(n):
@@ -131,6 +162,7 @@ def retarget():
     out = {}
     for ob in meshes:
         groups = {g.index: short(g.name) for g in ob.vertex_groups}
+        reweight = [(p, m) for p, m in REWEIGHT if re.search(p, ob.name)]
         me = ob.data.copy()
         me.transform(rot)
         # Vertex group names live on the mesh: the base's joints are added
@@ -162,6 +194,12 @@ def retarget():
                 q += (mats[g] @ p) * (w / total)
                 bw[wbone[g]] = bw.get(wbone[g], 0.0) + w / total
             v.co = q
+            for pat, moves in reweight:
+                for j, (to, share) in moves.items():
+                    if j in bw:
+                        w = bw[j] * share
+                        bw[j] -= w
+                        bw[to] = bw.get(to, 0.0) + w
             # Quantised: the heaviest MAX_BONES, in WEIGHT_STEPs, summing to 1.
             top = sorted(bw.items(), key=lambda kv: -kv[1])[:MAX_BONES]
             s = sum(w for _, w in top)
@@ -227,25 +265,67 @@ def retarget():
 
 
 
-def save_textures(obs, out_dir):
+def save_textures(obs, out_dir, search=(), colors=None, assign=None):
     """Each mesh's material image as a PNG in out_dir (glTF models often
     embed theirs), set as the material's hsd_texture. Returns {material
-    name: png path}. Materials sharing an image share the file."""
+    name: png path}. Materials sharing an image share the file.
+
+    A material without an image (models whose converter lost the links):
+    an image file in one of the `search` folders named like the material
+    (or its base colour texture's name); else colors[material] = (r, g, b)
+    fills a small flat texture (a texture the model's files lack).
+    assign[material] = image path: that image, whatever the material has."""
     import os
+    import shutil
     os.makedirs(out_dir, exist_ok=True)
     out, done = {}, {}
+    colors = colors or {}
     for o in obs.values():
         for m in o.data.materials:
-            img = next((n.image for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image), None) \
-                if m.use_nodes else None
-            if img is None:
-                raise SystemExit(f"material {m.name} has no image texture")
+            img = None
+            if assign and m.name in assign:
+                img = bpy.data.images.load(assign[m.name], check_existing=True)
+                m.use_nodes = True
+                n = next((n for n in m.node_tree.nodes if n.type == "TEX_IMAGE"), None) or \
+                    m.node_tree.nodes.new("ShaderNodeTexImage")
+                n.image = img
+                bsdf = next((b for b in m.node_tree.nodes if b.type == "BSDF_PRINCIPLED"), None)
+                if bsdf is not None and not bsdf.inputs["Base Color"].is_linked:
+                    m.node_tree.links.new(n.outputs["Color"], bsdf.inputs["Base Color"])
+            elif m.use_nodes:
+                img = next((n.image for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image), None)
+            if img is None or (not img.packed_file and not os.path.exists(bpy.path.abspath(img.filepath))
+                                and not img.has_data):
+                stem = os.path.splitext(m.name)[0].rsplit(".0", 1)[0]
+                found = None
+                for d in search:
+                    for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                        if os.path.splitext(f)[0].lower() in (stem.lower(), m.name.lower()):
+                            found = os.path.join(d, f)
+                            break
+                    if found:
+                        break
+                if found:
+                    img = bpy.data.images.load(found, check_existing=True)
+                elif m.name in colors or stem in colors:
+                    c = colors.get(m.name, colors.get(stem))
+                    img = bpy.data.images.new(stem + "_flat", 64, 64)
+                    img.pixels = [c[0] / 255, c[1] / 255, c[2] / 255, 1.0] * (64 * 64)
+                else:
+                    raise SystemExit(f"material {m.name} has no image texture (search=, colors=)")
+                m.use_nodes = True
+                n = next((n for n in m.node_tree.nodes if n.type == "TEX_IMAGE"), None)
+                if n is None:
+                    n = m.node_tree.nodes.new("ShaderNodeTexImage")
+                bsdf = next((b for b in m.node_tree.nodes if b.type == "BSDF_PRINCIPLED"), None)
+                if bsdf is not None and not bsdf.inputs["Base Color"].is_linked:
+                    m.node_tree.links.new(n.outputs["Color"], bsdf.inputs["Base Color"])
+                n.image = img
             if img.name not in done:
                 path = os.path.join(out_dir, bpy.path.clean_name(os.path.splitext(img.name)[0]) + ".png")
-                if img.filepath and os.path.exists(bpy.path.abspath(img.filepath)) and \
-                        bpy.path.abspath(img.filepath).lower().endswith(".png"):
-                    import shutil
-                    shutil.copyfile(bpy.path.abspath(img.filepath), path)
+                src = bpy.path.abspath(img.filepath) if img.filepath else ""
+                if src and os.path.exists(src) and src.lower().endswith(".png") and not img.is_dirty:
+                    shutil.copyfile(src, path)
                 else:
                     img.filepath_raw = path
                     img.file_format = "PNG"
@@ -319,3 +399,36 @@ def melee_mesh(obs, ratio=0.6, step=0.1, max_bones=3):
             for gi, w in q:
                 o.vertex_groups[gi].add([v.index], w, "REPLACE")
     print(f"melee mesh: {sum(len(o.data.polygons) for o in obs.values())} faces")
+
+
+def use_textures(obs, paths):
+    """Give each material the image paths[material name] (its texture node
+    created and connected to the base colour if missing) and set it as the
+    exporter's hsd_texture: the costume's textures for renders and export."""
+    for o in obs.values():
+        for m in o.data.materials:
+            path = paths.get(m.name)
+            if path is None:
+                continue
+            m["hsd_texture"] = path
+            m.use_nodes = True
+            n = next((n for n in m.node_tree.nodes if n.type == "TEX_IMAGE"), None)
+            if n is None:
+                n = m.node_tree.nodes.new("ShaderNodeTexImage")
+            n.image = bpy.data.images.load(path, check_existing=True)
+            bsdf = next((b for b in m.node_tree.nodes if b.type == "BSDF_PRINCIPLED"), None)
+            if bsdf is not None:
+                for l in list(bsdf.inputs["Base Color"].links) + list(bsdf.inputs["Alpha"].links):
+                    m.node_tree.links.remove(l)
+                m.node_tree.links.new(n.outputs["Color"], bsdf.inputs["Base Color"])
+                # Opaque, as the game draws it (converted materials often
+                # carry a transparency that hides the model in renders).
+                bsdf.inputs["Alpha"].default_value = 1.0
+                for name in ("Emission Strength",):
+                    if name in bsdf.inputs:
+                        for l in list(bsdf.inputs[name].links):
+                            m.node_tree.links.remove(l)
+                        bsdf.inputs[name].default_value = 0.0
+                if "Emission Color" in bsdf.inputs:
+                    for l in list(bsdf.inputs["Emission Color"].links):
+                        m.node_tree.links.remove(l)

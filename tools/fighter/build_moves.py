@@ -89,8 +89,17 @@ class Ctx:
                     continue  # rows into another file (the victory poses)
                 self.channels |= {(j, k) for j, t in tr.items() for k in t}
 
+    # The same motion under another name on some bases.
+    ALIASES = {"Wait1": ["Wait"], "Wait": ["Wait1"], "Appeal": ["AppealR"], "AppealR": ["Appeal"],
+               "AttackS4S": ["AttackS4"], "AttackS4": ["AttackS4S"],
+               "SquatWait": ["SquatWait1"], "SquatWait1": ["SquatWait"]}
+
     def row(self, motion):
-        return next(r for r in self.rows if r[1] and r[1].endswith(f"_ACTION_{motion}_figatree"))
+        for name in [motion] + self.ALIASES.get(motion, []):
+            r = next((r for r in self.rows if r[1] and r[1].endswith(f"_ACTION_{name}_figatree")), None)
+            if r is not None:
+                return r
+        raise StopIteration(motion)
 
     def tracks(self, motion):
         if motion not in self._cache:
@@ -199,6 +208,7 @@ def main():
     moves = mod.moves(ctx)
     only = set(a.only.split(",")) if a.only else None
     entries = []
+    done = set()
     for m in moves:
         if only and m.motion not in only:
             continue
@@ -206,10 +216,15 @@ def main():
         scr = m.script.bytes() if m.script is not None else None
         for motion in [m.motion] + list(m.also):
             sym = ctx.row(motion)[1]
+            # The row's own name (an alias resolved): the game matches it exactly.
+            name = sym.split("_ACTION_")[1][:-len("_figatree")]
+            if name in done:
+                continue
+            done.add(name)
             arc = anim.write_figatree(sym, m.frames, tracks, len(ctx.skeleton))
             if len(arc) > 0x8000:
                 raise SystemExit(f"{motion}: animation {len(arc)} bytes, over the game's 0x8000")
-            entries.append((motion, arc, scr, m.flags))
+            entries.append((name, arc, scr, m.flags))
         print(f"{m.motion}{'+' + '+'.join(m.also) if m.also else ''}: {m.frames} frames, "
               f"{len(m.keys)} keys, {len(arc)} bytes, script {len(scr) if scr else 0} bytes")
         if a.preview:

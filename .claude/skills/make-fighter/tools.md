@@ -83,6 +83,10 @@ inside Blender with globals as shown.
 | `blender_pose.py` | Blender: pose "Skeleton" exactly like a game pose dump (`MELEE_DUMP_POSE`, §9) | global `POSE_JSON` |
 | `anim.py` | animations (figatrees) and action scripts: read, sample, write; posing in model space (`Poser`: aim, turn, spin, move) | library, §11 |
 | `build_moves.py SPEC.py` | the fighter's own attacks: new animations and hitbox scripts on the base's motions -> `pack/motions.bin` | §11 |
+| `moveskit.py` | `Kit(ctx, Move, J)`: the posing and hitbox shorthand for `moves.py` (arms, legs, kick, punch, hit with a zero offset, attack/special/taunt over the base's rows, `family(prefix)`, `has`) | library, `moves.md` §3 |
+| `base_poses.py BASE_DIR OUT [--base Xx] [MOTION:FRAME:name ...]` | the base's poses from its own animations as pose dumps (idle, run, jab, smashes, jump, aerials, crouch, fall) | `poses/` for `make_pack.sh --check`, no game needed |
+| `blender_to_glb.py` | Blender: any model (.fbx, .blend, .obj) to .glb, textures searched beside it, an inventory printed | before `--inspect` when assimp is not enough (a .blend) |
+| `blender_autorig.py` | Blender: a skeleton for an unrigged model from hand-placed joints; each loose part (or vertex) on its nearest bone | §6d |
 | `dump_model.py` | prints a .dat's joints, DObjs, materials, vertex formats | `dump_model.py pack/Pl<ID>Nr.dat` or `dump_model.py DISC PlMrNr.dat` |
 | `hsd.py`, `model.py` | HSD archive reader/writer, mesh decode | libraries |
 
@@ -95,7 +99,8 @@ lbarchive.c PANIC) and `validate.py` reports it.
 
 **Textures.** `build_dat.py` stores each material's PNG at 128x128 in the
 .dat (RGB565, RGB5A3 with alpha) and the full-size PNG in `--textures` named
-`tex1_128x128_<hash>_<fmt>.png`, which the game swaps in. `build_ui.py
+`tex1_128x128_<hash>_<fmt>.png`, which the game swaps in (stretched to a
+power-of-two square when the source is not: UVs map the same). `build_ui.py
 --textures` does the same for the menu images (`tex1_64x56_..._6.png` for
 the icon and so on). Delete `pack/textures` before a rebuild so old ones do
 not pile up.
@@ -294,7 +299,7 @@ exec(open(f"{REPO}/tools/fighter/blender_retarget.py").read()); OBS = retarget()
 ```
 
 The two costumes (the user's rule): the Melee-ified one is
-`melee_mesh(OBS, ratio)` (decimated to ~3-4k triangles, weights quantised
+`melee_mesh(OBS, ratio)` (decimated to ~5k triangles, weights quantised
 again) with `melee_texture.py` textures (the model's own AO map and normal
 map painted into its albedo, else `bake_ao(OBS, dir)` bakes AO into the
 texture's UV space); the other is the model's own mesh and textures.
@@ -308,6 +313,60 @@ mark such materials `m["hsd_double_sided"] = True` if the model's cards
 are single sheets. Very high-poly models (>30k triangles): decimate the
 "as given" costume too (to ~10-15k), or the game's envelope limits
 (build_dat.py splits PObjs at 10 envelopes) cost draw calls.
+
+### Fitting any body (what the nine V2.5 fighters taught)
+
+The retarget is a bone-by-bone *placement*: each mapped bone's segment
+is turned and stretched onto a base segment, or (a plain joint name) only
+moved there; unmapped bones ride their nearest mapped ancestor. So:
+
+- **Several armatures** (a body rig, a hidden hands rig): `SRC_ARMATURE =
+  r"Body"` picks one; `DROP_MESHES` the other's meshes.
+- **A detached root** whose bones sit at the origin and skin eyes, teeth,
+  a collar: `FOLLOW = {"eyeBone": "Head"}` puts them on the bone they
+  belong to (else their vertices are removed as unmapped).
+- **A quadruped on a biped base** (a dog on Pikachu): map the spine as a
+  segment hips -> chest so the torso turns upright, hind legs on the legs,
+  forelegs on the arms, the head and tail by position only (snout and
+  tail keep pointing forward and back). A cape on the shoulders then
+  points along the old spine: `FOLLOW` its chain roots to the hips so it
+  turns with them and hangs down the back.
+- **A ball body** (a ghost, a bean on Jigglypuff/Kirby): the body bone on
+  the base's body joint by position only; stubby arms as segments; the
+  base's legs can stay empty (a ghost floats).
+- **Rigid shells** (an animatronic): position-only mapping for the torso,
+  segments for the limbs, `OFFSET` to close gaps.
+- **Mesh UV tile / no image**: `TEX_ASSIGN = {"material": "file.png"}`
+  (a material whose node lost its image), `TEX_COLORS` (flat colours,
+  also for "Plain", the material given to parts with none).
+- **Props the model lacks** (a lightsaber for a sword base): build the
+  mesh in `fit.py` after `retarget()`, weight it wholly to the weapon
+  joint, add it to `OBS` and its colour to `TEX_COLORS` (Yoda's fit.py).
+- **A part of one material that needs another colour** (the inside of a
+  mouth): split those faces off in `fit.py` into their own object and
+  material (King Boo's fit.py: faces well inside the body, on its front).
+- Ripples on smooth bodies: `WEIGHT_STEP = 0.025`.
+
+## 6d. An unrigged model (`blender_autorig.py`)
+
+A static model (no skeleton; often an A-pose statue or an animatronic of
+separate pieces): read its joints off the model (`make_pack.sh
+--inspect`, or list its loose parts with their centres and bounds: an
+animatronic's ball joints are parts of their own), then write `rig.py`:
+
+```python
+SRC = G + "/model/raw.glb"; OUT = G + "/model/model.glb"
+JOINTS = [("Hips", None, (0, 0, 0.33)), ("Spine", "Hips", (0, 0, 0.40)), ...,
+          ("ShoulderL", "Chest", (0.094, 0.007, 0.546)), ...]   # Blender space: Z up, -Y front
+TAILS = {"Head": (0, -0.02, 0.77)}     # leaves: where the bone ends
+RIGID = True                           # each loose part on its nearest bone (pieces stay whole)
+exec(open(REPO + "/tools/fighter/blender_autorig.py").read())
+```
+
+`Blender -b --python-expr "G='...'; REPO='...'; exec(open('rig.py').read())"`
+writes a skinned glb; fit it like any rigged model (Freddy: Fr/rig.py,
+Fr/fit.py). `RIGID = False` weights each vertex to its nearest bone (a
+one-piece mesh; then check the elbows and knees).
 
 ## 6c. AssetFurnace (Pixal3D image-to-3D)
 
@@ -377,7 +436,9 @@ base     Mr                 base fighter code
 symbol   PlyName5K          joint symbol stem (§3)
 costumes Nr Bu              files Pl<id><C>.dat; first is the default (the Melee-ified one); <= 8
 teams    Re Nr Gr           optional: red, blue, green team costumes (default Re Bu Gr)
-moves    Name               optional: compiled specials (moves.md)
+moves    Name               optional: compiled specials (moves.md); one word (make_pack.sh MOVES)
+order    5                  optional: place among the packs on character select, lowest first (100);
+                              6 custom slots a page, the CUSTOM tile pages through them
 voice    none               optional: none of the base fighter's voice clips (a silent character)
 weight   0.95               optional multipliers on the base: weight walk dash
 jump     1.05                 jump gravity fall air (0.5-2 sensible)
@@ -386,8 +447,9 @@ jump     1.05                 jump gravity fall air (0.5-2 sensible)
 **Ids.** A capital and a lower-case letter, not used by the disc's
 `Pl??.dat` files (`validate.py --disc` checks) or another pack. Taken on
 the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb Kp Lg Lk
-Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is Ganondorf); Ge is
-Geno's pack.
+Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is Ganondorf). Packs
+made so far: Ge Geno, Fr Freddy, Cr Crewmate, Op Optimus Prime, Yo Yoda, Wa
+Waluigi, Kr Krypto, Sh Shadow, Th Thragg, Kg King Boo. Up to 16 packs.
 
 fighter.cfg, motions.bin and every costume file are hashed for online play (same packs
 on both machines = custom fighters allowed; otherwise base fighters only).

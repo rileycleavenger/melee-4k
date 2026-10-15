@@ -67,13 +67,13 @@ import bpy, glob, json, os
 # The model's textures as PNGs; ambient occlusion baked for any the model
 # brings no AO map for (its own maps, if any: tex/<texture>_ao.png and
 # _nrm.png, put there by hand from the model's files).
-tex = save_textures(OBS, '$G/tex/original')
+tex = save_textures(OBS, '$G/tex/original', search=[G + '/model'] + list(globals().get('TEX_SEARCH', [])), colors=globals().get('TEX_COLORS', {}), assign={k: G + '/model/' + v for k, v in globals().get('TEX_ASSIGN', {}).items()})
 need = [t for t in set(tex.values()) if not os.path.exists(t[:-4] + '_ao.png')]
 if need and '$MODE' != '--check':
     bake_ao({n: o for n, o in OBS.items() if any(m['hsd_texture'] in need for m in o.data.materials)}, '$G/tex/original')
 json.dump(tex, open('$G/tex/materials.json', 'w'))
 PYEOF
-if [ "$MODE" != --check ]; then
+if true; then
   "$BLENDER" -b --factory-startup --python "$G/.blender_job.py" 2>&1 | grep -E "retargeted|removed|Error|Traceback|line [0-9]" || true
   # The Melee-ified textures.
   mkdir -p "$G/tex/melee"
@@ -82,7 +82,7 @@ if [ "$MODE" != --check ]; then
     b="${t%.png}"; args=()
     [ -f "${b}_ao.png" ] && args+=(--ao "${b}_ao.png")
     [ -f "${b}_nrm.png" ] && args+=(--normal "${b}_nrm.png")
-    "$PY" "$REPO/tools/fighter/melee_texture.py" "$t" "$G/tex/melee/$(basename "$t")" --strength "$MELEE_STRENGTH" "${args[@]}"
+    "$PY" "$REPO/tools/fighter/melee_texture.py" "$t" "$G/tex/melee/$(basename "$t")" --strength "$MELEE_STRENGTH" ${args[@]+"${args[@]}"}
   done
 fi
 
@@ -92,12 +92,7 @@ G = '$G'; REPO = '$REPO'; exec(open('$G/fit.py').read())
 import bpy, glob, json, os
 tex = json.load(open('$G/tex/materials.json'))
 melee = {m: '$G/tex/melee/' + os.path.basename(p) for m, p in tex.items()}
-for o in OBS.values():
-    for m in o.data.materials:
-        m['hsd_texture'] = melee[m.name]
-        for n in m.node_tree.nodes:
-            if n.type == 'TEX_IMAGE':
-                n.image = bpy.data.images.load(melee[m.name], check_existing=True)
+use_textures(OBS, melee)
 CHECK_POSES = sorted(glob.glob('$G/poses/*.json'))
 if '$MODE' == '--check':
     COSTUMES = [melee]; CHECK_ONLY = True
@@ -118,9 +113,9 @@ mkdir -p "$PACK"
 rm -rf "$PACK/textures" "$PACK"/Pl$ID??.dat
 "$PY" "$REPO/tools/fighter/build_dat.py" --base-dir "$BASE" --mesh "$G/mesh_melee.json" --symbol "$SYMBOL" \
   --out "$PACK/Pl${ID}Nr.dat" --textures "$PACK/textures" | tail -1 | cut -c1-120
-orig=(); for kv in $("$PY" -c "import json;[print(f'{m}={p}') for m,p in json.load(open('$G/tex/materials.json')).items()]"); do orig+=(--texture "$kv"); done
+orig=(); while IFS= read -r kv; do orig+=(--texture "$kv"); done < <("$PY" -c "import json;[print(f'{m}={p}') for m,p in json.load(open('$G/tex/materials.json')).items()]")  # names may have spaces
 "$PY" "$REPO/tools/fighter/build_dat.py" --base-dir "$BASE" --mesh "$G/mesh_original.json" --symbol "$SYMBOL$SECOND" \
-  --out "$PACK/Pl${ID}$SECOND.dat" --textures "$PACK/textures" "${orig[@]}" | tail -1 | cut -c1-120
+  --out "$PACK/Pl${ID}$SECOND.dat" --textures "$PACK/textures" ${orig[@]+"${orig[@]}"} | tail -1 | cut -c1-120
 # Its own attacks, taunt and special animations.
 "$PY" "$REPO/tools/fighter/build_moves.py" "$G/moves.py" --base-dir "$BASE" --base "$BASE_CODE" --out "$PACK/motions.bin" | tail -1
 # The stock icon: hand-drawn pixel art at 24x24.
@@ -133,7 +128,8 @@ name "$NAME"
 base $BASE_CODE
 symbol $SYMBOL
 costumes Nr $SECOND
-moves $NAME  # its specials' C (src/melee/ft/kinds/ft$NAME/), compiled in
+moves ${MOVES:-$NAME}  # its specials' C (src/melee/ft/kinds/ft${MOVES:-$NAME}/), compiled in
+order ${ORDER:-100}  # place on character select among the packs, lowest first
 voice none   # its own voice is not in the game: none of the base's
 # Attribute multipliers on the base's (moves.md §Attributes): from how the
 # character moves in its games.

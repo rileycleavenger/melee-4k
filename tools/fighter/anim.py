@@ -219,15 +219,26 @@ def motion_table(pl_dat):
     a = hsd.Archive(pl_dat)
     ft = next(o for s, o in a.symbols.items() if s.startswith("ftData"))
     tbl = a.ptr(ft + 0xC)
-    rows, i = [], 0
+    rows, i, empty = [], 0, 0
+    # Rows with neither an animation nor a script exist (unused motions);
+    # the table ends where rows stop looking like rows.
     while tbl + (i + 1) * 0x18 <= len(a.body):
         o = tbl + i * 0x18
         name, scr = a.ptr(o), a.ptr(o + 0xC)
-        if name is None and scr is None:
+        bad = name is not None and not a.cstr(name).startswith("Ply")
+        if bad:
             break
+        if name is None and scr is None:
+            empty += 1
+            if empty > 8 or a.u32(o + 4) or a.u32(o + 8):
+                break
+        else:
+            empty = 0
         rows.append((i, a.cstr(name) if name is not None else None, a.u32(o + 4), a.u32(o + 8), scr,
                      a.u32(o + 0x10)))
         i += 1
+    while rows and rows[-1][1] is None and rows[-1][4] is None:
+        rows.pop()
     return rows, a
 
 
@@ -292,17 +303,34 @@ def _bits(fields):
     return w << (32 - used)
 
 
-def read_script(a, off):
-    """[(opcode, [words])] of a script in archive `a` at body offset `off`."""
+def read_script(a, off, _depth=0):
+    """[(opcode, [words])] of a script in archive `a` at body offset `off`.
+    Gotos (0x14) and subroutine calls (0x1C) hold pointers into the base's
+    file, meaningless anywhere else: their targets are read in place (a
+    subroutine's commands up to its return, 0x18), so the result stands
+    alone."""
     out = []
-    while off is not None:
+    seen = set()
+    while off is not None and off not in seen and _depth < 8:
+        seen.add(off)
         w = a.u32(off)
         op = w >> 26
         n = _SIZES[op] if op < len(_SIZES) else 1
+        if op << 2 == 0x14:      # goto
+            off = a.ptr(off + 4)
+            continue
+        if op << 2 == 0x1C:      # subroutine
+            out += [c for c in read_script(a, a.ptr(off + 4), _depth + 1) if c[0] not in (0x00, 0x18)]
+            off += 4 * n
+            continue
+        if op << 2 == 0x18 and _depth:  # return
+            break
         out.append((op << 2, [a.u32(off + 4 * k) for k in range(n)]))
         if op == 0:
             break
         off += 4 * n
+    if _depth == 0 and (not out or out[-1][0] != 0):
+        out.append((0, [0]))
     return out
 
 

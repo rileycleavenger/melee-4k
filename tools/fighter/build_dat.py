@@ -272,6 +272,13 @@ class Builder:
         key = texture_key(data, side, side, fmt)
         if textures_dir:
             os.makedirs(textures_dir, exist_ok=True)
+            from PIL import Image
+            # The replacement keeps the low-res copy's (square) shape: a
+            # non-square or odd-sized image stretched to a power-of-two
+            # square (UVs are 0-1 either way, so it maps the same).
+            hd = 1 << max(img.size).bit_length() - 1 if max(img.size) & (max(img.size) - 1) else max(img.size)
+            if img.size != (hd, hd):
+                img = img.resize((hd, hd), Image.LANCZOS)
             img.save(os.path.join(textures_dir, key + ".png"))
         image = w.blob(data, 32)
         imd = w.alloc(0x18)
@@ -337,6 +344,18 @@ class Builder:
         w.ptr(self.joints[0]["at"] + 0x10, descs[0])
         return [k for _, k in materials], len(parts)
 
+    def empty_matanim(self, joint):
+        """An HSD_MatAnimJoint tree mirroring the joint tree from `joint`
+        (child 0x0, next 0x4, matanim 0x8 NULL): material animations that
+        animate nothing."""
+        w, t = self.w, self.t
+        at = w.alloc(12)
+        w.put(at, "III", 0, 0, 0)
+        child, nxt = t.ptr(joint + 8), t.ptr(joint + 0xC)
+        w.ptr(at, self.empty_matanim(child) if child is not None else None)
+        w.ptr(at + 4, self.empty_matanim(nxt) if nxt is not None else None)
+        return at
+
     def finish(self, symbol_prefix):
         pubs = {}
         for s, off in self.t.symbols.items():
@@ -346,6 +365,11 @@ class Builder:
             elif s.endswith("_Share_matanim_joint"):
                 name = f"{symbol_prefix}_Share_matanim_joint"
             pubs[name] = off
+        # The game loads the costume's matanim joint (eye blinks) on bases
+        # whose costume strings name one (Captain Falcon, Ganondorf, Samus)
+        # and stops if it is missing: a template without one gets an empty one.
+        if f"{symbol_prefix}_Share_matanim_joint" not in pubs:
+            pubs[f"{symbol_prefix}_Share_matanim_joint"] = self.empty_matanim(self.t.symbols[self.joint_sym])
         return self.w.finish(pubs, self.t.externs)
 
 

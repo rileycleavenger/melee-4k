@@ -42,4 +42,9 @@ WEIGHT_AS = {'Head': 'J23'}
 FOLLOW = {'Spine1': 'Hips'}
 # Feet keep their own height, so the soles stay on the ground.
 KEEP_Y = ['LeftFoot', 'RightFoot']
+# Textures the conversion lost: found by name in model/ (and TEX_SEARCH
+# folders); ones the model's files lack entirely: a flat colour.
+TEX_COLORS = {}          # {'material name': (r, g, b)}
+TEX_ASSIGN = {}          # {'material name': 'file in model/'}: when the names say nothing
+DROP_MESHES = []         # mesh objects to leave out (spare hands, an environment sphere)
 exec(open(REPO + '/tools/fighter/blender_retarget.py').read()); OBS = retarget()

@@ -131,6 +131,10 @@ def decode_display(a, pobj):
                     if v["attr"] in (GX_VA_PNMTXIDX, GX_VA_TEX0MTXIDX):
                         vtx[v["attr"]] = dl[o]
                         o += 1
+                    elif v["attr"] in (11, 12):
+                        # Vertex colours (GX_VA_CLR0/1) in the display list:
+                        # RGB565, RGB8, RGBX8, RGBA4, RGBA6, RGBA8. Skipped.
+                        o += (2, 3, 4, 2, 3, 4)[v["comp"]]
                     else:
                         raise ValueError(f"direct attribute {v['attr']} not handled")
                 elif v["type"] == GX_INDEX8:

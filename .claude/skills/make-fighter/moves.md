@@ -84,6 +84,16 @@ left), parents first:
 | `move(joint, offset)` | move a joint: the body up/down (XRotN), root motion (TransN, `translate=[1]`) |
 | `stretch(joint, child, f)` | lengthen a limb for a pose (the next animation resets it) |
 
+`moveskit.Kit` (REPO/tools/fighter/moveskit.py) wraps the common work:
+`k = Kit(ctx, Move, J, idle=..., squat=...)` with `J` naming the base's
+joints (hips, waist, chest, neck, head, l_arm > l_fore > l_hand, r_...,
+l_thigh > l_shin > l_foot, r_..., extras), then `k.arms/legs/punch/kick`
+for poses, `k.hit(bone, damage, size, ...)` for hitboxes (zero offset:
+a base's sword offset never carries over), `k.attack(motion, frames,
+keys, hits, also=[...])`, `k.special(rows, frames, keys, script)`,
+`k.taunt(...)`, `k.family("SpecialHi")` for all of a special's rows, and
+`return k.out`. Every V2.5 fighter's moves.py is an example.
+
 `Move(motion, frames, keys=[(frame, pose)], script, translate=[], also=[],
 root=False)`: keys are splined (Catmull-Rom); start and end on the stance
 (ground) or the fall pose (air) so transitions are smooth. `root=True`
@@ -151,7 +161,38 @@ costume, else the base's own. So the moves are per fighter, not per kind.
 3. `moves <Name>` in the pack's fighter.cfg. `validate.py` checks the name
    is compiled in.
 
-### Writing a special
+### The generic specials (the default route)
+
+Most specials are a pose sequence (moves.py) plus a little behaviour. Do
+those as data on the generic engine (ftcustom.h), not the base's code
+(which brings its guns and flames along); every V2.5 fighter's C is
+like this (src/melee/ft/kinds/ftWaluigi/ftwaluigi.c):
+
+```c
+static const FtCustomFx k_beam_fx = {        /* all optional, 0 = none */
+    FT_CUSTOM_SHOT_RAY, 14, FtPart_RHandN,   /* a shot: Ray Gun ray or Star Rod star, frame, part */
+    6, 20, 2.4F, 0.0F,                       /* invisible frames 6-19, moving at x 2.4, y 0 */
+    FtPart_HipN, 4, 22, 4, 0,                /* sparks at a part, frames 4-22 every 4 (effect id; 0 sparks) */
+    16, 15,                                  /* screen flash on frame 16, colour anim 15 */
+    25.0F,                                   /* armour for the whole move */
+};
+static const FtCustomSpecial k_beam = {
+    ftXx_MS_SpecialN, ftXx_MS_SpecialAirN,   /* the base's rows that hold the move (motions.bin) */
+    false, false,                            /* helpless fall after it; root motion */
+    0, 0,                                    /* velocity on entry (x forward; on the ground a slide; y > 0 lifts off) */
+    0.5F, 0, 0,                              /* gravity multiplier in the air; helpless fall's mobility, landing lag */
+    &k_beam_fx,
+};
+static void ftXx_SpecialN(Fighter_GObj* g) { ftCustom_SpecialEnter(g, &k_beam); }
+```
+
+The hitboxes are the move's script in moves.py (`k.script().until(f)
+.hitbox(...)...end()`), the same on all its rows. on_frame is only needed
+for what FtCustomFx does not cover (Geno's charged buff, Shadow's custom
+Chaos Control sparks). Vanish and armour are cleared when the move ends or
+is interrupted.
+
+### Writing a special (the base's own motion states)
 
 Reuse the base's **motion states** (its animations and hitbox scripts, by
 `ftXx_MS_*` from `src/melee/ft/kinds/ft<Base>/forward.h`) and change what

@@ -26,7 +26,7 @@ import model  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(HERE))
 ATTRS = ("weight", "walk", "dash", "jump", "gravity", "fall", "air")
-KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves", "voice"} | set(ATTRS)
+KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves", "voice", "order"} | set(ATTRS)
 # Melee's own fighters draw 800-6000 triangles; an HD custom fighter can
 # afford more (smooth shapes), up to about 20000 with eight on screen.
 TRI_WARN = (800, 20000)
@@ -236,7 +236,23 @@ MOVESET = ("Attack11 Attack12 Attack13 AttackDash AttackS3S AttackS3Hi AttackS3L
            "SpecialAirHi SpecialLw SpecialAirLw").split()
 
 
-def check_motions(path, r):
+def base_moveset(base_dir, code):
+    """The base's own attack, taunt and special motions (names vary by base:
+    AppealR/AppealL, SpecialNStart/Loop/End...)."""
+    import re
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import anim
+    rows, _ = anim.motion_table(open(os.path.join(base_dir, f"Pl{code}.dat"), "rb").read())
+    names = []
+    for row in rows:
+        if row[1] and "_ACTION_" in row[1]:
+            n = row[1].split("_ACTION_")[1][:-len("_figatree")]
+            if re.match(r"(Attack|Appeal|Special)", n) and n not in names:
+                names.append(n)
+    return names
+
+
+def check_motions(path, r, moveset=MOVESET):
     """motions.bin (build_moves.py): readable, and which of the moveset's
     motions still show the base's animation."""
     import struct
@@ -255,7 +271,7 @@ def check_motions(path, r):
             r.error(f"motions.bin: {names[-1]}: animation out of the file or over 0x8000 bytes")
         if ssize and script + ssize > len(data):
             r.error(f"motions.bin: {names[-1]}: script out of the file")
-    left = [m for m in MOVESET if m not in names]
+    left = [m for m in moveset if m not in names]
     if left:
         r.warn("motions.bin leaves the base's: " + " ".join(left))
     return names
@@ -308,7 +324,10 @@ def main():
         counts[c] = check_costume(p, cfg, c, base_skel, r)
     check_ui(os.path.join(a.pack, f"Pl{pid}Ui.dat"), cfg, r)
     check_textures(os.path.join(a.pack, "textures"), r)
-    motions = check_motions(os.path.join(a.pack, "motions.bin"), r)
+    moveset = MOVESET
+    if a.base_dir and os.path.exists(os.path.join(a.base_dir, f"Pl{cfg.get('base')}.dat")):
+        moveset = base_moveset(a.base_dir, cfg.get("base"))
+    motions = check_motions(os.path.join(a.pack, "motions.bin"), r, moveset)
 
     print(f"{pid} \"{cfg.get('name', pid)}\" on {cfg.get('base')}: {len(cfg['costumes'])} costume(s) "
           + ", ".join(f"{c} ~{n} tris" for c, n in counts.items() if n is not None)
