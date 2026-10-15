@@ -526,6 +526,14 @@ class Poser:
         self.locals[j][0][axis] += math.radians(deg)
         return self
 
+    def stretch(self, j, child, factor):
+        """Scale joint j along its bone (towards `child`) by factor: a limb
+        longer for a pose. Its children move out with it."""
+        pos = self.locals[child][2]
+        k = max(range(3), key=lambda i: abs(pos[i]))
+        self.locals[j][1][k] *= factor
+        return self
+
     def move(self, j, offset):
         """Move joint j by a model-space offset (its parent's axes turned
         back: the joint's own position track)."""

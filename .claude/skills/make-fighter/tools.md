@@ -446,13 +446,16 @@ animations and scripts, the base's timing kept where the spec keeps it.
    bone, `turn(joint, axis, deg)` turns a joint about a model axis,
    `spin(joint, axis_index, deg)` adds to a body joint's own angle (whole
    turns: XRotN flips, YRotN spins; key every <= 90 deg), `move(joint,
-   offset)` moves a joint (root motion on TransN: `translate=[1]`). Keys
+   offset)` moves a joint (root motion on TransN: `translate=[1]`),
+   `stretch(joint, child, factor)` lengthens a limb for a pose (a base's
+   short arm hidden by a big head; the next animation resets it). Keys
    are splined. Scripts: `ctx.rescript(motion, [hit(...), ...])` keeps the
    base's script and changes its hitboxes in order (bone, damage, size,
    offset, angle, kbg, bkb, wkb, element); the base's effects (0x28) and
    model swaps (0xA0) are dropped - a model swap would hide parts of the
    new model. Angled variants (AttackS3Hi/Lw, AttackS4Hi/Lw) are motions
-   of their own: give each a move.
+   of their own: give each a move. The taunt is `Appeal` (drop the
+   base's taunt sounds 0x44 and odd commands like Mario's grow 0xB8).
 4. Build: `.venv/bin/python REPO/tools/fighter/build_moves.py moves.py
    --base-dir $DEV/base/BASE --out $DEV/packs/Xx/motions.bin --preview
    prev/` and render the preview poses (`prev/<motion>/f<frame>.json`,

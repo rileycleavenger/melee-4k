@@ -223,6 +223,19 @@ static void electric_sparks(Fighter* fp)
     }
 }
 
+/* The taunt (his pack animation): three finger-gun shots, a spark and an
+ * electric flash at his right hand on each. */
+static void taunt_shots(Fighter* fp)
+{
+    const int f = (int) fp->cur_anim_frame;
+    if ((fp->motion_id == ftCo_MS_AppealSR || fp->motion_id == ftCo_MS_AppealSL) &&
+        (f == 50 || f == 62 || f == 74))
+    {
+        spark_at(fp, FtPart_RHandN);
+        ftCo_800BFFD0(fp, GE_ELEC_COLANIM, false);
+    }
+}
+
 static void ftGe_Frame(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
@@ -234,6 +247,7 @@ static void ftGe_Frame(Fighter_GObj* gobj)
     }
     flash_hits(fp);
     electric_sparks(fp);
+    taunt_shots(fp);
     if (fp->motion_id == ftMr_MS_SpecialHi || fp->motion_id == ftMr_MS_SpecialAirHi) {
         sparks(fp, 2);
         if ((int) fp->cur_anim_frame % 12 == 0) {
