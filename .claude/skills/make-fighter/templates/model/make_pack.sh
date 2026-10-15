@@ -17,6 +17,7 @@ SECOND=Bu                  # the second costume's suffix (the model as given)
 LO_RATIO=0.6               # Melee-ified mesh: share of the triangles kept
 MELEE_STRENGTH=1.0         # Melee-ified texture: shading strength
 ICON_JOINTS=""            # the head's joints ("J60"): the icon framed on them (base_joints.py)
+ICON_POSE=idle            # the icon's pose: poses/<ICON_POSE>.json; "bind" for the bind pose (a base whose idle turns away)
 CSP=jab                    # portrait pose: poses/<CSP>.json (a game pose dump)
 
 G="$(cd "$(dirname "$0")" && pwd)"
@@ -103,7 +104,7 @@ OUT = '$G/mesh_original.json'; exec(open('$REPO/tools/fighter/blender_export_fig
 COSTUMES = [melee, tex]
 POSE = {}
 ICON_JOINTS = '${ICON_JOINTS:-}'.split()
-ICON_POSE = '$G/poses/idle.json' if os.path.exists('$G/poses/idle.json') else {}
+ICON_POSE = '$G/poses/${ICON_POSE:-idle}.json' if os.path.exists('$G/poses/${ICON_POSE:-idle}.json') else {}
 CSP_POSE = '$G/poses/$CSP.json' if os.path.exists('$G/poses/$CSP.json') else {}
 OUT = '$G/ui'; exec(open('$REPO/tools/fighter/blender_render_ui.py').read())
 melee_mesh(OBS, $LO_RATIO)

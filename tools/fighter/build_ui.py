@@ -100,11 +100,15 @@ def melee_icon(render, name, font_path, size=HD["icon"]):
     if box is not None:
         r = r.crop(box)
     # The face fills the window above the bar: as wide as the icon, its
-    # bottom (chin, collar) just behind the bar, its top cut by the frame.
+    # bottom (chin, collar) just behind the bar, its top cut by the frame
+    # -- a tall head (a cap, a whole bean-shaped body) is centred on its
+    # upper middle, where the eyes are, the rest going behind the bar.
     bar0 = round(h * 0.735)
     scale = max(w * 1.08 / r.width, (bar0 + h * 0.1) / r.height)
     r = r.resize((max(1, int(r.width * scale)), max(1, int(r.height * scale))), Image.LANCZOS)
-    plate.alpha_composite(r, ((w - r.width) // 2 + round(6 * k), bar0 + round(h * 0.1) - r.height))
+    y = min(bar0 + round(h * 0.1) - r.height, 0)        # the head's bottom behind the bar
+    y = max(y, round(bar0 * 0.45 - r.height * 0.42))    # ... unless that hides its eyes
+    plate.alpha_composite(r, ((w - r.width) // 2 + round(6 * k), y))
     plate.putalpha(Image.composite(plate.getchannel("A"), Image.new("L", size, 0), inner))
     # Inner shadow along the frame.
     shade = Image.new("L", size, 0)
