@@ -438,7 +438,7 @@ costumes Nr Bu              files Pl<id><C>.dat; first is the default (the Melee
 teams    Re Nr Gr           optional: red, blue, green team costumes (default Re Bu Gr)
 moves    Name               optional: compiled specials (moves.md); one word (make_pack.sh MOVES)
 order    5                  optional: place among the packs on character select, lowest first (100);
-                              6 custom slots a page, the CUSTOM tile pages through them
+                              all on screen at once (the grid shrinks for more columns)
 voice    none               optional: none of the base fighter's voice clips (a silent character)
 weight   0.95               optional multipliers on the base: weight walk dash
 jump     1.05                 jump gravity fall air (0.5-2 sensible)

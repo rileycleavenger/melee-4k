@@ -30,10 +30,11 @@ costumes 5-9`).
 
 ## In the game
 
-- **Character select.** Custom fighters get icons in six free places of
-  the grid (right of each row, under Falco, left of him), in pack order
-  (`order` in fighter.cfg, then the id). With more than six, the **CUSTOM**
-  tile pages through them (OFF, 1/2, 2/2...). Picking one shows its portrait and name;
+- **Character select.** Custom fighters all get icons at once: the grid
+  shrinks to make room for whole columns either side of it (one per side
+  per five or six fighters, up to 16), filled inner columns first, right
+  then left, in pack order (`order` in fighter.cfg, then the id). Picking
+  one shows its portrait and name;
   X/Y cycle its costumes. In team battles it wears the costumes its
   `teams` line names. Random never picks a custom fighter. The **CUSTOM**
   switch left of the top row turns custom fighters off and on (saved as

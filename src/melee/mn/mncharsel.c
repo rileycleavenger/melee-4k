@@ -2296,18 +2296,16 @@ s32 mnCharSel_8025FDEC(u8 door)
  * the pack's first costume; X and Y then cycle the pack's costumes; the
  * door shows the pack's name and portrait for them. Everything here
  * follows the hands, so it is the same on every machine online. */
-/* Six slots for custom icons, all on screen in 4:3: the bottom row's right
- * corner (otherwise a random pick; the left one stays random), the three
- * rows one column right of the grid, the middle and bottom rows one column
- * left (the CUSTOM switch has the top). More custom fighters go on pages
- * of six: the switch steps OFF, 1/2, 2/2... The same layout on every
- * screen shape, so online every hand picks the same fighter. */
-#define CSS_CUSTOM_MAX 12
-#define CSS_SLOTS 6
+/* All custom icons are on screen at once: the grid is shrunk about its
+ * centre (css_scale) to make room for whole columns either side of it, k
+ * per side for as many as there are, inner columns first, right then
+ * left; the CUSTOM switch has the top of the outermost left column. The
+ * bottom row's corners stay random. The same layout on every screen shape,
+ * so online every hand picks the same fighter. */
+#define CSS_CUSTOM_MAX 16
 
 typedef struct CssCustom {
     int pack;
-    int page;         /* 1.. */
     u8 base_icon;     /* icons[] index of the base fighter */
     HSD_JObj* icon;   /* the copied grid icon */
     HSD_JObj* frame;  /* its parent: a copy of Roy's icon's parent */
@@ -2319,13 +2317,29 @@ typedef struct CssCustom {
 static CssCustom css_custom[CSS_CUSTOM_MAX];
 static int css_n_custom;
 
-/* Each slot as Roy's icon moved by whole columns (7.0 apart, ICONBNDS_COL*)
- * and rows up from his: right of each row, then under Falco and left of
- * him. Rows are 7.0 apart in the bounds (ICONROWHT_*) but CSS_ROW_JOINT in
- * the icon joints' translation. */
-static const f32 css_slot_dx[CSS_SLOTS] = { 7.0F, 14.0F, 14.0F, 14.0F, -49.0F, -56.0F };
-static const int css_slot_row[CSS_SLOTS] = { 0, 2, 1, 0, 0, 1 };
+/* Each slot as Roy's icon (column 7 of the bottom row) moved by whole
+ * columns (7.0 apart, ICONBNDS_COL*) and rows. Rows are 7.0 apart in the
+ * bounds (ICONROWHT_*) but CSS_ROW_JOINT in the icon joints' translation. */
 #define CSS_ROW_JOINT 5.8F
+#define CSS_GRID_CX 0.1F   /* the grid's centre, in the bounds' units */
+#define CSS_GRID_CY 9.5F
+#define CSS_GRID_HALF_W 30.2F
+#define CSS_ROOM_HALF_W 37.2F  /* what is on screen in 4:3 either side */
+
+static f32 css_scale = 1.0F;
+static HSD_JObj* css_group;  /* holds the copied icons, scaled as the grid */
+static f32 css_retail_bounds[0x19][4];
+static bool css_retail_saved;
+
+static inline f32 cssGx(f32 x)
+{
+    return CSS_GRID_CX + css_scale * (x - CSS_GRID_CX);
+}
+
+static inline f32 cssGy(f32 y)
+{
+    return CSS_GRID_CY + css_scale * (y - CSS_GRID_CY);
+}
 
 /* The CUSTOM switch: shows or hides the custom fighters' icons. A copy of
  * Dr. Mario's icon one column left of him, showing pc_menu_toggle_tile.
@@ -2338,9 +2352,6 @@ static struct {
     f32 l, r, u, d;
 } css_toggle;
 static bool css_custom_on = true;
-static int css_page = 1;   /* the page of custom icons shown, 1..; 0 with them off */
-static int css_pages = 1;
-#define CSS_TOGGLE_DX (-7.0F)
 
 static int cssBaseIcon(FighterKind base)
 {
@@ -2404,7 +2415,7 @@ static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, f32 dy, HSD_JObj** frame_ou
     *frame_out = HSD_JObjLoadJoint(frame);
     jicon = HSD_JObjLoadJoint(icon);
     HSD_JObjAddChild(*frame_out, jicon);
-    HSD_JObjAddChild(mnCharSel_804D6CC0, *frame_out);
+    HSD_JObjAddChild(css_group, *frame_out);
     HSD_JObjSetTranslateX(jicon, HSD_JObjGetTranslationX(jicon) + dx);
     HSD_JObjSetTranslateY(jicon, HSD_JObjGetTranslationY(jicon) + dy);
     return jicon;
@@ -2415,9 +2426,8 @@ static HSD_JObj* cssCloneIcon(HSD_JObj* src, f32 dx, f32 dy, HSD_JObj** frame_ou
 static void cssApplyToggle(void)
 {
     int i, door;
-    css_custom_on = css_page != 0;
     for (i = 0; i < css_n_custom; i++) {
-        if (css_custom_on && css_custom[i].page == css_page) {
+        if (css_custom_on) {
             HSD_JObjClearFlagsAll(css_custom[i].frame, JOBJ_HIDDEN);
         } else {
             HSD_JObjSetFlagsAll(css_custom[i].frame, JOBJ_HIDDEN);
@@ -2432,7 +2442,7 @@ static void cssApplyToggle(void)
         }
     }
     if (css_toggle.icon != NULL) {
-        cssSetImage(css_toggle.icon, 1, pc_menu_page_tile(css_page, css_pages));
+        cssSetImage(css_toggle.icon, 1, pc_menu_toggle_tile(css_custom_on));
     }
 }
 
@@ -2445,23 +2455,101 @@ static bool cssToggleAt(f32 x, f32 y)
 
 static void cssToggle(void)
 {
-    css_page = (css_page + 1) % (css_pages + 1);
+    css_custom_on = !css_custom_on;
     if (!pc_net_active()) {
-        pc_set_custom_fighters_enabled(css_page != 0);
+        pc_set_custom_fighters_enabled(css_custom_on);
     }
     cssApplyToggle();
     sfxMove();
 }
 
+
+/* An empty joint like `src`'s parent, last under the menu's root: the
+ * group the copied icons hang from. */
+static HSD_JObj* cssGroup(HSD_JObj* src)
+{
+    HSD_Joint* j = HSD_MemAlloc(sizeof(HSD_Joint));
+    HSD_JObj* g;
+    memcpy(j, (void*) HSD_JObjGetParent(HSD_JObjGetParent(src))->id, sizeof(HSD_Joint));
+    memset((u8*) j + 0x8, 0, 0xC); /* child, next, dobj */
+    g = HSD_JObjLoadJoint(j);
+    HSD_JObjAddChild(mnCharSel_804D6CC0, g);
+    return g;
+}
+
+/* Shrink the grid (its two groups of icons, the icons' bounds) about its
+ * centre by css_scale; the copied icons' group too. */
+static void cssScaleGrid(void)
+{
+    static const u8 groups[] = { ICONJOINT_DRMARIO, ICONJOINT_MARIO };
+    Vec3 sc = { css_scale, css_scale, 1.0F };
+    Vec3 t;
+    int i;
+    for (i = 0; i < 0x19; i++) {
+        icons[i].bound_l = cssGx(css_retail_bounds[i][0]);
+        icons[i].bound_r = cssGx(css_retail_bounds[i][1]);
+        icons[i].bound_u = cssGy(css_retail_bounds[i][2]);
+        icons[i].bound_d = cssGy(css_retail_bounds[i][3]);
+    }
+    /* the joints' units are the bounds' (the hand's) at the screen's depth */
+    t.x = CSS_GRID_CX * (1.0F - css_scale);
+    t.y = CSS_GRID_CY * (1.0F - css_scale);
+    t.z = 0.0F;
+    for (i = 0; i < (int) (sizeof groups / sizeof groups[0]); i++) {
+        HSD_JObj* j = NULL;
+        lb_80011E24(mnCharSel_804D6CC0, &j, groups[i], -1);
+        if (j != NULL) {
+            /* the frame's parent for Dr. Mario's (edge icons), the icon's for Mario's */
+            HSD_JObj* g = HSD_JObjGetParent(i == 0 ? HSD_JObjGetParent(j) : j);
+            HSD_JObjSetScale(g, &sc);
+            HSD_JObjSetTranslate(g, &t);
+        }
+    }
+    if (css_group != NULL) {
+        HSD_JObjSetScale(css_group, &sc);
+        HSD_JObjSetTranslate(css_group, &t);
+    }
+}
+
+/* The bottom row's corners: random picks. */
+static bool cssRandomAt(struct CSSCharModel* m)
+{
+    return m->xC < cssGy(6.0F) && m->xC > cssGy(-1.0F) &&
+           ((m->x8 > cssGx(-30.0F) && m->x8 < cssGx(-24.4F)) ||
+            (m->x8 > cssGx(24.4F) && m->x8 < cssGx(30.2F)));
+}
+
+/* Where the hand may go left and right on the grid. */
+static f32 css_hand_l = -35.0F, css_hand_r = 26.0F;
+
 /* Load the packs' pictures and put their icons on the grid. */
 static void cssCustomCreate(void)
 {
     HSD_JObj* roy = NULL;
-    int p;
+    int p, i, k = 0, cells;
+    f32 edge_l = -30.0F, edge_r = 30.2F;
+    if (!css_retail_saved) {
+        for (i = 0; i < 0x19; i++) {
+            css_retail_bounds[i][0] = icons[i].bound_l;
+            css_retail_bounds[i][1] = icons[i].bound_r;
+            css_retail_bounds[i][2] = icons[i].bound_u;
+            css_retail_bounds[i][3] = icons[i].bound_d;
+        }
+        css_retail_saved = true;
+    }
+    css_scale = 1.0F;
+    css_group = NULL;
+    css_hand_l = -35.0F;
+    css_hand_r = 26.0F;
+    for (i = 0; i < 0x19; i++) {
+        icons[i].bound_l = css_retail_bounds[i][0];
+        icons[i].bound_r = css_retail_bounds[i][1];
+        icons[i].bound_u = css_retail_bounds[i][2];
+        icons[i].bound_d = css_retail_bounds[i][3];
+    }
     css_n_custom = 0;
     memset(&css_toggle, 0, sizeof css_toggle);
     css_custom_on = pc_net_active() ? true : pc_is_custom_fighters_enabled();
-    css_page = css_custom_on ? 1 : 0;
     if (mnCharSel_804D6CF5 == 1) { /* the 1P layout has no free slot */
         return;
     }
@@ -2471,14 +2559,33 @@ static void cssCustomCreate(void)
         return;
     }
     lb_80011E24(mnCharSel_804D6CC0, &roy, ICONJOINT_EMBLEM, -1);
-    for (p = 0; p < pc_fighter_pack_count() && css_n_custom < CSS_CUSTOM_MAX; p++) {
+    if (roy == NULL) {
+        return;
+    }
+    /* the packs that can show: their count sets the columns */
+    for (p = 0; p < pc_fighter_pack_count(); p++) {
+        if (cssBaseIcon(ftCustom_BaseKind(p)) >= 0 && ftCustom_FirstCostume(p) >= 0) {
+            k++;
+        }
+    }
+    if (k == 0) {
+        return;
+    }
+    if (k > CSS_CUSTOM_MAX) {
+        k = CSS_CUSTOM_MAX;
+    }
+    cells = k;
+    k = (cells + 1 + 5) / 6; /* columns per side: three rows each, less the switch */
+    css_scale = CSS_ROOM_HALF_W / (CSS_GRID_HALF_W + 7.0F * k);
+    css_group = cssGroup(roy);
+    for (p = 0; p < pc_fighter_pack_count() && css_n_custom < cells; p++) {
         CssCustom* c = &css_custom[css_n_custom];
         const PcFighterPack* pk = pc_fighter_pack(p);
         int base_icon = cssBaseIcon(ftCustom_BaseKind(p));
         char name[24];
         HSD_Archive* ui;
-        int k;
-        if (base_icon < 0 || ftCustom_FirstCostume(p) < 0 || roy == NULL) {
+        int n;
+        if (base_icon < 0 || ftCustom_FirstCostume(p) < 0) {
             continue;
         }
         memset(c, 0, sizeof *c);
@@ -2486,38 +2593,56 @@ static void cssCustomCreate(void)
         c->base_icon = (u8) base_icon;
         snprintf(name, sizeof name, "Pl%sUi.dat", pk->id);
         ui = lbArchive_80016DBC(name, (void**) &c->icon_img, "ftUiIcon", NULL);
-        for (k = 0; ui != NULL && k < pk->n_costumes && k < 8; k++) {
+        for (n = 0; ui != NULL && n < pk->n_costumes && n < 8; n++) {
             char sym[16];
-            snprintf(sym, sizeof sym, "ftUiCsp%d", k);
-            c->csp[k] = HSD_ArchiveGetPublicAddress(ui, sym);
+            snprintf(sym, sizeof sym, "ftUiCsp%d", n);
+            c->csp[n] = HSD_ArchiveGetPublicAddress(ui, sym);
         }
         {
-            const int slot = css_n_custom % CSS_SLOTS;
-            c->page = css_n_custom / CSS_SLOTS + 1;
-            c->icon = cssCloneIcon(roy, css_slot_dx[slot], css_slot_row[slot] * CSS_ROW_JOINT, &c->frame);
+            /* cell -> column out from the grid (1..k), side, row up from
+             * the bottom; in the outermost left column the switch has the top */
+            const int slot = css_n_custom;
+            const int col_out = slot / 6 + 1;
+            const bool right = (slot % 6) < 3;
+            const int col = right ? 8 + col_out : -col_out;
+            const int r = (!right && col_out == k) ? 1 - slot % 3 : 2 - slot % 3;
+            f32 dx, dy;
+            dx = 7.0F * (f32) (col - 7);
+            dy = (f32) r;
+            c->icon = cssCloneIcon(roy, dx, dy * CSS_ROW_JOINT, &c->frame);
             cssSetImage(c->icon, 1, c->icon_img);
-            c->l = icons[0x18].bound_l + css_slot_dx[slot];
-            c->r = icons[0x18].bound_r + css_slot_dx[slot];
-            c->u = icons[0x18].bound_u + css_slot_row[slot] * 7.0F;
-            c->d = icons[0x18].bound_d + css_slot_row[slot] * 7.0F;
+            c->l = cssGx(css_retail_bounds[0x18][0] + dx);
+            c->r = cssGx(css_retail_bounds[0x18][1] + dx);
+            c->u = cssGy(css_retail_bounds[0x18][2] + dy * 7.0F);
+            c->d = cssGy(css_retail_bounds[0x18][3] + dy * 7.0F);
+            if (c->l < edge_l) {
+                edge_l = c->l;
+            }
+            if (c->r > edge_r) {
+                edge_r = c->r;
+            }
         }
         css_n_custom++;
     }
-    css_pages = (css_n_custom + CSS_SLOTS - 1) / CSS_SLOTS;
-    if (css_pages < 1) {
-        css_pages = 1;
-    }
-    if (css_n_custom > 0) {
+    {
         HSD_JObj* drmario = NULL;
         lb_80011E24(mnCharSel_804D6CC0, &drmario, ICONJOINT_DRMARIO, -1);
         if (drmario != NULL && pc_menu_toggle_tile(true) != NULL) {
-            css_toggle.icon = cssCloneIcon(drmario, CSS_TOGGLE_DX, 0.0F, &css_toggle.frame);
-            css_toggle.l = icons[0].bound_l + CSS_TOGGLE_DX;
-            css_toggle.r = icons[0].bound_r + CSS_TOGGLE_DX;
-            css_toggle.u = icons[0].bound_u;
-            css_toggle.d = icons[0].bound_d;
+            const f32 dx = -7.0F * (f32) k;
+            css_toggle.icon = cssCloneIcon(drmario, dx, 0.0F, &css_toggle.frame);
+            css_toggle.l = cssGx(css_retail_bounds[0][0] + dx);
+            css_toggle.r = cssGx(css_retail_bounds[0][1] + dx);
+            css_toggle.u = cssGy(css_retail_bounds[0][2]);
+            css_toggle.d = cssGy(css_retail_bounds[0][3]);
+            if (css_toggle.l < edge_l) {
+                edge_l = css_toggle.l;
+            }
         }
     }
+    cssScaleGrid();
+    /* the hand's point is 2.7 right of its position (cursor->xC) */
+    css_hand_l = edge_l - 2.7F - 2.3F * css_scale;
+    css_hand_r = edge_r - 2.7F - 1.5F * css_scale;
     cssApplyToggle();
 }
 
@@ -2527,9 +2652,6 @@ static int cssCustomAt(struct CSSCharModel* m)
     int i;
     for (i = 0; i < css_n_custom && css_custom_on; i++) {
         CssCustom* c = &css_custom[i];
-        if (c->page != css_page) {
-            continue;
-        }
         if (m->x8 > c->l && m->x8 < c->r && m->xC < c->u && m->xC > c->d) {
             return i;
         }
@@ -2646,7 +2768,7 @@ static void cssCustomFrame(void)
         HSD_JObjSetRotation(frame, &q);
     }
     if (css_toggle.icon != NULL) {
-        cssSetImage(css_toggle.icon, 1, pc_menu_page_tile(css_page, css_pages));
+        cssSetImage(css_toggle.icon, 1, pc_menu_toggle_tile(css_custom_on));
     }
 }
 #endif
@@ -3067,15 +3189,18 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                 if (-22.0f > cursor->x10) {
                     cursor->x10 = -22.0f;
                 }
+#ifdef TARGET_PC
+                /* as far as the grid goes, custom icons and switch included */
+                if (css_hand_r < cursor->xC) {
+                    cursor->xC = css_hand_r;
+                }
+                if (css_hand_l > cursor->xC) {
+                    cursor->xC = css_hand_l;
+                }
+#else
                 if (26.0f < cursor->xC) {
                     cursor->xC = 26.0f;
                 }
-#ifdef TARGET_PC
-                /* far enough left to reach the CUSTOM switch */
-                if ((css_toggle.icon != NULL ? css_toggle.l - 2.7f : -35.0f) > cursor->xC) {
-                    cursor->xC = css_toggle.icon != NULL ? css_toggle.l - 2.7f : -35.0f;
-                }
-#else
                 if (-35.0f > cursor->xC) {
                     cursor->xC = -35.0f;
                 }
@@ -3127,16 +3252,14 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                             if (a_press != 0) {
                                 struct CSSCharModel* m =
                                     mnCharSel_804A0BD0[door];
+#ifdef TARGET_PC
+                                /* the grid may be shrunk (cssCustomCreate) */
+                                if (cssRandomAt(m))
+#else
                                 if (m->xC < 6.0f && m->xC > -1.0f &&
                                     ((m->x8 > -30.0f && m->x8 < -24.4f) ||
-                                     (m->x8 > 24.4f && m->x8 < 30.2f))
-#ifdef TARGET_PC
-                                    /* The right corner is a custom fighter's
-                                     * icon when there is one (cssCustomCreate);
-                                     * random is the left corner then. */
-                                    && cssCustomAt(m) < 0
+                                     (m->x8 > 24.4f && m->x8 < 30.2f)))
 #endif
-                                )
                                 {
                                     s32 icon_count;
                                     for (icon_count = 0; icon_count < 25;
