@@ -1,5 +1,4 @@
 #include "gmvsmelee.h"
-#include "gmvs.h"
 
 #include <Runtime/platform.h>
 
@@ -170,11 +169,6 @@ void gmVsMelee_EnterCss(GameModeState* state, VsModeData* vs,
     css->ko_counts = ko_counts;
     css->vs = *vs;
     lbDvd_SetupVsPreloadCache();
-#ifdef TARGET_PC
-    /* A match set up here has the disc's four doors' players (character
-     * select's 8-player layout sets the seventh and eighth). */
-    gm_ExtraPlayersClear();
-#endif
 }
 
 void gmVsMelee_ExitCss(GameModeState* state, VsModeData* vs)

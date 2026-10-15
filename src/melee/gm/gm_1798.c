@@ -38,14 +38,6 @@
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
-/* A finishing place for this screen's tables, which have four (1st-4th):
- * an 8-player match's 5th-8th look as 4th. */
-#ifdef TARGET_PC
-#define RESULT_PLACE(x) ((x) > 3 ? 3 : (x))
-#else
-#define RESULT_PLACE(x) (x)
-#endif
-
 extern ResultsData lbl_8046DBE8;
 
 ResultsDisplayData lbl_8046E1B0;
@@ -91,11 +83,11 @@ void fn_80179854(void)
 
     for (i = 0; i < 4; i++) {
         if (match_end->is_teams == 0) {
-            lookup = RESULT_PLACE(match_end->player_standings[i].is_big_loser);
+            lookup = match_end->player_standings[i].is_big_loser;
         } else {
             lookup =
-                RESULT_PLACE(match_end->team_standings[match_end->player_standings[i].team]
-                    .is_big_loser);
+                match_end->team_standings[match_end->player_standings[i].team]
+                    .is_big_loser;
         }
 
         if (match_end->player_standings[i].pkind != 3 && lookup != 0) {
@@ -108,7 +100,7 @@ void fn_80179854(void)
 
 static inline int get_big_loser(int slot, MatchEnd* match_end)
 {
-    return RESULT_PLACE(match_end->player_standings[slot].is_big_loser);
+    return match_end->player_standings[slot].is_big_loser;
 }
 
 static inline HSD_ImageDesc* fn_80179990_img_at(HSD_ImageDesc* imgs, int slot)
@@ -161,8 +153,8 @@ void fn_80179990(HSD_GObj* arg0, int arg1, int arg2)
         lookup = get_big_loser(arg2, match_end);
     } else {
         lookup =
-            RESULT_PLACE(match_end->team_standings[match_end->player_standings[arg2].team]
-                .is_big_loser);
+            match_end->team_standings[match_end->player_standings[arg2].team]
+                .is_big_loser;
     }
 
     if (lookup != 0) {
@@ -407,10 +399,10 @@ HSD_GObj* fn_8017A318(s32 arg0)
     interest = config->x58;
     callbacks = config->x64;
     if (match_end->is_teams == 0) {
-        slot = RESULT_PLACE(match_end->player_standings[arg0].is_big_loser);
+        slot = match_end->player_standings[arg0].is_big_loser;
     } else {
         u8 team_idx = match_end->player_standings[arg0].team;
-        slot = RESULT_PLACE(match_end->team_standings[team_idx].is_big_loser);
+        slot = match_end->team_standings[team_idx].is_big_loser;
     }
 
     gobj = GObj_Create(0x13, 0x14, 0);
@@ -488,11 +480,11 @@ Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)
     int slot_type;
 
     if (match_end->is_teams == 0) {
-        slot_type = RESULT_PLACE(match_end->player_standings[arg2].is_big_loser);
+        slot_type = match_end->player_standings[arg2].is_big_loser;
     } else {
         slot_type =
-            RESULT_PLACE(match_end->team_standings[match_end->player_standings[arg2].team]
-                .is_big_loser);
+            match_end->team_standings[match_end->player_standings[arg2].team]
+                .is_big_loser;
     }
 
     if (gm_80160438(kind) != NULL) {
@@ -595,10 +587,10 @@ void fn_8017A9B4(int slot)
     int lookup;
 
     if (match_end->is_teams == 0) {
-        lookup = RESULT_PLACE(match_end->player_standings[slot].is_big_loser);
+        lookup = match_end->player_standings[slot].is_big_loser;
     } else {
         int idx = match_end->player_standings[slot].team;
-        lookup = RESULT_PLACE(match_end->team_standings[idx].is_big_loser);
+        lookup = match_end->team_standings[idx].is_big_loser;
     }
 
     inline1(disp->player_img1, slot, lbl_8046E3AC.dim_w1 + lookup,

@@ -100,28 +100,6 @@ u32 lbMemory_80014F7C(Handle* h)
     return sum;
 }
 
-#ifdef TARGET_PC
-/* The largest free block of a region: whether an allocation would fit. */
-u32 lbMemory_LargestFree(Handle* h)
-{
-    uintptr_t start = (uintptr_t) h->lo;
-    HSD_AllocEntry** link = &h->blocks;
-    u32 best = 0;
-    for (;;) {
-        uintptr_t end = (uintptr_t) ((*link != NULL) ? (*link)->addr : h->hi);
-        if (end - start > best) {
-            best = (u32) (end - start);
-        }
-        if (*link == NULL) {
-            break;
-        }
-        start = (uintptr_t) (*link)->addr + (*link)->size;
-        link = &(*link)->next;
-    }
-    return best;
-}
-#endif
-
 HSD_AllocEntry* lbMemory_80014FC8(Handle* h, size_t size)
 {
     uintptr_t lo;

@@ -84,76 +84,6 @@ HSD_Archive* lbl_804D65B8;
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
-#ifdef TARGET_PC
-/* An 8-player match's results: this screen has four panels, so it shows
- * the four best placed, in port order, as though they were slots 0-3 (their
- * KO columns, bonuses and the winners list follow). The match's own
- * MatchEnd stays whole. */
-static MatchEnd pc_results_view;
-
-static bool gm_ResultsTopFour(const MatchEnd* me, MatchEnd* view)
-{
-    int pick[4], n = 0, i, j, k;
-    bool used[GM_SLOTS] = { false };
-    for (i = 4; i < GM_SLOTS; i++) {
-        if (me->player_standings[i].pkind != Gm_PKind_NA) {
-            break;
-        }
-    }
-    if (i == GM_SLOTS) {
-        return false; /* no one past slot 3: the screen as it is */
-    }
-    while (n < 4) {
-        int best = -1;
-        for (i = 0; i < GM_SLOTS; i++) {
-            const struct MatchPlayerData* p = &me->player_standings[i];
-            if (used[i] || p->pkind == Gm_PKind_NA) {
-                continue;
-            }
-            if (best < 0 || p->is_big_loser < me->player_standings[best].is_big_loser ||
-                (p->is_big_loser == me->player_standings[best].is_big_loser &&
-                 p->is_small_loser < me->player_standings[best].is_small_loser))
-            {
-                best = i;
-            }
-        }
-        if (best < 0) {
-            break;
-        }
-        used[best] = true;
-        pick[n++] = best;
-    }
-    for (i = 1; i < n; i++) { /* port order */
-        for (j = i; j > 0 && pick[j] < pick[j - 1]; j--) {
-            k = pick[j];
-            pick[j] = pick[j - 1];
-            pick[j - 1] = k;
-        }
-    }
-    *view = *me;
-    for (i = 0; i < GM_SLOTS; i++) {
-        memzero(&view->player_standings[i], sizeof(view->player_standings[i]));
-        view->player_standings[i].pkind = Gm_PKind_NA;
-    }
-    for (k = 0; k < n; k++) {
-        view->player_standings[k] = me->player_standings[pick[k]];
-        view->x44C[k] = me->x44C[pick[k]];
-        for (j = 0; j < GM_SLOTS; j++) {
-            view->player_standings[k].kills[j] = j < n ? me->player_standings[pick[k]].kills[pick[j]] : 0;
-        }
-    }
-    for (i = 0, j = 0; i < me->n_winners; i++) {
-        for (k = 0; k < n; k++) {
-            if (pick[k] == me->winners[i]) {
-                view->winners[j++] = (u8) k;
-            }
-        }
-    }
-    view->n_winners = (u8) j;
-    return true;
-}
-#endif
-
 MatchEnd* fn_80174274(void)
 {
     return lbl_8046DBE8.x94;
@@ -1832,11 +1762,6 @@ void gm_Scene_Results_OnEnter(void* arg0_)
     lbl_8046DBE8.x1 = 0;
     lbl_8046DBE8.x0_0 = false;
     lbl_8046DBE8.x94 = &arg0->match_end;
-#ifdef TARGET_PC
-    if (gm_ResultsTopFour(&arg0->match_end, &pc_results_view)) {
-        lbl_8046DBE8.x94 = &pc_results_view;
-    }
-#endif
     lbl_8046DBE8.x0_4 = arg0->x0_0;
     lbl_8046DBE8.x0_5 = arg0->x0_1;
 

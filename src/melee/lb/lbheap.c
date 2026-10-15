@@ -181,22 +181,6 @@ LbHeapStatus lbHeap_80015BB8(int arg0)
     return lbHeap_80431FA0.heap_array[arg0].status;
 }
 
-#ifdef TARGET_PC
-/* Whether an allocation of size would fit heap heap_id now (HSD heaps:
- * assumed). */
-bool lbHeap_CanFit(int heap_id, size_t size)
-{
-    struct Heap* p = &lbHeap_80431FA0.heap_array[heap_id];
-    if (p->status != LbHeapStatus_Create) {
-        return false;
-    }
-    if (p->type == 0) {
-        return true;
-    }
-    return lbMemory_LargestFree(p->handle) >= OSRoundUp32B(size);
-}
-#endif
-
 void* lbHeap_80015BD0(int heap_id, size_t size)
 {
     void* result;

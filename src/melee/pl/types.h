@@ -2,7 +2,6 @@
 #define MELEE_PL_TYPES_H
 
 #include <Runtime/platform.h>
-#include <melee/gm/forward.h>
 
 #include <melee/pl/forward.h>
 
@@ -136,7 +135,7 @@ struct pl_x5EC_t {
         int xC;
         s16 x10;
         u16 x12_b0 : 1;
-    } x10[GM_SLOTS]; ///< per opponent slot
+    } x10[6];
 };
 
 struct StaleMoveTable {
@@ -160,7 +159,7 @@ struct StaleMoveTable {
     /* +C6C */ float xC6C;
     /* +C70 */ float xC70;
     /* +C74 */ float xC74;
-    /* +C78 */ float xC78[GM_SLOTS]; ///< per opponent slot
+    /* +C78 */ float xC78[6];
     /* +C90 */ unsigned int xC90;
     /* +C94 */ int xC94;
     /* +C98 */ float xC98;

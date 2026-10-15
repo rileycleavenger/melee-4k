@@ -2,7 +2,6 @@
 #define MELEE_IF_TYPES_H
 
 #include <Runtime/platform.h>
-#include <melee/gm/forward.h>
 
 #include <melee/if/forward.h> // IWYU pragma: export
 #include <melee/sc/forward.h>
@@ -44,7 +43,7 @@ struct IfDamageState {
 };
 
 struct HudIndex {
-    IfDamageState players[GM_SLOTS];
+    IfDamageState players[6];
     /* +258 */ HSD_Joint* damage_num_joint;
     /* +25C */ HSD_AnimJoint** damage_num_anims;
     /* +260 */ HSD_MatAnimJoint** damage_num_matanims;
@@ -126,8 +125,8 @@ struct ifMagnify {
     int x8;
     int xC;
     int x10;
-    ifMagnifyPlayer player[GM_SLOTS];
-    HSD_ImageDesc image_descs[GM_SLOTS - 1];
+    ifMagnifyPlayer player[6];
+    HSD_ImageDesc image_descs[5];
     u8 pad[0xF0 - 0xEC];
 };
 
@@ -271,7 +270,7 @@ struct IfStockUserData {
 struct ifStock_804A1378 {
     DiscU32* x0; /* DynamicModelDesc*[] in the archive */
     DynamicModelDesc* x4;
-    struct ifStock_804A1378_per_player player[GM_SLOTS];
+    struct ifStock_804A1378_per_player player[6];
     HSD_GObj* gobj;
     HSD_JObj* jobj;
     char pad1F0[0x1F4 - 0x1F0];

@@ -19,18 +19,11 @@ int pl_803BCE70[16] = {
     -1, 0x2F, 0x30, 0x31, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 };
 
-/* x504 keeps a bit per player a move hit, in a byte: slot 8 (an 8-player
- * match's eighth) takes the bit of slot 6, which is never a player. */
-static inline u8 plHitBit(int h_player)
-{
-    return (u8) (1 << (h_player == GM_SLOT_NONE + 2 ? GM_SLOT_NONE : h_player));
-}
-
 int pl_80037B2C(struct plActionStats* arg0, int h_player, int idx)
 {
-    HSD_ASSERT(0x89, 0 <= h_player && h_player < GM_SLOTS);
+    HSD_ASSERT(0x89, 0 <= h_player && h_player < 8);
     if (idx < 0x64) {
-        return arg0->x504[idx] & plHitBit(h_player);
+        return arg0->x504[idx] & (1 << (u8) h_player);
     }
     /* PPC fell off the end here when idx >= 0x64. */
     return 0;
@@ -347,9 +340,9 @@ void pl_80038144(HSD_GObj* attacker_gobj, HSD_GObj* victim_gobj, s32 x18d4_int,
                     s32 tmp_x18d4_x3 = victim_fp->dmg.x18d4.x2073;
                     x18d4_x3 = tmp_x18d4_x3;
                 }
-                HSD_ASSERT(0x7E, 0 <= h_player && h_player < GM_SLOTS);
+                HSD_ASSERT(0x7E, 0 <= h_player && h_player < 8);
                 if (x18d4_x3 < 0x64) {
-                    acp->x504[x18d4_x3] |= plHitBit(h_player);
+                    acp->x504[x18d4_x3] |= 1 << (u8) h_player;
                 }
 
                 pl_8003FE64(attacker_fp->player_idx,
@@ -457,10 +450,7 @@ bool pl_80038628(HSD_GObj* gobj, int kind)
 
 unsigned int pl_800386D8(plActionStats* arg0, ssize_t arg1)
 {
-    /* Retail reads on past by_attack_hi into the fields after it
-     * (types.h); a pointer, so bounds checking leaves it alone. */
-    const u32* hi = arg0->by_attack_hi;
-    return hi[arg1];
+    return arg0->by_attack_hi[arg1];
 }
 
 int pl_800386E8(pl_800386E8_arg0_t* arg0)

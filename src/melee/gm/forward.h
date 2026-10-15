@@ -10,21 +10,6 @@
 /// needs to be used for array size declarations.
 /// @{
 #define GM_MAX_PLAYERS 6
-/// Player slots. The disc has six (0-5), and its code uses 6
-/// (::Gm_Player_Other) as "no player" -- in state online play hashes and in
-/// saved structures -- so on PC slot 6 stays empty and an 8-player match's
-/// seventh and eighth fighters take slots 7 and 8 (::gm_PlayerSlot). A match
-/// of six or fewer never touches 6-8 and plays exactly as on the disc.
-#ifdef TARGET_PC
-#define GM_SLOTS 9
-#else
-#define GM_SLOTS GM_MAX_PLAYERS
-#endif
-#define GM_SLOT_NONE 6
-/// Players in an 8-player match (PC).
-#define GM_MAX_FIGHTERS 8
-/// The slot of the n-th player of a match (0-7): 0-5, then 7 and 8.
-#define gm_PlayerSlot(n) ((n) < GM_SLOT_NONE ? (n) : (n) + 1)
 #define GM_MAX_TEAMS 5
 #define GM_NAMETAG_COUNT 120
 #define GM_FPS 60

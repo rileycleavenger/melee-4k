@@ -359,7 +359,7 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
     hud = ifStatus_GetHUDInfo();
 
     jobj = gobj->hsd_obj;
-    for (i = 0, ptr = hud->players; i < GM_SLOTS; ptr++, i++) {
+    for (i = 0, ptr = hud->players; i < 6; ptr++, i++) {
         if (ptr->HUD_parent_entity == gobj) {
             state = &hud->players[i];
             goto found_player;
@@ -496,7 +496,7 @@ found_player:
 static inline IfDamageState* find_player_by_entity(HSD_GObj* gobj)
 {
     s32 i;
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         if (ifStatus_GetHUDInfo()->players[i].HUD_parent_entity == gobj) {
             return &ifStatus_GetHUDInfo()->players[i];
         }
@@ -580,7 +580,7 @@ void ifStatus_802F5B48(HSD_GObj* gobj)
 static inline IfDamageState* getPlayerByHUDParent(HSD_GObj* parent)
 {
     s32 var_ctr;
-    for (var_ctr = 0; var_ctr < GM_SLOTS; var_ctr++) {
+    for (var_ctr = 0; var_ctr < 6; var_ctr++) {
         if (ifStatus_GetHUDInfo()->players[var_ctr].HUD_parent_entity ==
             parent)
         {
@@ -600,7 +600,7 @@ void ifStatus_802F5DE0(HSD_GObj* player, intptr_t arg1)
 static inline IfDamageState* getPlayerByNext(HSD_GObj* gobj)
 {
     s32 i;
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         if (ifStatus_GetHUDInfo()->players[i].next == gobj) {
             return &ifStatus_GetHUDInfo()->players[i];
         }
@@ -768,11 +768,7 @@ void ifStatus_802F6508(s32 arg0)
     u32 mode;
 
     if (Player_GetPlayerSlotType(arg0) != Gm_PKind_NA &&
-#ifdef TARGET_PC
-        (s32) ifStatus_804D6D60 > (arg0 > GM_SLOT_NONE ? arg0 - 1 : arg0) &&
-#else
         (s32) ifStatus_804D6D60 > arg0 &&
-#endif
         (rules = gm_GetStartMeleeRules(), rules->x2_6))
     {
         hud_player = &ifStatus_GetHUDInfo()->players[(u8) arg0];
@@ -807,17 +803,9 @@ void ifStatus_802F665C(int arg0)
 {
     int i;
 
-#ifdef TARGET_PC
-    /* An 8-player match's HUD has eight places (the rules' count has 3 bits). */
-    if (Player_GetPlayerSlotType(GM_SLOT_NONE + 1) != Gm_PKind_NA ||
-        Player_GetPlayerSlotType(GM_SLOT_NONE + 2) != Gm_PKind_NA)
-    {
-        arg0 = GM_MAX_FIGHTERS;
-    }
-#endif
     ifAll_802F343C(arg0);
     ifStatus_804D6D60 = arg0;
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         ifStatus_802F6508(i);
     }
 }
@@ -884,7 +872,7 @@ void ifStatus_802F6804(void)
     s32 i;
     IfDamageState* v;
 
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         v = &ifStatus_GetHUDInfo()->players[i & 0xFF];
         if (v->HUD_parent_entity != NULL) {
             HSD_GObjFree(v->HUD_parent_entity);
@@ -903,7 +891,7 @@ void ifStatus_802F6898(void)
 {
     s32 i;
     HudIndex* v = ifStatus_GetHUDInfo();
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         v->players[i].flags.hide_all_digits = 1;
     }
 }
@@ -913,7 +901,7 @@ void ifStatus_802F68F0(void)
 {
     s32 i;
     HudIndex* v = ifStatus_GetHUDInfo();
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         v->players[i].flags.hide_all_digits = 0;
     }
 }

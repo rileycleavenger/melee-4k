@@ -60,7 +60,7 @@ void plBonusLib_8003D514(int arg0)
     RETURN_IF(ftLib_IsDeadUp(temp_r31) != 0);
     ftLib_GetPos(temp_r31, &sp18);
 
-    for (var_r29 = 0; var_r29 < GM_SLOTS; var_r29++) {
+    for (var_r29 = 0; var_r29 < 6; var_r29++) {
         if (var_r29 == arg0) {
             continue;
         }
@@ -1218,12 +1218,12 @@ void pl_8003FE64(int arg0, int arg1)
 {
     int var_r31;
 
-    for (var_r31 = 0; var_r31 < GM_SLOTS; var_r31++) {
+    for (var_r31 = 0; var_r31 < 6; var_r31++) {
         if (pl_80039418(var_r31, 0x1A) != 0U) {
             break;
         }
     }
-    RETURN_IF(var_r31 != GM_SLOTS);
+    RETURN_IF(var_r31 != 6);
     pl_80038788(arg0, 0x1A, 1);
 }
 
@@ -1232,12 +1232,12 @@ void pl_8003FED0(int arg0, int arg1)
     int var_r31;
     RETURN_IF(arg1 != 0);
 
-    for (var_r31 = 0; var_r31 < GM_SLOTS; var_r31++) {
+    for (var_r31 = 0; var_r31 < 6; var_r31++) {
         if (pl_80039418(var_r31, 0x82) != 0U) {
             break;
         }
     }
-    RETURN_IF(var_r31 != GM_SLOTS);
+    RETURN_IF(var_r31 != 6);
     pl_80038788(arg0, 0x82, 1);
 }
 
@@ -1298,7 +1298,7 @@ void pl_80040120(int arg0, int arg1)
         pl_80038824(arg0, 0x4D);
     }
 
-    for (var_r29 = 0; var_r29 < GM_SLOTS; ++var_r29) {
+    for (var_r29 = 0; var_r29 < 6; ++var_r29) {
         if (!Player_8003221C(var_r29)) {
             continue;
         }
@@ -1389,7 +1389,7 @@ void pl_8004049C(int player, ItemKind arg1)
 
     RETURN_IF(player == Gm_Player_NumMax);
 
-    HSD_ASSERTREPORT(1559, 0 <= player && player < GM_SLOTS,
+    HSD_ASSERTREPORT(1559, 0 <= player && player < Gm_Player_NumMax,
                      "zako ko player illegal ! :%d\n", player);
 
     switch (arg1) {

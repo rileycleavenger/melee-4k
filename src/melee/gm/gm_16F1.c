@@ -25,7 +25,7 @@ static struct {
     struct {
         u8 x0;
         u8 x1;
-    } x2[GM_SLOTS];
+    } x2[6];
 } lbl_8046DBC8;
 
 static int lbl_803D5648[] = {
@@ -352,7 +352,7 @@ struct lbl_803D5A4C_t {
     /* 0x0 */ u8 x0;
     /* 0x1 */ u8 x1[7];
 } lbl_804D65A0;
-/* 4D65A8 */ static u8 lbl_804D65A8[GM_SLOTS];
+/* 4D65A8 */ static u8 lbl_804D65A8[6];
 /* 4D65B0 */ static s32 lbl_804D65B0;
 
 struct lbl_803B7A60_t {
@@ -677,9 +677,8 @@ int fn_8016FAD4(MatchEnd* rules, int kind, int flags, u8 player)
 {
     struct lbl_803D5A4C_t* entry = lbl_803D5A4C.entries;
     struct MatchPlayerData* x58 = rules->player_standings;
-    /* By slot; rankings[6] (slot 6 is never a player) holds the lowest. */
-    u8 rankings[GM_SLOTS] = { 0 };
-    s32 scores[GM_SLOTS];
+    u8 rankings[7] = { 0 };
+    s32 scores[6];
     int i;
 
     while (entry->kind != kind) {
@@ -689,7 +688,7 @@ int fn_8016FAD4(MatchEnd* rules, int kind, int flags, u8 player)
         entry++;
     }
 
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         if (x58[i].pkind != 3) {
             u16 sd = x58[i].self_destructs;
             scores[i] =
@@ -697,10 +696,10 @@ int fn_8016FAD4(MatchEnd* rules, int kind, int flags, u8 player)
         }
     }
 
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < 6; i++) {
         if (x58[i].pkind != 3) {
             int j;
-            for (j = 0; j < GM_SLOTS; j++) {
+            for (j = 0; j < 6; j++) {
                 if (x58[j].pkind != 3 && i != j && scores[i] < scores[j]) {
                     rankings[i]++;
                 }
@@ -809,16 +808,13 @@ int fn_801701C0(MatchEnd* rules, int arg1, int arg2)
 {
     u8* tmp;
     const struct lbl_803B7A60_t* zeroes = &lbl_803B7A60;
-    /* Retail's &player_standings[6]: one past the six, the bytes at 0x448
-     * (on PC the standings run to slot 8, so name them). */
-    u8* flags = (u8*) rules->_x448;
+    u8* flags = (u8*) &rules->player_standings[6];
     struct MatchPlayerData* x58 = rules->player_standings;
     s32 player_net;
     /* The ranking loops below iterate six slots; the decomp only reserved
      * four, overflowing the frame by two words. */
-    s32 scores[GM_SLOTS];
-    /* By slot; rankings[6] (slot 6 is never a player) holds the lowest. */
-    u8 rankings[GM_SLOTS] = { 0 };
+    s32 scores[GM_MAX_PLAYERS];
+    u8 rankings[7] = { 0 };
 
     if (lbl_804D65A0.x0 != 0) {
         return 0;
@@ -832,7 +828,7 @@ int fn_801701C0(MatchEnd* rules, int arg1, int arg2)
     } else {
         int k;
 
-        for (k = 0; k < GM_SLOTS; k++) {
+        for (k = 0; k < 6; k++) {
             if (x58[k].pkind != 3) {
                 u16 xA = x58[k].self_destructs;
                 scores[k] =
@@ -842,11 +838,11 @@ int fn_801701C0(MatchEnd* rules, int arg1, int arg2)
 
         {
             int idx;
-            for (idx = 0; idx < GM_SLOTS; idx++) {
+            for (idx = 0; idx < 6; idx++) {
                 if (x58[idx].pkind != 3) {
                     int j;
 
-                    for (j = 0; j < GM_SLOTS; j++) {
+                    for (j = 0; j < 6; j++) {
                         if (x58[j].pkind != 3 && idx != j &&
                             scores[idx] < scores[j])
                         {
@@ -1523,16 +1519,6 @@ bool fn_80171B2C(int arg0)
 
 void fn_80171B64(struct lbl_804D65A8_t* arg0)
 {
-#ifdef TARGET_PC
-    /* Every slot's ranking (the caller's array has GM_SLOTS), [6] the
-     * lowest, as on the disc: slot 6 is never a player. */
-    u8* r = (u8*) arg0;
-    int i;
-    for (i = 0; i < GM_SLOTS; i++) {
-        r[i] = lbl_804D65A8[i];
-    }
-    r[GM_SLOT_NONE] = (u8) lbl_804D65B0;
-#else
     arg0->x0 = lbl_804D65A8[0];
     arg0->x1 = lbl_804D65A8[1];
     arg0->x2 = lbl_804D65A8[2];
@@ -1540,7 +1526,6 @@ void fn_80171B64(struct lbl_804D65A8_t* arg0)
     arg0->x4 = lbl_804D65A8[4];
     arg0->x5 = lbl_804D65A8[5];
     arg0->x6 = (u8) lbl_804D65B0;
-#endif
 }
 
 int fn_80171BA4(void* arg0)
@@ -1553,7 +1538,7 @@ int fn_80171BA4(void* arg0)
     int team;
     int result;
     u8* rules;
-    int scores[GM_SLOTS];
+    int scores[6];
 
     rules = arg0;
     memzero(scores, sizeof(scores));
@@ -1583,7 +1568,7 @@ int fn_80171BA4(void* arg0)
                         }
                     }
                     j++;
-                } while (j < GM_SLOTS);
+                } while (j < 6);
             } else {
                 j = 0;
                 do {
@@ -1597,18 +1582,18 @@ int fn_80171BA4(void* arg0)
                         }
                     }
                     j++;
-                } while (j < GM_SLOTS);
+                } while (j < 6);
             }
             scores[player] = (ko_count - (falls -= (int) self_destructs)) +
                              ((int) self_destructs * (s8) rules[0xC]);
         }
         player++;
-    } while (player < GM_SLOTS);
+    } while (player < 6);
 
-    for (player = 0; player < GM_SLOTS; player++) {
+    for (player = 0; player < 6; player++) {
         result = Player_GetPlayerSlotType(player);
         if (result != Gm_PKind_NA) {
-            for (j = 0; j < GM_SLOTS; j++) {
+            for (j = 0; j < 6; j++) {
                 if (Player_GetPlayerSlotType(j) != Gm_PKind_NA &&
                     player != j && scores[player] < scores[j])
                 {

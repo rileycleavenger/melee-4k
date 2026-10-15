@@ -71,7 +71,7 @@ ftMapping ftMapping_list[ChKind_Max] = {
 };
 
 ////.bss
-StaticPlayer player_slots[GM_SLOTS];
+StaticPlayer player_slots[Gm_Player_NumMax];
 HSD_ObjAllocData Player_AllocData;
 
 pl_804D6470_t* pl_804D6470;
@@ -85,7 +85,7 @@ static inline bool hasExtraFighterId(ftMapping* data)
 
 static inline void Player_CheckSlot(int slot)
 {
-    if (slot < 0 || !(slot < GM_SLOTS)) {
+    if (slot < 0 || !(slot < Gm_Player_NumMax)) {
         HSD_ASSERTREPORT(102, 0, "cant get player struct! %d\n", slot);
     }
 }
@@ -155,7 +155,7 @@ static void func_8008688C_wrapper(StaticPlayer* player)
 void Player_80031900(void)
 {
     int slot;
-    for (slot = 0; slot < GM_SLOTS; slot++) {
+    for (slot = 0; slot < 6; slot++) {
         StaticPlayer* player = &player_slots[slot];
         Player_CheckSlot(slot);
         func_8008688C_wrapper(player);
@@ -287,7 +287,7 @@ void Player_80031DA8(s32 param_1, s32 param_2)
 void Player_80031DC8(void func_arg(s32, s32))
 {
     int slot;
-    for (slot = 0; slot < GM_SLOTS; slot++) {
+    for (slot = 0; slot < 6; slot++) {
         Player_CheckSlot(slot);
 
         if (player_slots[slot].player_state) {
@@ -2007,7 +2007,7 @@ void Player_InitAllPlayers(void)
     plStale_InitAttackInstance();
     plAttack_80037590();
 
-    for (i = 0; i < GM_SLOTS; i++) {
+    for (i = 0; i < Gm_Player_NumMax; i++) {
         Player_InitOrResetPlayer(i);
         pl_8003891C(i);
     }
