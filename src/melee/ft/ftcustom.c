@@ -331,6 +331,64 @@ const FtCustomMoves* ftCustom_Moves(Fighter* fp)
     return p >= 0 ? s_custom[p].moves : NULL;
 }
 
+/* motions.bin (tools/fighter/build_moves.py), big-endian: "M4MV", version
+ * 1, the row count, then per row the offsets (from the file's start) of the
+ * base motion's name ("Attack11": every motion-table row whose animation is
+ * PlyXxx_Share_ACTION_Attack11_figatree), of the animation archive and its
+ * size, of the action script (0: the base's), and the row's flags
+ * (0xFFFFFFFF: the base's). */
+static u32 be32(const u8* p)
+{
+    return ((u32) p[0] << 24) | ((u32) p[1] << 16) | ((u32) p[2] << 8) | p[3];
+}
+
+#define MOTION_ROWS_MAX 512
+static struct Fighter_WaitAnimData s_motions[8][MOTION_ROWS_MAX];
+
+void ftCustom_Motions(Fighter* fp)
+{
+    const int p = ftCustom_Pack(fp->kind, fp->costume_id);
+    const PcFighterPack* pk;
+    struct Fighter_WaitAnimData* rows;
+    u32 n, i, k, count;
+    if (p < 0 || (pk = pc_fighter_pack(p))->motions == NULL || fp->player_idx >= 8 ||
+        fp->x58C > MOTION_ROWS_MAX || pk->motions_size < 12 ||
+        memcmp(pk->motions, "M4MV", 4) != 0 || be32(pk->motions + 4) != 1)
+    {
+        return;
+    }
+    n = fp->x58C;
+    rows = s_motions[fp->player_idx];
+    memcpy(rows, fp->x24, n * sizeof(*rows));
+    count = be32(pk->motions + 8);
+    for (k = 0; k < count && 12 + (k + 1) * 24 <= pk->motions_size; k++) {
+        const u8* e = pk->motions + 12 + k * 24;
+        const char* name = (const char*) pk->motions + be32(e);
+        const u32 anim = be32(e + 4), size = be32(e + 8), script = be32(e + 12), flags = be32(e + 20);
+        const size_t len = strlen(name);
+        for (i = 0; i < n; i++) {
+            const char* sym = DP(char, rows[i].x0);
+            const char* at = sym != NULL ? strstr(sym, "_ACTION_") : NULL;
+            if (at == NULL || strncmp(at + 8, name, len) != 0 || strcmp(at + 8 + len, "_figatree") != 0) {
+                continue;
+            }
+            if (size != 0) {
+                /* The archive's one symbol is the row's name. */
+                rows[i].x4 = 0;
+                rows[i].x8 = size;
+                rows[i].x14 = pc_encode_dp(pk->motions + anim);
+            }
+            if (script != 0) {
+                DP_SET(rows[i].xC, pk->motions + script);
+            }
+            if (flags != 0xFFFFFFFFu) {
+                rows[i].x10_animCurrFlags = flags;
+            }
+        }
+    }
+    fp->x24 = rows;
+}
+
 void ftCustom_ApplyAttrs(Fighter* fp)
 {
     const int p = ftCustom_Pack(fp->kind, fp->costume_id);

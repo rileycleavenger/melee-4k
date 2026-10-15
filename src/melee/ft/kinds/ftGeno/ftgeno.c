@@ -11,6 +11,10 @@
  *                          from start to end
  *   Geno Flash             his fire and coin hits are electric instead
  *
+ * His normal, smash and aerial attacks are his own animations and
+ * hitboxes, from the pack (motions.bin, ftCustom_Motions); here they only
+ * get their sparks.
+ *
  * All state here is the fighter's own (ftGe_State by player slot) and moves
  * only with the simulation, so it is the same on every machine online. */
 #include <Runtime/platform.h>
@@ -200,6 +204,25 @@ static void ftGe_SpecialLw(Fighter_GObj* g)
 }
 static void ftGe_SpecialAirLw(Fighter_GObj* g) { enter(g, GE_SHOT_BOOST, true); }
 
+/* Electricity where his electric hits are (the cannon blasts of his smash
+ * attacks, the floor shock, the shove): sparks every other frame. */
+static void electric_sparks(Fighter* fp)
+{
+    int i;
+    if ((int) fp->cur_anim_frame % 2 != 0) {
+        return;
+    }
+    for (i = 0; i < 4; i++) {
+        HitCapsule* hit = &fp->x914[i];
+        /* (A hitbox's position is set after its first frame.) */
+        if (hit->state != HitCapsule_Disabled && hit->element == HitElement_Electric &&
+            (hit->x4C.x != 0.0F || hit->x4C.y != 0.0F))
+        {
+            efSync_Spawn(Ef_Id_Unk1001, NULL, &hit->x4C);
+        }
+    }
+}
+
 static void ftGe_Frame(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
@@ -210,6 +233,7 @@ static void ftGe_Frame(Fighter_GObj* gobj)
         fp->accessory4_cb = ftGe_ThrowFrame;
     }
     flash_hits(fp);
+    electric_sparks(fp);
     if (fp->motion_id == ftMr_MS_SpecialHi || fp->motion_id == ftMr_MS_SpecialAirHi) {
         sparks(fp, 2);
         if ((int) fp->cur_anim_frame % 12 == 0) {

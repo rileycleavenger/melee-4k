@@ -37,7 +37,9 @@ costumes 5-9`).
   switch left of the top row turns custom fighters off and on (saved as
   `custom_fighters` in launcher.cfg; online it starts on, and any player's
   press flips it for everyone, as the rest of the screen follows the hands).
-- **Matches.** It plays as its base. If the pack names compiled-in `moves`,
+- **Matches.** It plays as its base, with its own attacks if the pack has
+  `motions.bin` (new animations and hitboxes for its jabs, tilts, dash
+  attack, smashes and aerials). If the pack names compiled-in `moves`,
   it uses them instead of the base's specials, and the `fighter.cfg`
   attribute multipliers change its weight, speeds, jumps and falling. Other
   players of the same base fighter keep the base's moves.
@@ -58,6 +60,7 @@ fighters/<id>/
   fighter.cfg            what the fighter is
   Pl<id><costume>.dat    one model file per costume (PlGeNr.dat, PlGeRe.dat ...)
   Pl<id>Ui.dat           menu images: icon, portraits, stock icons, results name
+  motions.bin            optional: its own attacks (tools/fighter/build_moves.py)
   textures/              HD replacements for the costume files' and menu images' textures
 ```
 
@@ -66,7 +69,7 @@ fighters/<id>/
 | Key | Example | Meaning |
 |---|---|---|
 | `id` | `Ge` | Two letters, unused by the disc's `Pl??.dat` and by other packs |
-| `name` | `"GENO"` | Shown in menus; at most 31 characters |
+| `name` | `"Geno"` | Shown in menus, title case like Melee's names; at most 31 characters |
 | `base` | `Mr` | The base fighter's two-letter code |
 | `symbol` | `PlyGeno5K` | The model's joint symbol stem. The game looks up `<stem>_Share_joint` for costume Nr and `<stem><costume>_Share_joint` for the others, as on the disc |
 | `costumes` | `Nr Re Gr Bk Wh` | Costume file suffixes; the first is the default; at most 8 |
@@ -76,7 +79,7 @@ fighters/<id>/
 | `weight` `walk` `dash` `jump` `gravity` `fall` `air` | `0.94` | Optional: multipliers on the base's attributes, one per line, between 0.1 and 10 |
 
 Everything in the pack except `textures/` is simulation or menu data that
-online play hashes: `fighter.cfg` and every `.dat`.
+online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
 
 ## How it works
 

@@ -74,6 +74,12 @@ inside Blender with globals as shown.
 | `validate.py PACK` | checks a pack (cfg, symbols, skeleton, weights, budgets, UI, textures) | `--base-dir $DEV/base/BASE --disc DISC`; exit 1 on errors |
 | `preview.py DISC PACKS ID OUT` | CPU matches screenshotted into `OUT/sheet.jpg` | `--costumes 0,1,2 --stages 32,31,3 --frames 900` |
 | `closeup.py DISC PACKS ID OUT` | the fighter idle in a match, paused: the pause camera zoomed in and turned round it, screenshots into `OUT/closeups.jpg` (frames `OUT/frame_*.png`, full 4K) | `--costume 0 --stage 32`; the in-game model, shading and textures up close |
+| `play.py DISC PACKS ID OUT "SCRIPT"` | plays the fighter (human, port 1) from a key script against an idle base fighter: screenshots every `--every` frames into `OUT/sheet.jpg` (frames `OUT/frame_*.png`), and on a crash the exit code and log tails | script: `"Right 700, wait 300, X 50, wait 600, Up+Z 100, wait 2000"` (Z B, X A, V jump, arrows the stick, I/J/K/L the C-stick: smashes on the ground, aerials in the air); `--boot 8 --stage 32` |
+| `blender_retarget.py` | Blender: a rigged glTF moved onto the base's skeleton bone by bone, its weights summed onto the base's bones | see §6b |
+| `blender_fit_ai.py` | Blender: an image-to-3D mesh dressed with a primitive proxy's parts, paint and weights | see §6 |
+| `blender_pose.py` | Blender: pose "Skeleton" exactly like a game pose dump (`MELEE_DUMP_POSE`, §9) | global `POSE_JSON` |
+| `anim.py` | animations (figatrees) and action scripts: read, sample, write; posing in model space (`Poser`: aim, turn, spin, move) | library, §11 |
+| `build_moves.py SPEC.py` | the fighter's own attacks: new animations and hitbox scripts on the base's motions -> `pack/motions.bin` | §11 |
 | `dump_model.py` | prints a .dat's joints, DObjs, materials, vertex formats | `dump_model.py pack/Pl<ID>Nr.dat` or `dump_model.py DISC PlMrNr.dat` |
 | `hsd.py`, `model.py` | HSD archive reader/writer, mesh decode | libraries |
 
@@ -200,7 +206,88 @@ export. Lessons from the first fighter:
 - `--quick` builds in `make_pack.sh` (1024 px, 24 samples) take ~25 s;
   full ones (2048 px, 96) ~80 s on an M4 Pro.
 
-## 6. AssetFurnace (image-to-3D route)
+## 5c. Pixel-art stock icon
+
+Melee's stock icons are hand-made 24x24 pixel art. Write the character's
+`make_stock.py`: a palette dict (`"K": (28, 18, 30, 255)` outline, one
+letter per colour, `"."` transparent) and 24 strings of 24 letters, the
+head in three-quarter view with a dark outline, 2-3 shades per material.
+`img.putdata([PAL[c] for row in ART for c in row])`, save; `build_ui.py
+--stock` takes the 24x24 PNG for every costume and upscales it by nearest
+neighbour for the HD copy (no blur). Preview it 10x on a dark background
+and compare with the base's own stock icon.
+
+## 6. Image-to-3D (Hunyuan3D-MLX)
+
+`~/image-to-3dlab` (github.com/Bingeljell/image-to-3dlab, installed with its
+`install.sh`). The shape stage runs on Apple Silicon; the paint stage may be
+missing - the script then fails after writing `<out>_shape.obj`, which is
+the mesh to use:
+
+```sh
+cd ~/image-to-3dlab
+# matte first: RGBA with the background cut (its venv)
+.venv/bin/python -c "from PIL import Image; from image_to_3dlab.matte import cut_out; \
+  img, _ = cut_out(Image.open('front.png'), None); img.save('front_rgba.png')"
+hunyuan_mlx/shape/.venv/bin/python scripts/hunyuan_mlx_xiong_generate.py front_rgba.png out/run.glb \
+  --model 2.0 --octree-resolution 512 --quantize 8 --octree-decode --seed 42
+```
+
+Erase arms that touch the body in the picture first (they fuse). Then
+`blender_fit_ai.py` (its header lists the globals): the mesh is imported
+(-90 deg X), reduced, posed onto a primitive proxy built at the base's
+joints, coloured by the picture's colour classes and given the proxy's
+weights. Thin parts (capes, collars) come out as ragged shells: keep the
+proxy's (`PROXY_PARTS`). AssetFurnace's Pixal3D backend needs full Xcode;
+unusable on a Mac without it.
+
+## 6b. A rigged model (the best route)
+
+A model with its own skeleton (a game rip from The Models Resource, the
+user's own): its mesh, UVs and textures are used as they are.
+
+1. Convert to glTF if needed (Blender 5 has no COLLADA importer):
+   `brew install assimp; assimp export Model.dae model.glb -f glb2`.
+   assimp's .dae output can leave the meshes turned 90 deg about X from the
+   bones: render the meshes alone, then set `SRC_MESH_ROT_X`.
+2. List the model's bones and which carry skin (a Blender script: bone
+   heads, vertex counts per group). Find spare parts kept out of sight
+   (alternate hands, faces, weapons placed far away) - drop their bones.
+3. Map its bones to the base's (`MAP`): hips, chest (segment to the head),
+   head, each arm's upper/lower/hand, fingers onto the base's finger
+   joints, each leg's thigh/shin/foot. Segments `("J08", "LeftForeArm")`
+   are turned and stretched so the model's joints land on the base's;
+   feet keep their own height (`KEEP_Y`) so soles stay on the ground.
+   `WEIGHT_AS` weights a part to another joint than it is placed at (the
+   head placed at the neck, weighted to the head); `FOLLOW` moves a bone
+   with another (a spine bone under the root, a loose ribbon bone).
+   `SCALE` (model units to game units): match the base's overall height.
+4. Base joints the game never animates must not get weight: find them in
+   a pose dump (a 3x4 matrix of zeros with only the root's translation,
+   e.g. Mario's J44) and weight their part to the parent (`WEIGHT_AS`).
+5. Render it in game pose dumps (§9 `MELEE_DUMP_POSE`, `blender_pose.py`):
+   idle, run, jab, smashes, jump, aerial. No stretched spikes, no parts
+   through the face.
+6. The exporter moves each triangle's UVs into the 0-1 tile (many models
+   keep them in another, which Blender repeats and the game clamps).
+
+```python
+DIR = BASE; SKIP_REF = True; exec(open(f"{REPO}/tools/fighter/blender_import_base.py").read())
+SRC = "model.glb"; SRC_MESH_ROT_X = 90; SCALE = 11.0; NAME = "Xx"
+DROP = [r"(Arm|ForeArm|Hand)[12]$"]
+MAP = {"Hips": ("J04", "Spine2"), "Spine2": ("J05", "Head"), "Head": "J22",
+       "LeftArm": ("J08", "LeftForeArm"), ...}
+WEIGHT_AS = {"Head": "J23"}; KEEP_Y = ["LeftFoot", "RightFoot"]; FOLLOW = {"Spine1": "Hips"}
+exec(open(f"{REPO}/tools/fighter/blender_retarget.py").read()); OBS = retarget()
+# then: material["hsd_texture"] per costume texture, blender_export_fighter.py
+```
+
+A Melee-styled costume from the same model: fewer triangles (a Decimate
+modifier, weights quantised again) and the model's ambient occlusion and
+normal-map relief painted into its albedo (Melee bakes shading into
+textures).
+
+## 6c. AssetFurnace (Pixal3D image-to-3D)
 
 github.com/Bingeljell/image-to-3dlab. Local, no cloud. Read `install.sh`
 before running it (its README says so).
@@ -294,6 +381,7 @@ All with `REPO/build/macos/melee --no-card DISC` (Windows: `melee.exe`):
 | `MELEE_KEY_FIFO=fifo` | script keys: lines `"Z 100"`, `"Right+Z 100"` (SDL key names + hold ms) into a `mkfifo`; Z is B, X is A, arrows the stick; with an `h` player this drives the fighter (`tools/net_test.py` `fifo_write`) |
 | `MELEE_MOUSE_TEST=u,v[@frame]`, `MELEE_USER_DIR=dir` | pinned pointer (u, v: 0-1 of the window) from that frame; a throwaway user dir (no saved settings) |
 | `MELEE_BOOT_SCENE=vs-css` + `MELEE_MOUSE_TEST` on the icon + `X 150` in the fifo | picks the fighter on character select (door portrait, name) |
+| `MELEE_DUMP_POSE=path:frame[,frame...]` | every joint's world matrix of the first custom fighter on those frames (path with `%d` for several), for `blender_pose.py` and `anim.py` checks; motion id and frame included |
 | `MELEE_TEXANIM_LOG=1` | logs texture animations asked for a frame past their image table (menus picking an icon for a costume they do not have) |
 
 The pause camera (Start, `Return` in the fifo, with an `h` fighter on port
@@ -305,7 +393,8 @@ or PIL. Contact sheets: PIL paste (see `preview.py`). Debug output from game
 code: `fprintf(stderr, ...)` and capture stderr; `OSReport` does not reach
 `MELEE_LOG_FILE`.
 
-Scripted special-move test (fighter human on port 1, idle opponent):
+Scripted moves test: `play.py` (§3) does all of this. By hand
+(fighter human on port 1, idle opponent):
 
 ```sh
 mkfifo keys
@@ -336,3 +425,46 @@ Online with a peer that lacks the pack, or runs v1.1.0, must fall back to
 base fighters only (`online: base fighters only (...)` in the log);
 `docs/testing.md` covers the online harness, including a Windows peer
 under Wine.
+
+## 11. The fighter's own attacks (`build_moves.py`)
+
+The base's attacks are motion-table rows (PlXx.dat): an animation in
+PlXxAJ.dat and an action script. `motions.bin` in the pack replaces rows
+by motion name for fighters wearing the pack (ftCustom_Motions): new
+animations and scripts, the base's timing kept where the spec keeps it.
+
+1. Export the base with its animations: `PlXxAJ.dat` in `$DEV/base/BASE`
+   (from the disc, like PlXx.dat).
+2. Print the base's frame data to time the new moves against: per motion
+   the frame count, hit frames, hitbox bones/sizes/angles, smash charge
+   (opcode 0xE0), IASA (0x5C), auto-cancel (0x4C) - `anim.read_script` +
+   `anim.parse_hitbox` over `ctx.rows` (moves.md has the loop).
+3. Write the character's `moves.py` (outside the repo): `moves(ctx)`
+   returns `Move`s. Poses are built from a base animation's frame
+   (`ctx.pose("Wait1", 0)`) with `Poser` operations in model space (Y up,
+   +Z front, +X the fighter's left): `aim(joint, child, dir)` points a
+   bone, `turn(joint, axis, deg)` turns a joint about a model axis,
+   `spin(joint, axis_index, deg)` adds to a body joint's own angle (whole
+   turns: XRotN flips, YRotN spins; key every <= 90 deg), `move(joint,
+   offset)` moves a joint (root motion on TransN: `translate=[1]`). Keys
+   are splined. Scripts: `ctx.rescript(motion, [hit(...), ...])` keeps the
+   base's script and changes its hitboxes in order (bone, damage, size,
+   offset, angle, kbg, bkb, wkb, element); the base's effects (0x28) and
+   model swaps (0xA0) are dropped - a model swap would hide parts of the
+   new model. Angled variants (AttackS3Hi/Lw, AttackS4Hi/Lw) are motions
+   of their own: give each a move.
+4. Build: `.venv/bin/python REPO/tools/fighter/build_moves.py moves.py
+   --base-dir $DEV/base/BASE --out $DEV/packs/Xx/motions.bin --preview
+   prev/` and render the preview poses (`prev/<motion>/f<frame>.json`,
+   blender_pose.py) on the model: every 4th frame, three-quarter view.
+5. In the game: `play.py` with each attack, the opponent in range; its
+   damage climbing proves the hitboxes. Hitbox offsets on joint 0 are
+   (forward, up, side) x the fighter's scale.
+
+Gotchas (all handled by the tools, worth knowing when something looks
+wrong): every track needs two keys at least (one key leaves the game's
+key player with no interpolation: the joint collapses to scale 0);
+joints left without tracks keep the previous animation's values (the
+builder gives every joint the base's animations move a track); animation
+archives over 0x8000 bytes do not fit the game's buffer.
+

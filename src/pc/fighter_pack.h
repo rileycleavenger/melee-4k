@@ -25,8 +25,12 @@
  *   walk     1.1                 one per line: weight, walk, dash, jump,
  *   ...                          gravity, fall, air
  *
- * fighter.cfg is simulation (moves, attributes): online it is part of the
- * content hash, with every costume file.
+ * motions.bin (optional, tools/fighter/build_moves.py): the fighter's own
+ * animations and action scripts, replacing the base's motion by motion
+ * (ftCustom_Motions).
+ *
+ * fighter.cfg and motions.bin are simulation (moves, attributes, hitboxes):
+ * online they are part of the content hash, with every costume file.
  */
 
 #include <stdbool.h>
@@ -51,6 +55,8 @@ typedef struct PcFighterPack {
     bool mute; /* "voice none": none of the base fighter's voice clips */
     /* Multipliers on the base fighter's attributes, 1 when not given. */
     float weight, walk, dash, jump, gravity, fall, air;
+    uint8_t* motions; /* motions.bin, or NULL */
+    uint32_t motions_size;
     char dir[512];
 } PcFighterPack;
 

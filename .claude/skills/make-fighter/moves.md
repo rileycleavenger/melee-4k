@@ -1,12 +1,21 @@
 # A custom fighter's own moves
 
-Without this, a custom fighter plays exactly like its base. Two levels:
+Without this, a custom fighter plays exactly like its base. Three levels:
 
 1. **Attributes only** (no code): multipliers in fighter.cfg - `weight`,
    `walk`, `dash`, `jump` (jump and hop speed), `gravity`, `fall` (terminal
    and fast-fall speed), `air` (air drift). Applied where the game copies
    the base's attributes (`ftCustom_ApplyAttrs`, src/melee/ft/ftchangeparam.c).
-2. **Special moves** (C, compiled in): neutral, side, down, up B, grounded
+2. **Attacks** (no code): jabs, tilts, dash attack, smashes, aerials -
+   new animations and hitboxes in the pack's `motions.bin`, made with
+   `tools/fighter/build_moves.py` from the character's `moves.py`
+   (`tools.md` §11). Keep the base's timing (frame counts, hit frames,
+   charge, IASA, landing) unless there is a reason not to: it keeps the
+   moves balanced and the script's special commands (jab chains, loops,
+   auto-cancel) working. Design each attack for the character: what does
+   it do in its own games? Show it in the pose (doll-stiff punches, a hat
+   butt, a spin) and in the hitbox (element, angle, reach).
+3. **Special moves** (C, compiled in): neutral, side, down, up B, grounded
    and aerial, replaced individually; any left NULL stay the base's.
 
 ## How the game calls them
@@ -84,8 +93,17 @@ happens on their events. The building blocks, all from the worked example:
 - **State:** a static array indexed by `fp->player_idx` (0..5); reset in
   on_reset. Never per-kind state: two of the same fighter can be in a match.
 
-Not yet supported: new animations or hitbox scripts (they would need new
-figatree/subaction data in the pack). Moves are built from the base's.
+Specials still run on the base's motions (their animations come from
+motion states the C enters); a special can enter a motion whose row
+motions.bin replaced, so new special animations go there too.
+
+- **Parts lookups:** `ftParts_GetBone(fp, part)` returns NULL for a part the
+  base has no bone for; never index `fp->parts` with
+  `ftParts_GetBoneIndex` unchecked (it returns -1: a crash).
+- **Effects at hitboxes:** `HitCapsule.x4C` is the hitbox's position from
+  its second frame on (zero on its first): spawn effects there
+  (`efSync_Spawn(Ef_Id_Unk1001, NULL, &hit->x4C)`, electric sparks) to make
+  a pack attack's blast visible.
 
 ## Determinism rules (online play replays inputs)
 
@@ -100,9 +118,9 @@ Moves are **simulation**: both machines must compute identical results.
 
 ## Verification
 
-1. **Scripted test** (`tools.md` §9): each special grounded and in the
-   air, both directions; opponent idle (`8:1h` = a human slot with no
-   input). Screenshots show the effect; damage climbing proves hits.
+1. **Scripted test** (`play.py`, `tools.md` §3/§9): every attack and
+   each special grounded and in the air, both directions; opponent idle
+   (`8:0h` = a human slot with no input). Screenshots show the effect; damage climbing proves hits.
    A temporary `fprintf(stderr, ...)` in the event callback counts uses;
    remove it before committing.
 2. **CPU match**: level 9 CPUs use specials constantly: run

@@ -6,7 +6,8 @@ new fighter over. Nothing it writes goes in the repo.
 
     .venv/bin/python tools/fighter/export_base.py DISC Mr OUT_DIR
 
-OUT_DIR gets PlXx.dat, PlXxNr.dat (the template), skeleton.json and
+OUT_DIR gets PlXx.dat, PlXxNr.dat (the template), PlXxAJ.dat (its
+animations, for build_moves.py), skeleton.json and
 meshes.json (bind-space triangles with UVs and bone weights per DObj).
 """
 import argparse
@@ -40,6 +41,7 @@ def main():
     nr = disc_file(disc, f"Pl{args.base}Nr.dat")
     open(os.path.join(args.out, f"Pl{args.base}Nr.dat"), "wb").write(nr)
     open(os.path.join(args.out, f"Pl{args.base}.dat"), "wb").write(disc_file(disc, f"Pl{args.base}.dat"))
+    open(os.path.join(args.out, f"Pl{args.base}AJ.dat"), "wb").write(disc_file(disc, f"Pl{args.base}AJ.dat"))
     a = hsd.Archive(nr)
     sym = next(s for s in a.symbols if s.endswith("_Share_joint") and "matanim" not in s)
     skel = model.read_skeleton(a, sym)

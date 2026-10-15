@@ -884,6 +884,9 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
     Fighter_UnkUpdateCostumeJoint_800686E4(gobj);
 
     ftData_80085B10(fp);
+#ifdef TARGET_PC
+    ftCustom_Motions(fp);
+#endif
     ftParts_80074E58(fp);
     ftParts_SetupParts(gobj);
     ftAnim_80070308(gobj);

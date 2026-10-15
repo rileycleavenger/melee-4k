@@ -212,11 +212,36 @@ static void hash_file(const char* path) {
     fclose(f);
 }
 
-static int add_files(const PcFighterPack* pk, AuroraOverlayFile* files, char (*names)[32],
+/* The pack's motions.bin, whole, into memory (the motion table points into
+ * it while matches play), hashed. */
+static void load_motions(PcFighterPack* pk) {
+    char path[600];
+    snprintf(path, sizeof path, "%s/motions.bin", pk->dir);
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        return;
+    }
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t* buf = size > 0 ? malloc((size_t)size) : NULL;
+    if (buf != NULL && fread(buf, 1, (size_t)size, f) == (size_t)size) {
+        pk->motions = buf;
+        pk->motions_size = (uint32_t)size;
+        s_hash = fnv(s_hash, "motions.bin", 11);
+        s_hash = fnv(s_hash, buf, (size_t)size);
+    } else {
+        free(buf);
+    }
+    fclose(f);
+}
+
+static int add_files(PcFighterPack* pk, AuroraOverlayFile* files, char (*names)[32],
     char (*paths)[600], int n) {
     char cfg[600];
     snprintf(cfg, sizeof cfg, "%s/fighter.cfg", pk->dir);
     hash_file(cfg);
+    load_motions(pk);
     for (int c = 0; c <= pk->n_costumes; c++) {
         const char* sfx = c < pk->n_costumes ? pk->costume[c] : "Ui";
         snprintf(names[n], 32, "/Pl%s%s.dat", pk->id, sfx);
@@ -257,6 +282,10 @@ void pc_fighter_packs_init(void) {
 }
 
 void pc_fighter_packs_load(const char* root) {
+    for (int i = 0; i < s_count; i++) {
+        free(s_packs[i].motions);
+        s_packs[i].motions = NULL;
+    }
     s_count = 0;
     s_hash = 0;
     int n_entries = 0;

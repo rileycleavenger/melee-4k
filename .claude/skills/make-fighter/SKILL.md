@@ -19,8 +19,9 @@ Companion files, read them as you reach each step:
   knobs). **Check setup with it before starting.**
 - `checklist.md` - the review checklist; go through it before calling a
   fighter done.
-- `moves.md` - writing the fighter's own special moves (C), attributes, and
-  the determinism checks they need.
+- `moves.md` - the fighter's own attacks (new animations and hitboxes,
+  `build_moves.py`), its special moves (C), attributes, and the
+  determinism checks they need.
 - `templates/` - starting points copied into the character's folder:
   `build_character.py` (the Blender model script), `make_textures.py`,
   `make_pack.sh` (one command: model, images, pack, validation).
@@ -29,14 +30,19 @@ Companion files, read them as you reach each step:
 
 Ask for (or take from the request) only what is missing:
 
-1. **Name** as shown in menus (`GENO`, upper-case like Melee's) and a
+1. **Name** in title case (`Geno`): fighter.cfg `name`, shown on the
+   character select door like every Melee fighter's; `build_ui.py` draws
+   the grid icon's label upper-case and bold itself. And a
    **two-letter id** (`Ge`): capital + lower-case letter, not used by the
    disc's `Pl??.dat` files (`validate.py --disc` checks) or another pack.
    Taken on the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb
    Kp Lg Lk Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is
    Ganondorf), plus every other pack's id.
-2. **Reference images**: front at least; back and three-quarter if
-   possible; one per costume colour if they exist. Clean background helps.
+2. **A model or reference images.** Best: a rigged 3D model of the
+   character (a game rip or the user's own: .dae, .fbx, .glb with its
+   textures) - it becomes the model with `blender_retarget.py`. Else
+   images: front at least; back and three-quarter if possible; one per
+   costume colour if they exist. Clean background helps.
 3. **Base fighter**: pick by body and moveset (table below) unless given.
 4. Optional: a **moves sheet** (what each special does), costume colours.
 
@@ -87,7 +93,14 @@ for special moves (`src/melee/ft/kinds/ft<Name>/`), which contains no art.
    ratio, every part (hat, cape, armour...), colours (sample them from the
    images with PIL), materials, what each costume changes. Look at the
    images; do not guess.
-4. **Model.** Two routes (`tools.md` §4-§6):
+4. **Model.** Three routes, best first (`tools.md` §4-§6b):
+   - **A rigged model** (the user's or a rip): convert it to glTF with
+     assimp, map its bones to the base's and run `blender_retarget.py`
+     (`tools.md` §6b): its mesh, UVs and textures as they are, moved bone
+     by bone onto the base's skeleton, its skin weights summed onto the
+     base's bones. Strip spare parts kept out of sight (alternate hands,
+     faces). Check it in the base's real poses (game pose dumps) before
+     the game; use it for every costume (no recolours unless asked).
    - **Primitives in Blender** (works everywhere, what Geno used): copy
      `templates/build_character.py`, build each part with
      `tools/fighter/blender_parts.py` (`loft` rings, `spiral`, balls and
@@ -96,8 +109,11 @@ for special moves (`src/melee/ft/kinds/ft<Name>/`), which contains no art.
      joined into export meshes by how they move and shade, decimated to
      ~5-20k triangles. Model what reads in silhouette and close up (eyes,
      nose, ears, fingers, cuffs, hems); paint the rest.
-   - **AssetFurnace** image-to-3D, then fit and weight in Blender: better
-     for organic shapes; needs full Xcode on a Mac and ~10 GB disk.
+   - **Image-to-3D** (Hunyuan3D-MLX shape, `tools.md` §6), then
+     `blender_fit_ai.py` dresses the generated mesh with a primitive
+     proxy's parts, paint and weights: better likeness than primitives,
+     but thin parts (capes, collars, arms touching the body) come out
+     ragged; keep those the proxy's.
    Render check views (`blender_snap.py`, `COLOR = "RANDOM"`) front/side/
    back/three-quarter and compare with the references side by side. Iterate
    until the silhouette and proportions match.
@@ -108,13 +124,18 @@ for special moves (`src/melee/ft/kinds/ft<Name>/`), which contains no art.
    with ambient occlusion, which gives the model real shading in the game
    (`tools.md` §5b). Look at a Cycles render of the baked model before the
    game.
-6. **Costumes.** 2-6, Melee-like: the default plus team colours (Re, Bu or
-   whichever costume is blue, Gr) and one or two alternates. Each is a set
-   of palette changes (`make_pack.sh` COSTUMES). Name them with Melee's
-   suffixes: Nr (default), Re, Bu, Gr, Ye, Bk, Wh, Or, Pi, La, Aq.
+6. **Costumes.** Only what the user asks for: one costume is fine (the
+   game shows no other costume's emblem behind a custom door). Melee-like
+   sets are the default plus team colours (Re, Bu or whichever costume is
+   blue, Gr) and alternates. Each is a set of palette or texture changes
+   (`make_pack.sh` COSTUMES); a costume may also be a different mesh (its
+   own mesh.json). Name them with Melee's suffixes: Nr (default), Re, Bu,
+   Gr, Ye, Bk, Wh, Or, Pi, La, Aq.
 7. **Menu images.** `blender_render_ui.py` renders the portrait (in a pose
-   of its own, `CSP_POSE`: the character's signature stance), the icon's
-   face and the stock icon's head per costume; `build_ui.py --name
+   of its own, `CSP_POSE`: a game pose dump of an attack, or bone angles)
+   and the icon's face per costume. The **stock icon is pixel art**, like
+   every Melee stock icon: draw it by hand at 24x24 (a palette and rows of
+   characters, see `tools.md` §5c), not a downscaled render; `build_ui.py --name
    --textures` sets them in Melee HD's style (icon plate, portrait shadow),
    adds the results screen's banner and name plate, and writes HD
    replacements of all of them. Compare with Melee HD's own (the installed
@@ -124,13 +145,19 @@ for special moves (`src/melee/ft/kinds/ft<Name>/`), which contains no art.
    suffix except for Nr), `build_ui.py`, `fighter.cfg`, then `validate.py`.
    fighter.cfg keys: `tools.md` §8.
 9. **Check in game** (`tools.md` §9): `closeup.py` (the model up close,
-   from every side), `preview.py` (matches, every costume), then character
-   select, HUD stock icon, results screen (its KO table too). Use the
+   from every side), `play.py` (every attack and special from a key
+   script: screenshots and crash logs), `preview.py` (matches, every
+   costume), then character select (its door name, the costume buttons),
+   HUD stock icon, metal box (the model stays the fighter's), results
+   screen (its KO table too). Use the
    `checklist.md`. Fix and rebuild until it passes.
-10. **Make it play like itself**, not like its base: `moves.md` (specials;
-    common items' shots and effects make new projectiles without new
-    art), `voice none` for a silent character (a base's voice is its most
-    recognisable trait), attribute multipliers (fighter.cfg).
+10. **Make it play like itself**, not like its base: its own normal,
+    smash and aerial attacks (`build_moves.py`: new animations and
+    hitboxes on the base's timing, `moves.md`), specials (C: common items'
+    shots and effects make new projectiles without new art), `voice none`
+    for a silent character (a base's voice is its most recognisable
+    trait), attribute multipliers (fighter.cfg). A user who asks for a
+    new fighter wants none of the base's attacks to show.
 11. **Gates.** Determinism with the fighter in the match, online with it
     picked (`moves.md` §Verification, `tools.md` §10). Moves and attributes
     are simulation; art is not.

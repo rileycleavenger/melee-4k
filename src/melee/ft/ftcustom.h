@@ -47,6 +47,10 @@ bool ftCustom_Mute(Fighter* fp);
  * the data file (ftchangeparam.c). */
 void ftCustom_ApplyAttrs(Fighter* fp);
 void ftCustom_Frame(Fighter_GObj* gobj);
+/* The pack's own animations and action scripts (motions.bin): the fighter's
+ * motion table becomes a copy with those rows replaced. After its
+ * animations are loaded (ftData_80085B10). */
+void ftCustom_Motions(Fighter* fp);
 void ftCustom_Reset(Fighter* fp);
 /* How many costumes the base fighter has on the disc. */
 int ftCustom_RetailCostumes(FighterKind kind);

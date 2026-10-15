@@ -6,7 +6,8 @@ sheets, in-game screenshots). Note anything approximate in the report.
 ## Model
 - [ ] Silhouette matches the references from front, side, back (blender_snap, 4 views side by side with the references).
 - [ ] Head/body ratio and the character's signature parts (hat, cape, hair, weapon, tail...) read at Melee's camera distance (check a `preview.py` frame at full size, not just the sheet).
-- [ ] Nothing hangs inside out (one-sided faces seen from behind): sheets solidified (capes, collars, ribbons).
+- [ ] Nothing hangs inside out or is see-through (one-sided faces seen from behind): sheets solidified (capes, collars, ribbons); textures sample the right places in the game, not only in Blender (UVs in the 0-1 tile).
+- [ ] Limbs are separate (arms not fused to the body) and every part keeps its shape in the base's poses (game pose dumps): no spikes from joints the game never animates.
 - [ ] Triangles 5-20k (`validate.py` prints the count; Melee's own are 0.8-6k).
 - [ ] Up close in the game (`closeup.py`): face, hands, joints and every part from the front, sides, back and above.
 - [ ] Every vertex weighted, weights sum to 1 (`validate.py`).
@@ -22,21 +23,25 @@ sheets, in-game screenshots). Note anything approximate in the report.
 - [ ] Colours sampled from the references, not guessed.
 
 ## Costumes
-- [ ] Every costume loads in a match (`preview.py --costumes 0,1,...`): a wrong symbol crashes on load.
-- [ ] Team colours: red, blue, green costumes exist and `teams` in fighter.cfg names them if the blue one is not "Bu".
+- [ ] Only the costumes asked for. Every costume loads in a match (`preview.py --costumes 0,1,...`): a wrong symbol crashes on load.
+- [ ] Character select: cycling costumes shows no other fighter's emblem or picture behind the door.
+- [ ] Team colours, if there are team costumes: `teams` in fighter.cfg names them if the blue one is not "Bu".
 - [ ] Costumes are distinguishable at a glance in a 4-player match.
 
 ## Menus and screens
-- [ ] Character select: the icon shows (to the right of the bottom row), picking it shows the portrait and the name; cycling costumes (X/Y) changes the portrait; random never picks it by accident.
-- [ ] Icon: the face, as big and crisp as the Melee HD icons beside it (HD replacement in textures/), the name on the bar.
+- [ ] Character select: the icon shows (to the right of the bottom row), picking it shows the portrait and the name (title case, like "Mario"); cycling costumes (X/Y) changes the portrait; random never picks it by accident.
+- [ ] Icon: the face, as big and crisp as the Melee HD icons beside it (HD replacement in textures/), the name on the bar in bold capitals.
 - [ ] Portrait: big in the door like Melee's (upper body, the character's own pose), every costume.
 - [ ] CUSTOM switch (left of the top row): OFF hides the icon, ON shows it.
-- [ ] HUD stock icon: the head, readable at 24x24, every costume.
+- [ ] HUD stock icon: hand-made pixel art of the head (not a render), readable at 24x24, crisp (nearest-neighbour HD copy), every costume.
+- [ ] Metal box (items on): the metal fighter is the custom model, not the base's.
 - [ ] Results screen: winner banner and name plate say the name; the KO table's stock icon beside "P1" is the fighter's; the panel shows the 3D model.
 - [ ] Pause and announcer: no announcer call for the custom fighter (expected), no crash.
 
 ## Moves and attributes (if any)
-- [ ] Every special works grounded and aerial, facing both ways, and hits (scripted test, tools.md §9).
+- [ ] No crash in any special or attack, grounded and aerial, facing both ways (`play.py`).
+- [ ] Every attack (jabs, tilts, dash attack, smashes, aerials) is the fighter's own animation and hitboxes, none of the base's (motions.bin, `play.py` sheets), and hits (opponent's damage climbs).
+- [ ] Every special works grounded and aerial, facing both ways, and hits; effects that should last (a move wrapped in lightning) last the whole move.
 - [ ] Specials fall back to the base's for other players of the same base fighter (a retail Mario next to the custom one still has Mario's moves).
 - [ ] State resets on death/respawn (on_reset).
 - [ ] Two of the same custom fighter in one match keep separate state.
