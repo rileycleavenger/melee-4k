@@ -40,7 +40,8 @@ ICON_POSE = globals().get("ICON_POSE", POSE)    # the icon's and stock's pose (a
 CSP_JOINTS = globals().get("CSP_JOINTS", [])   # the portrait framed on these joints' vertices (a
                                                 # quadruped's head, chest and forelegs: a bust)
 STOCK_JOINTS = globals().get("STOCK_JOINTS") or ICON_JOINTS  # the stock icon's: the head and what it wears
-STOCK_DIR = globals().get("STOCK_DIR", (0.35, -1.0, 0.12))  # its view: three-quarter on, a little above
+STOCK_DIR = globals().get("STOCK_DIR", (0.35, -1.0, 0.12))
+ICON_DIR = globals().get("ICON_DIR", (0.45, -1.0, 0.08))     # the grid icon's view  # its view: three-quarter on, a little above
 SAMPLES = globals().get("SAMPLES", 32)
 
 os.makedirs(OUT, exist_ok=True)
@@ -239,7 +240,7 @@ for n, over in enumerate([] if globals().get("CHECK_ONLY") else COSTUMES):
     head_only(STOCK_JOINTS, False)
     if n == 0:
         # Icon: the face, close (build_ui.py fits it into the grid icon).
-        shoot(os.path.join(OUT, "icon.png"), 640, 560, (0.45, -1.0, 0.08), hlo, hhi, 0.95)
+        shoot(os.path.join(OUT, "icon.png"), 640, 560, ICON_DIR, hlo, hhi, 0.95)
 # CHECK_POSES (["/path/idle.json", ...]: game pose dumps, the game's
 # MELEE_DUMP_POSE knob; needs REPO): the first costume in each pose, front, three-
 # quarter and side, to OUT/check_<pose>.png: how it deforms in the game.

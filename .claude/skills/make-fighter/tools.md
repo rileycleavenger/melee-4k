@@ -219,7 +219,10 @@ export. Lessons from the first fighter:
 The portrait (`csp<n>.png`) is the upper body by default. A body that is
 wide rather than tall (a quadruped) reads better as a bust: in the Blender
 job of make_pack.sh, `CSP_JOINTS = ['J05', 'J14', ...]` frames it on
-those joints' vertices (head, chest, forelegs).
+those joints' vertices (head, chest, forelegs). `ICON_DIR = (x, -1, z)`
+turns the grid icon's camera (default three-quarter, 0.45): nearly
+head-on (0 to 0.15) for a face that sits ahead of the body or turned away
+(a dog, a ghost).
 
 ## 5c. Stock icon (`stock_icon.py`)
 
