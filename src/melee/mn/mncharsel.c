@@ -2207,7 +2207,14 @@ void mnCharSel_8025FB50(u8 door, s32 arg1)
     {
         u8 sel = mnCharSel_803F0DFC.doors[door].sel_icon;
         u8* char_kinds = &icons[0].char_kind;
-        lbAudioAx_80023870(icons[sel].sfx, 0x7F, 0x40, sel + 0x8A);
+#ifdef TARGET_PC
+        /* The announcer knows only the retail names: a custom fighter's
+         * door would have him call its base fighter. */
+        if (cssDoorCustom(door) < 0)
+#endif
+        {
+            lbAudioAx_80023870(icons[sel].sfx, 0x7F, 0x40, sel + 0x8A);
+        }
         gm_80168C5C((u32) char_kinds[sel * sizeof(CSSIcon)]);
     }
 }
@@ -2278,7 +2285,12 @@ s32 mnCharSel_8025FDEC(u8 door)
 
         if (mnCharSel_804D6CF6 != 3 && mnCharSel_804D6CF6 != 4) {
             int sel = mnCharSel_803F0DFC.doors[door].sel_icon;
-            lbAudioAx_80023870(icons[sel].sfx, 0x7F, 0x40, sel + 0x8A);
+#ifdef TARGET_PC
+            if (cssDoorCustom(door) < 0) /* as above */
+#endif
+            {
+                lbAudioAx_80023870(icons[sel].sfx, 0x7F, 0x40, sel + 0x8A);
+            }
             gm_80168C5C(icons[sel].char_kind);
         }
         return 0;

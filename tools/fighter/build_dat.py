@@ -51,7 +51,25 @@ MAX_INFLUENCES = 4
 
 # ----------------------------------------------------------- base fighter ----
 
-def base_groups(base_data, table, eyes):
+def part_states(base_data, table):
+    """[part][state] -> the DObj slots that state shows, from visibility
+    table `table` (0 normal, 1 low detail)."""
+    a = hsd.Archive(base_data)
+    ft = next(off for s, off in a.symbols.items() if s.startswith("ftData"))
+    x8 = a.ptr(ft + 8)
+    model_num, vis = a.u32(x8), a.ptr(x8 + 4)
+    lk = a.ptr(vis + table * 4)
+    out = []
+    for m in range(model_num if lk is not None else 0):
+        n, arr = a.u32(lk + m * 8), a.ptr(lk + m * 8 + 4)
+        out.append([])
+        for j in range(n):
+            c, idx = a.u32(arr + j * 8), a.ptr(arr + j * 8 + 4)
+            out[-1].append([a.u8(idx + k) for k in range(c)] if idx is not None else [])
+    return out
+
+
+def base_groups(base_data, table, eyes, drop=None):
     """Slot groups for new meshes from visibility table `table` (0 normal,
     1 low detail): each group is shown in every state of the base. A model
     part with one state gives a group per slot; one with several states
@@ -59,7 +77,8 @@ def base_groups(base_data, table, eyes):
     state's slots at a time, so a group takes the k-th slot of every state
     and a mesh put in all of them shows whichever is on. Eye slots are left
     out. Then, if more are needed, the first state's leftover slots (shown
-    only in that state), marked partial."""
+    only in that state), marked partial. drop = {part: {state, ...}}: those
+    states are left out (another form's: --form)."""
     a = hsd.Archive(base_data)
     ft = next(off for s, off in a.symbols.items() if s.startswith("ftData"))
     x8 = a.ptr(ft + 8)
@@ -72,6 +91,8 @@ def base_groups(base_data, table, eyes):
         n, arr = a.u32(lk + m * 8), a.ptr(lk + m * 8 + 4)
         states = []
         for j in range(n):
+            if j in (drop or {}).get(m, ()):
+                continue
             c, idx = a.u32(arr + j * 8), a.ptr(arr + j * 8 + 4)
             states.append([a.u8(idx + k) for k in range(c) if a.u8(idx + k) not in eyes] if idx is not None else [])
         if not states:
@@ -349,7 +370,7 @@ class Builder:
         w.ptr(mobj + 20, pe)
         return mobj, key
 
-    def build(self, mesh, vis_groups, low_groups, eye_slots, lowres, textures_dir):
+    def build(self, mesh, vis_groups, low_groups, eye_slots, lowres, textures_dir, forms=None):
         w = self.w
         old = self.joints[0]["dobjs"]
         n_slots = len(old)
@@ -357,11 +378,14 @@ class Builder:
         for m in mesh["meshes"]:
             uvs[m["material"]] += [tuple(v["uv"]) for tri in m["tris"] for v in tri]
         materials = [self.material(m, lowres, textures_dir, uvs[i]) for i, m in enumerate(mesh["materials"])]
-        parts = []
+        parts, form_parts = [], {}
         for m in mesh["meshes"]:
             mat = mesh["materials"][m["material"]]
-            parts.append((materials[m["material"]][0],
-                          self.pobj_chain(m["tris"], mat.get("double_sided", False))))
+            part = (materials[m["material"]][0], self.pobj_chain(m["tris"], mat.get("double_sided", False)))
+            if forms and mat["name"] in forms:
+                form_parts.setdefault(mat["name"], []).append(part)
+            else:
+                parts.append(part)
         vis, vis_partial = vis_groups
         low, low_partial = low_groups
         if len(parts) > len(vis):
@@ -372,6 +396,16 @@ class Builder:
         if len(parts) > len(vis):
             raise SystemExit(f"{len(parts)} meshes, but the base shows only {len(vis)} slots")
         slot_part = {}
+        # Another form's meshes (--form): in the slots that model-part state
+        # alone shows, normal and low detail, one mesh per slot.
+        for name, fparts in form_parts.items():
+            hi, lo = forms[name]
+            if len(fparts) > len(hi):
+                raise SystemExit(f"--form {name}: {len(fparts)} meshes, the state shows {len(hi)} slots")
+            for i, part in enumerate(fparts):
+                slot_part[hi[i]] = part
+                if i < len(lo):
+                    slot_part[lo[i]] = part
         for i, part in enumerate(parts):
             for slot in vis[i]:
                 slot_part[slot] = part
@@ -450,6 +484,10 @@ def main():
     ap.add_argument("--hide-joints", default="", help="joints (J11,...) whose rest scale is ~0: a part "
                     "shown only where the fighter's own moves scale it up (a tongue); no animation of the "
                     "base may move them")
+    ap.add_argument("--form", action="append", default=[], metavar="PART:STATE=MATERIAL",
+                    help="the material's meshes are shown only in that state of the base's model part "
+                         "(another form: a vehicle in place of the body, switched by the move's C with "
+                         "ftParts_80074B0C); every other mesh is left out of that state; repeatable")
     ap.add_argument("--lowres", type=int, default=128)
     ap.add_argument("--texture", action="append", default=[], metavar="MATERIAL=PNG",
                     help="use PNG for that material instead of mesh.json's (a costume's recolour); repeatable")
@@ -459,7 +497,17 @@ def main():
     template = open(os.path.join(a.base_dir, f"Pl{code}Nr.dat"), "rb").read()
     base_data = open(os.path.join(a.base_dir, f"Pl{code}.dat"), "rb").read()
     vis, low, eyes = base_tables(base_data)
-    vis_groups, low_groups = base_groups(base_data, 0, eyes), base_groups(base_data, 1, eyes)
+    forms, drop = {}, {}
+    for f in a.form:
+        ps, _, name = f.partition("=")
+        part, _, state = ps.partition(":")
+        part, state = int(part), int(state)
+        hi, lo = part_states(base_data, 0), part_states(base_data, 1)
+        if part >= len(hi) or state >= len(hi[part]):
+            raise SystemExit(f"--form {f}: the base has no model part {part} state {state}")
+        forms[name] = (hi[part][state], lo[part][state] if part < len(lo) and state < len(lo[part]) else [])
+        drop.setdefault(part, set()).add(state)
+    vis_groups, low_groups = base_groups(base_data, 0, eyes, drop), base_groups(base_data, 1, eyes, drop)
     b = Builder(template, skel["joint_symbol"])
     mesh = json.load(open(a.mesh))
     for t in a.texture:
@@ -469,7 +517,7 @@ def main():
             raise SystemExit(f"--texture {t}: no material {name!r} in the mesh, or no file {png}")
         for m in mats:
             m["texture"] = png
-    keys, n = b.build(mesh, vis_groups, low_groups, eyes, a.lowres, a.textures)
+    keys, n = b.build(mesh, vis_groups, low_groups, eyes, a.lowres, a.textures, forms)
     for name in filter(None, a.hide_joints.split(",")):
         j = b.joints[int(name.lstrip("J"))]
         b.w.put(j["at"] + 0x20, "fff", 0.01, 0.01, 0.01)  # its scale (HSD_Joint +0x20)

@@ -47,8 +47,11 @@ SAMPLES = globals().get("SAMPLES", 32)
 os.makedirs(OUT, exist_ok=True)
 scene = bpy.context.scene
 skel = bpy.data.objects["Skeleton"]
+# RENDER_HIDE: meshes left out of every image (another form, summoned
+# helpers: blender_retarget.add_prop's "<NAME>_<name>").
+RENDER_HIDE = set(globals().get("RENDER_HIDE", []))
 parts = [o for o in bpy.data.objects
-         if o.type == "MESH" and o.parent == skel and not o.name.startswith("Ref_")]
+         if o.type == "MESH" and o.parent == skel and not o.name.startswith("Ref_") and o.name not in RENDER_HIDE]
 for o in scene.objects:
     if o.type == "MESH":
         o.hide_render = o not in parts

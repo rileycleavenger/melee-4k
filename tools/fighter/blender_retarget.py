@@ -50,9 +50,8 @@ ready for blender_export_fighter.py. Run blender_import_base.py first.
 
 Then `save_textures(OBS, dir)` writes every material's image as a PNG
 (embedded ones too) and sets it as the material's texture for the
-exporter; `bake_ao(OBS, dir)` bakes ambient occlusion into those images'
-UV space for a model without an AO map (melee_texture.py);
-`melee_mesh(OBS, 0.6)` decimates the meshes for the Melee-ified costume.
+exporter; `add_prop(OBS, file, joint, name, size, ...)` adds a rigid mesh from
+another file on one joint (a vehicle form, summoned creatures).
 
 Bones not in MAP follow their nearest mapped ancestor (rigidly) and weight
 to its joint. Game space is Y up, +Z front; the model is taken as glTF
@@ -351,78 +350,98 @@ def save_textures(obs, out_dir, search=(), colors=None, assign=None):
                 done[img.name] = path
             m["hsd_texture"] = done[img.name]
             out[m.name] = done[img.name]
+            # Cut-out textures (hair cards, lashes): their alpha is the
+            # material's, for the renders as in the game.
+            if img.channels == 4 and m.use_nodes:
+                n = next((n for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image == img), None)
+                bsdf = next((b for b in m.node_tree.nodes if b.type == "BSDF_PRINCIPLED"), None)
+                if n is not None and bsdf is not None and not bsdf.inputs["Alpha"].is_linked:
+                    px = list(img.pixels[3::4][::97])
+                    if px and sum(1 for v in px if v < 0.5) > 0.01 * len(px):
+                        m.node_tree.links.new(n.outputs["Alpha"], bsdf.inputs["Alpha"])
     return out
 
 
-def bake_ao(obs, out_dir, size=1024, samples=64):
-    """Ambient occlusion baked into each material image's UV space, for a
-    model that has no AO map (melee_texture.py --ao). One PNG per image
-    (out_dir/<image>_ao.png), in the bind pose. Returns {image path: ao
-    path} for the images save_textures wrote."""
+def add_prop(obs, src, joint, name, size, at=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0), texture=None, pick=None):
+    """Add a rigid mesh from another file (.obj, .glb/.gltf, .fbx) on one
+    base joint: a vehicle form, a summoned creature, a prop. It is turned
+    by `rot` (degrees about game X, Y, Z: game space is Y up, +Z the
+    fighter's front), scaled so its largest side is `size` game units, and
+    placed with its footprint centred on at's x/z and its bottom at at's y.
+    Its one material is "<NAME>_<name>" (texture: that image). pick: a
+    regex on the file's object names, the ones taken (one of several
+    characters in a file). Shown where
+    that joint is: a joint the base never animates, kept at ~0 scale
+    (build_dat --hide-joints) or in its own model-part state (--form)."""
+    import math
     import os
-    scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.samples = samples
-    groups = {}
-    for o in obs.values():
-        for m in o.data.materials:
-            groups.setdefault(m["hsd_texture"], set()).add(o)
-    out = {}
-    for tex, objs in groups.items():
-        img = bpy.data.images.new(os.path.basename(tex) + "_ao", size, size)
-        nodes = []
-        for o in objs:
-            for m in o.data.materials:
-                n = m.node_tree.nodes.new("ShaderNodeTexImage")
-                n.image = img
-                m.node_tree.nodes.active = n
-                nodes.append((m, n))
-        bpy.ops.object.select_all(action="DESELECT")
-        for o in objs:
-            o.select_set(True)
-            o.hide_render = False
-        bpy.context.view_layer.objects.active = next(iter(objs))
-        bpy.ops.object.bake(type="AO", margin=8)
-        path = os.path.join(out_dir, os.path.basename(tex).rsplit(".", 1)[0] + "_ao.png")
-        img.filepath_raw = path
-        img.file_format = "PNG"
-        img.save()
-        for m, n in nodes:
-            m.node_tree.nodes.remove(n)
-        out[tex] = path
-    return out
-
-
-def melee_mesh(obs, ratio=0.6, step=0.1, max_bones=3):
-    """The Melee-ified costume's mesh: each mesh decimated to `ratio` of
-    its triangles (Melee's 1-4k budget for a ~5-15k model), UV seams kept,
-    weights quantised again (decimation blends them; few distinct
-    envelopes keep the game's skinning right). In place."""
-    for o in obs.values():
-        bpy.context.view_layer.objects.active = o
-        d = o.modifiers.new("Decimate", "DECIMATE")
-        d.ratio = ratio
-        o.modifiers.move(len(o.modifiers) - 1, 0)
-        bpy.ops.object.modifier_apply(modifier="Decimate")
-        new = {}
-        for v in o.data.vertices:
-            ws = sorted(((g.group, g.weight) for g in v.groups if g.weight > 0), key=lambda t: -t[1])[:max_bones]
-            if not ws:
-                continue
-            s = sum(w for _, w in ws)
-            q = [(gi, round(w / s / step) * step) for gi, w in ws]
-            q = [t for t in q if t[1] > 0] or [ws[0]]
-            q[0] = (q[0][0], q[0][1] + 1.0 - sum(w for _, w in q))
-            new[v.index] = q
-        # Every group cleared of every vertex, then the quantised weights
-        # set (removing while reading v.groups leaves some behind).
-        idx = list(new)
-        for g in o.vertex_groups:
-            g.remove(idx)
-        for vi, q in new.items():
-            for gi, w in q:
-                o.vertex_groups[gi].add([vi], w, "REPLACE")
-    print(f"melee mesh: {sum(len(o.data.polygons) for o in obs.values())} faces")
+    skel = bpy.data.objects["Skeleton"]
+    before = set(bpy.data.objects)
+    ext = os.path.splitext(src)[1].lower()
+    if ext == ".obj":
+        bpy.ops.wm.obj_import(filepath=src)
+    elif ext == ".fbx":
+        bpy.ops.import_scene.fbx(filepath=src)
+    else:
+        bpy.ops.import_scene.gltf(filepath=src)
+    new = [o for o in bpy.data.objects if o not in before]
+    meshes = [o for o in new if o.type == "MESH" and (pick is None or re.search(pick, o.name))]
+    if not meshes:
+        raise SystemExit(f"add_prop {name}: no mesh in {src}" + (f" matching {pick!r}" if pick else ""))
+    for o in meshes:
+        for m in list(o.modifiers):
+            o.modifiers.remove(m)
+        o.data.transform(o.matrix_world)
+        o.matrix_world = Matrix()
+        o.parent = None
+    if len(meshes) > 1:
+        with bpy.context.temp_override(active_object=meshes[0], selected_editable_objects=meshes):
+            bpy.ops.object.join()
+    o = meshes[0]
+    for x in new:
+        if x != o and x.name in bpy.data.objects:
+            bpy.data.objects.remove(x)
+    me = o.data
+    me.transform(TO_GAME)
+    r = [math.radians(d) for d in rot]
+    from mathutils import Euler
+    me.transform(Euler(r, "XYZ").to_matrix().to_4x4())
+    lo = [min(v.co[k] for v in me.vertices) for k in range(3)]
+    hi = [max(v.co[k] for v in me.vertices) for k in range(3)]
+    k = size / max(h - l for h, l in zip(hi, lo))
+    me.transform(Matrix.Scale(k, 4))
+    lo, hi = [x * k for x in lo], [x * k for x in hi]
+    me.transform(Matrix.Translation(Vector((at[0] - (lo[0] + hi[0]) / 2, at[1] - lo[1], at[2] - (lo[2] + hi[2]) / 2))))
+    o.name = me.name = f"{NAME}_{name}"
+    mat = bpy.data.materials.new(f"{NAME}_{name}")
+    old = me.materials[0] if me.materials else None
+    img = None
+    if texture:
+        img = bpy.data.images.load(texture, check_existing=True)
+    elif old is not None and old.use_nodes:
+        img = next((n.image for n in old.node_tree.nodes if n.type == "TEX_IMAGE" and n.image), None)
+    mat.use_nodes = True
+    if img is not None:
+        n = mat.node_tree.nodes.new("ShaderNodeTexImage")
+        n.image = img
+        bsdf = next(b for b in mat.node_tree.nodes if b.type == "BSDF_PRINCIPLED")
+        mat.node_tree.links.new(n.outputs["Color"], bsdf.inputs["Base Color"])
+    me.materials.clear()
+    me.materials.append(mat)
+    for p in me.polygons:
+        p.use_smooth = True
+    for g in list(o.vertex_groups):
+        o.vertex_groups.remove(g)
+    o.vertex_groups.new(name=joint).add([v.index for v in me.vertices], 1.0, "REPLACE")
+    o.parent = skel
+    o.matrix_parent_inverse = Matrix()
+    o.matrix_world = skel.matrix_world.copy()
+    m = o.modifiers.new("Armature", "ARMATURE")
+    m.object = skel
+    obs[o.name] = o
+    print(f"prop {o.name}: {len(me.polygons)} faces on {joint}, "
+          f"{tuple(round(h - l, 1) for h, l in zip(hi, lo))} game units")
+    return o
 
 
 def use_textures(obs, paths):
@@ -446,8 +465,15 @@ def use_textures(obs, paths):
                     m.node_tree.links.remove(l)
                 m.node_tree.links.new(n.outputs["Color"], bsdf.inputs["Base Color"])
                 # Opaque, as the game draws it (converted materials often
-                # carry a transparency that hides the model in renders).
+                # carry a transparency that hides the model in renders) -
+                # unless the image itself is a cut-out (hair cards), which
+                # the game keeps too.
                 bsdf.inputs["Alpha"].default_value = 1.0
+                img = n.image
+                if img.channels == 4:
+                    px = list(img.pixels[3::4][::97])
+                    if px and sum(1 for v in px if v < 0.5) > 0.01 * len(px):
+                        m.node_tree.links.new(n.outputs["Alpha"], bsdf.inputs["Alpha"])
                 for name in ("Emission Strength",):
                     if name in bsdf.inputs:
                         for l in list(bsdf.inputs[name].links):

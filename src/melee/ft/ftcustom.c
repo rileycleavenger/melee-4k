@@ -54,18 +54,13 @@ static struct {
 
 /* Every custom fighter's compiled moves, by the name fighter.cfg uses. */
 extern const FtCustomMoves ftGe_Moves;
-extern const FtCustomMoves ftSh_Moves;
-extern const FtCustomMoves ftWa_Moves;
-extern const FtCustomMoves ftTh_Moves;
-extern const FtCustomMoves ftFr_Moves;
 extern const FtCustomMoves ftOp_Moves;
 extern const FtCustomMoves ftYo_Moves;
 extern const FtCustomMoves ftKr_Moves;
 extern const FtCustomMoves ftKg_Moves;
 extern const FtCustomMoves ftCr_Moves;
 static const FtCustomMoves* const k_moves[] = {
-    &ftGe_Moves, &ftSh_Moves, &ftWa_Moves, &ftTh_Moves, &ftFr_Moves,
-    &ftOp_Moves, &ftYo_Moves, &ftKr_Moves, &ftKg_Moves, &ftCr_Moves,
+    &ftGe_Moves, &ftOp_Moves, &ftYo_Moves, &ftKr_Moves, &ftKg_Moves, &ftCr_Moves,
 };
 
 /* The base fighter's own special entries, for the fighters not wearing a
@@ -558,7 +553,8 @@ bool ftCustom_SpecialEvent(Fighter* fp)
 
 FighterKind ftCustom_GrabKind(Fighter* fp)
 {
-    if ((fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink) && ftCustom_Pack(fp->kind, fp->costume_id) >= 0) {
+    if ((fp->kind == Ft_Kind_Link || fp->kind == Ft_Kind_CLink || fp->kind == Ft_Kind_Samus) &&
+        ftCustom_Pack(fp->kind, fp->costume_id) >= 0) {
         return Ft_Kind_Mars;
     }
     return fp->kind;
@@ -582,6 +578,9 @@ void ftCustom_ApplyAttrs(Fighter* fp)
     fp->co_attrs.fast_fall_velocity *= pk->fall;
     fp->co_attrs.air_drift_max *= pk->air;
     fp->co_attrs.model_scaling *= pk->size;
+    if (pk->jumps > 0) {
+        fp->co_attrs.max_jumps = pk->jumps;
+    }
 }
 
 /* MELEE_DUMP_POSE=path:frame[,frame...] (a test knob): on those frames of
@@ -629,6 +628,9 @@ static void dump_pose(Fighter* fp)
     fprintf(f, "{\"motion\": %d, \"frame\": %f, \"joints\": [", fp->motion_id, fp->cur_anim_frame);
     for (i = 0; i < n; i++) {
         HSD_JObj* j = fp->parts[i].joint;
+        /* Up to date: a joint only the render sets up (a skinned part no
+         * game code asks for) can be stale here. */
+        HSD_JObjSetupMatrix(j);
         int r, c;
         fprintf(f, "%s[", i ? ", " : "");
         for (r = 0; r < 3; r++) {
@@ -713,9 +715,44 @@ static void fx_frame(Fighter_GObj* gobj)
     }
 }
 
+/* The motion playing is one of the pack's own (motions.bin), not the
+ * base's. */
+static bool own_motion(Fighter* fp, const PcFighterPack* pk)
+{
+    const u8* a;
+    if (pk->motions == NULL || fp->x24 == NULL || fp->anim_id < 0 || (u32) fp->anim_id >= fp->x58C) {
+        return false;
+    }
+    a = DP(u8, fp->x24[fp->anim_id].x14);
+    return a >= pk->motions && a < pk->motions + pk->motions_size;
+}
+
+/* fighter.cfg "hidden": a part only the pack's own moves show (they key its
+ * scale in every motion) stays hidden through the base's motions, which do
+ * not -- a hit mid-move would leave it out. */
+static void keep_hidden(Fighter* fp)
+{
+    const int p = ftCustom_Pack(fp->kind, fp->costume_id);
+    const PcFighterPack* pk;
+    u32 n;
+    int j;
+    if (p < 0 || (pk = pc_fighter_pack(p))->hidden == 0 || own_motion(fp, pk)) {
+        return;
+    }
+    n = DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num;
+    for (j = 0; j < 64 && (u32) j < n; j++) {
+        HSD_JObj* jobj = (pk->hidden >> j) & 1 ? fp->parts[j].joint : NULL;
+        if (jobj != NULL && jobj->scale.x != 0.01F) {
+            Vec3 s = { 0.01F, 0.01F, 0.01F };
+            HSD_JObjSetScale(jobj, &s);
+        }
+    }
+}
+
 void ftCustom_Frame(Fighter_GObj* gobj)
 {
     const FtCustomMoves* m = ftCustom_Moves(GET_FIGHTER(gobj));
+    keep_hidden(GET_FIGHTER(gobj));
     if (m != NULL) {
         fx_frame(gobj);
     }

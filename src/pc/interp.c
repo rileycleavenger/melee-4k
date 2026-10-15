@@ -57,6 +57,7 @@ typedef struct {
 typedef struct {
     HSD_JObj* jobj;
     Mtx real;
+    u32 flags;
 } Restore;
 
 typedef struct {
@@ -72,6 +73,9 @@ static JTable s_tables[2];
 static int s_cur; /* s_tables[s_cur] is this tick, the other the previous */
 static Restore* s_restore;
 static unsigned s_restore_count, s_restore_cap;
+/* JObjs the capture brought up to date that were stale (dirty) before it. */
+static Restore* s_pre;
+static unsigned s_pre_count, s_pre_cap;
 static CamState s_cams[2][MAX_CAMS];
 static int s_cam_count[2];
 static CamState s_cam_restore[MAX_CAMS];
@@ -325,20 +329,28 @@ static bool jumped(const Mtx a, const Mtx b) {
     return !(dx * dx + dy * dy + dz * dz < SNAP_DISTANCE * SNAP_DISTANCE);
 }
 
-static void push_restore(HSD_JObj* jobj) {
-    if (s_restore_count == s_restore_cap) {
-        s_restore_cap = s_restore_cap ? s_restore_cap * 2 : 4096;
-        s_restore = realloc(s_restore, s_restore_cap * sizeof(Restore));
+static void push_state(Restore** list, unsigned* count, unsigned* cap, HSD_JObj* jobj) {
+    if (*count == *cap) {
+        *cap = *cap ? *cap * 2 : 4096;
+        *list = realloc(*list, *cap * sizeof(Restore));
     }
-    s_restore[s_restore_count].jobj = jobj;
-    memcpy(s_restore[s_restore_count].real, jobj->mtx, sizeof(Mtx));
-    s_restore_count++;
+    (*list)[*count].jobj = jobj;
+    memcpy((*list)[*count].real, jobj->mtx, sizeof(Mtx));
+    (*list)[*count].flags = jobj->flags;
+    (*count)++;
+}
+
+static void push_restore(HSD_JObj* jobj) {
+    push_state(&s_restore, &s_restore_count, &s_restore_cap, jobj);
 }
 
 static void walk(HSD_JObj* jobj, JTable* cur) {
     for (; jobj != NULL; jobj = jobj->next) {
         /* Parents first, so each child is rebuilt from an up-to-date parent
          * exactly as the render would. */
+        if (jobj->flags & JOBJ_MTX_DIRTY) {
+            push_state(&s_pre, &s_pre_count, &s_pre_cap, jobj);
+        }
         HSD_JObjSetupMatrix(jobj);
         table_put(cur, jobj, jobj->mtx);
         /* An instance's child is another tree drawn through it, reached
@@ -493,6 +505,7 @@ void pc_interp_capture(void) {
     table_clear(cur);
     ptable_clear(&s_ptcl[s_cur]);
     s_cam_count[s_cur] = 0;
+    s_pre_count = 0;
 
     /* Fighter GObjs alive right now: a player slot can still name one that
      * was freed when its match ended, so only these are dereferenced. */
@@ -514,6 +527,16 @@ void pc_interp_capture(void) {
         }
     }
     /* Only a scene that set up particles has live lists (particle.c). */
+    /* Leave every JObj as the tick left it: one the game had not brought up
+     * to date goes back to its old matrix, still dirty. Game code that reads
+     * a bone's matrix without setting it up first (as on hardware, where only
+     * the render does) must see the same stale value with smooth motion on
+     * as off; a bone no mesh is skinned to is never set up by the render. */
+    for (unsigned i = s_pre_count; i-- > 0;) {
+        memcpy(s_pre[i].jobj->mtx, s_pre[i].real, sizeof(Mtx));
+        s_pre[i].jobj->flags = s_pre[i].flags;
+    }
+
     for (int link = 0; link < 16 && pc_particles_live; link++) {
         for (HSD_Particle* pp = hsd_804D0908[link]; pp != NULL; pp = pp->next) {
             PState st = {pp, pp->pos, pp->kind, pp->life, pp->bank};
@@ -561,14 +584,19 @@ void pc_interp_apply(float t) {
         if (e->jobj == NULL) {
             continue;
         }
-        const JEntry* p = table_get(prev, e->jobj);
-        if (p == NULL || jumped(p->mtx, e->mtx)) {
-            continue;
-        }
-        Mtx out;
-        blend_mtx(out, p->mtx, e->mtx, t);
+        /* Every JObj is put back as it was after the draw (matrix and
+         * dirty flag), blended or not: a draw may set up a stale one from
+         * a blended parent. */
         push_restore(e->jobj);
+        const JEntry* p = table_get(prev, e->jobj);
+        Mtx out;
+        if (p == NULL || jumped(p->mtx, e->mtx)) {
+            memcpy(out, e->mtx, sizeof(Mtx));
+        } else {
+            blend_mtx(out, p->mtx, e->mtx, t);
+        }
         memcpy(e->jobj->mtx, out, sizeof(Mtx));
+        e->jobj->flags &= ~JOBJ_MTX_DIRTY;
     }
 
     for (int i = 0; i < s_cam_count[s_cur]; i++) {
@@ -670,23 +698,14 @@ static void apply_game_camera(float t) {
 }
 
 void pc_interp_restore(void) {
+    /* Game code reads bone matrices (hitboxes, camera boxes, hurtboxes), so
+     * no blended or draw-built matrix, and no dirty flag a draw cleared, may
+     * outlive the frame. */
     for (unsigned i = 0; i < s_restore_count; i++) {
         memcpy(s_restore[i].jobj->mtx, s_restore[i].real, sizeof(Mtx));
+        s_restore[i].jobj->flags = s_restore[i].flags;
     }
     s_restore_count = 0;
-    /* A render callback may also have dirtied a JObj and rebuilt it from a
-     * blended parent; that matrix must not outlive the frame, since game
-     * code reads bone matrices (hitboxes, camera boxes). Put the recorded
-     * one back and leave it dirty, so it is rebuilt from the real parents
-     * and its own (possibly changed) SRT when next needed, as on hardware. */
-    const JTable* cur = &s_tables[s_cur];
-    for (unsigned i = 0; i < cur->cap; i++) {
-        const JEntry* e = &cur->slots[i];
-        if (e->jobj != NULL && memcmp(e->jobj->mtx, e->mtx, sizeof(Mtx)) != 0) {
-            memcpy(e->jobj->mtx, e->mtx, sizeof(Mtx));
-            e->jobj->flags |= JOBJ_MTX_DIRTY;
-        }
-    }
     for (int i = 0; i < s_cam_restore_count; i++) {
         cam_write(s_cam_restore[i].cobj, &s_cam_restore[i]);
     }

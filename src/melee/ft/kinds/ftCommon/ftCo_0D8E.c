@@ -191,7 +191,7 @@ void ftCo_800D94D8(Fighter_GObj* gobj)
 bool fn_800D952C(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if ((fp->kind == Ft_Kind_Samus) && (fp->u.ss.x223C != NULL)) {
+    if ((ftCustom_GrabKind(fp) == Ft_Kind_Samus) && (fp->u.ss.x223C != NULL)) {
         return false;
     }
     return true;

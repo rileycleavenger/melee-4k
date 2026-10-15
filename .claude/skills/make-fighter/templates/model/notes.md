@@ -18,8 +18,7 @@ Filled in before building; kept up to date. Outside the repo.
 
 ## Look
 - Name as on the door (title case), id, symbol stem
-- Costume 1 (Nr): Melee-ified - mesh ratio, texture strength
-- Costume 2 (<suffix>): the model as given
+- Costume (Nr): the model as given, its own textures
 - Stock icon: the head's palette (sampled from the textures)
 - Portrait pose (an attack's game pose)
 

@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Escape.h"
 
 #include <Runtime/platform.h>
@@ -83,7 +84,9 @@ void ftCo_800992A8(Fighter_GObj* gobj, FtMotionId msid, bool arg2)
     Fighter* fp = gobj->user_data;
     switch (fp->kind) {
     case Ft_Kind_Samus:
-        ftCo_80099390(gobj, msid, arg2);
+        if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) { /* a pack grabs by hand */
+            ftCo_80099390(gobj, msid, arg2);
+        }
         break;
     case Ft_Kind_Yoshi:
         ftCo_80099438(gobj, msid, arg2);

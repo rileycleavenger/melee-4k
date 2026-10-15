@@ -82,6 +82,8 @@ fighters/<id>/
 | `voice` | `none` | Optional: none of the base fighter's voice clips |
 | `weight` `walk` `dash` `jump` `gravity` `fall` `air` | `0.94` | Optional: multipliers on the base's attributes, one per line, between 0.1 and 10 |
 | `size` | `1.3` | Optional: the whole fighter's size (model, hurtboxes, hitboxes, reach), as the base's model scale times this |
+| `jumps` | `2` | Optional: the fighter's jumps, ground and air together (1-6); absent, the base's |
+| `hidden` | `J11,J38` | Optional: joints the model rests at ~0 scale - parts only its own moves show (a tongue, summoned helpers); the game keeps them hidden through the base's motions |
 
 Everything in the pack except `textures/` is simulation or menu data that
 online play hashes: `fighter.cfg`, `motions.bin`, `vfx.cfg` and every `.dat`.

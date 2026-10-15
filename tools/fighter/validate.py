@@ -26,7 +26,7 @@ import model  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(HERE))
 ATTRS = ("weight", "walk", "dash", "jump", "gravity", "fall", "air", "size")
-KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves", "voice", "order"} | set(ATTRS)
+KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves", "voice", "order", "jumps", "hidden"} | set(ATTRS)
 # Melee's own fighters draw 800-6000 triangles; an HD custom fighter can
 # afford more (smooth shapes), up to about 20000 with eight on screen.
 TRI_WARN = (800, 20000)
@@ -81,6 +81,8 @@ def read_cfg(path, r):
             r.warn(f"fighter.cfg: team costume {t!r} is not one of the costumes")
     if len(cfg.get("name", "")) > 31:
         r.error("fighter.cfg: name longer than 31 characters")
+    if "jumps" in cfg and cfg["jumps"] not in ("1", "2", "3", "4", "5", "6"):
+        r.error(f"fighter.cfg: jumps {cfg['jumps']!r}: 1..6 (ground and air jumps together)")
     for k in ATTRS:
         if k in cfg:
             try:

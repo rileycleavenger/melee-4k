@@ -1,7 +1,7 @@
 # Fighter review checklist
 
 The three requirements first:
-- [ ] **Two costumes**: Nr the Melee-ified model (fewer triangles, shading painted in), the second the provided model as given; no others.
+- [ ] **One costume**: Nr, the provided model with its own textures; nothing restyled.
 - [ ] **Original moveset**: notes.md names a source for every slot; validate.py reports no motion left the base's; nothing of the base's moves shows in play.py sheets.
 - [ ] **Character select icon** indistinguishable in format from its neighbours (font, warm grey, size, spacing, bar, frame), checked in the game with the HD pack.
 
@@ -76,3 +76,12 @@ sheets, in-game screenshots). Note anything approximate in the report.
 - [ ] `interp_determinism.py` with the fighter: every row PASS.
 - [ ] Online test with the fighter picked: PASS; and with a peer without the pack: base fighters only.
 - [ ] The pack and art are not in git (`git status`).
+
+## In character beyond the attacks (moves.md "The parts of a fighter people notice")
+- [ ] Grab and throws are the character's (no hookshot or grapple beam on Link/Samus bases).
+- [ ] Jumps: the count (fighter.cfg `jumps`) and the animations are the character's, not Kirby's or Jigglypuff's.
+- [ ] Up B rises 30-40 units, not off the top of the screen.
+- [ ] Results screen (`MELEE_DEBUG_VS_STOCKS=1 MELEE_INSTANT_WIN=1`): Win and Lose poses are the character's own; nothing of the base's pose (clapping) shows; framed whole.
+- [ ] Cloth, hair and tails move in every move; the jaw opens for bites and howls.
+- [ ] Parts on hidden joints (tongue, helpers, another form) never show outside their moves, even when the move is interrupted by a hit; none in the menu images (`RENDER_HIDE`).
+- [ ] Character select: picking it, and putting the coin back down on it, says nothing (the announcer has no name for it).

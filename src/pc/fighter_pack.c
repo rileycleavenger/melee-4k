@@ -130,6 +130,18 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
             snprintf(pk->symbol, sizeof pk->symbol, "%s", val);
         } else if (strcmp(key, "moves") == 0) {
             snprintf(pk->moves, sizeof pk->moves, "%s", val);
+        } else if (strcmp(key, "hidden") == 0) {
+            for (const char* q = val; *q != '\0'; q++) {
+                if (*q == 'J') {
+                    const int j = atoi(q + 1);
+                    if (j >= 0 && j < 64) {
+                        pk->hidden |= (uint64_t) 1 << j;
+                    }
+                }
+            }
+        } else if (strcmp(key, "jumps") == 0) {
+            const int n = atoi(val);
+            pk->jumps = n >= 1 && n <= 6 ? n : 0;
         } else if (strcmp(key, "order") == 0) {
             pk->order = atoi(val);
         } else if (strcmp(key, "voice") == 0) {

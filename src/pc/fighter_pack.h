@@ -25,6 +25,12 @@
  *   walk     1.1                 one per line: weight, walk, dash, jump,
  *   ...                          gravity, fall, air, size (the whole
  *                                fighter: model, hurtboxes, reach)
+ *   jumps    2                   its jumps, ground and air (absent: the
+ *                                base's; Kirby's six are no crewmate's)
+ *   hidden   J11,J38             joints its model rests at ~0 scale
+ *                                (build_dat --hide-joints): parts only its
+ *                                own moves show; kept hidden through every
+ *                                motion of the base's (a hit mid-move)
  *
  * motions.bin (optional, tools/fighter/build_moves.py): the fighter's own
  * animations and action scripts, replacing the base's motion by motion
@@ -57,6 +63,8 @@ typedef struct PcFighterPack {
     int order; /* "order N": place among the packs (character select), lowest first; 100 */
     /* Multipliers on the base fighter's attributes, 1 when not given. */
     float weight, walk, dash, jump, gravity, fall, air, size;
+    int jumps; /* "jumps N": its jump count (1-6), 0 the base's */
+    uint64_t hidden; /* "hidden J11,...": bit j, joint j */
     uint8_t* motions; /* motions.bin, or NULL */
     uint32_t motions_size;
     char dir[512];

@@ -1,24 +1,34 @@
 #!/bin/bash
 # Rebuild <NAME>'s pack from the user's model: the model on the base's
-# skeleton (fit.py), the two costumes (Nr: Melee-ified; the second: the
-# model as given), menu images, its own moves (moves.py), the stock
-# icon (stock_icon.py), fighter.cfg, validation. Copy to
-# ~/Melee4K-dev/fighters/<ID>/ and set the variables.
+# skeleton with its own textures (fit.py; one costume, the model as given),
+# menu images, its own moves (moves.py), the stock icon (stock_icon.py),
+# fighter.cfg, validation. Copy to ~/Melee4K-dev/fighters/<ID>/ and set the
+# variables.
 #   ./make_pack.sh            everything
 #   ./make_pack.sh --inspect  the model's bones, skin and textures (step 2)
 #   ./make_pack.sh --check    pose renders only: ui/check_<pose>.png (step 4)
 set -euo pipefail
 ID=Xx                      # two-letter id
+ORDER=100                  # place among the packs on character select
 NAME="Name"                # title case, as on the character select door
+MOVES=""                   # its specials' name in the C (FtCustomMoves) when NAME has spaces
 BASE_CODE=Mr               # base fighter
 SYMBOL=PlyName5K           # fighter.cfg symbol stem
 MODEL_SRC=model/Model.dae  # the user's file; converted to model/model.glb
-SECOND=Bu                  # the second costume's suffix (the model as given)
-LO_RATIO=0.6               # Melee-ified mesh: share of the triangles kept
-MELEE_STRENGTH=1.0         # Melee-ified texture: shading strength
+SIZE=1.0                   # fighter.cfg size: the model's scale in the game (hitboxes too)
+HIDE_JOINTS=""             # build_dat --hide-joints: parts shown only where moves scale them ("J11")
+FORMS=()                   # build_dat --form PART:STATE=MATERIAL: another form's mesh (a vehicle)
 ICON_JOINTS=""            # the head's joints ("J60"): the icon framed on them (base_joints.py)
 ICON_POSE=idle            # the icon's pose: poses/<ICON_POSE>.json; "bind" for the bind pose (a base whose idle turns away)
 CSP=jab                    # portrait pose: poses/<CSP>.json (a game pose dump)
+RENDER_PY=""               # more blender_render_ui.py settings, Python lines (CSP_JOINTS, ICON_DIR...)
+ATTRS="weight 1.0
+walk 1.0
+dash 1.0
+jump 1.0
+gravity 1.0
+fall 1.0
+air 1.0"                   # fighter.cfg attribute multipliers (moves.md §Attributes)
 
 G="$(cd "$(dirname "$0")" && pwd)"
 REPO="${REPO:-$HOME/Desktop/GitRepos/melee-4k}"
@@ -66,84 +76,54 @@ cat > "$G/.blender_job.py" <<PYEOF
 DIR = '$BASE'; SKIP_REF = True; exec(open('$REPO/tools/fighter/blender_import_base.py').read())
 G = '$G'; REPO = '$REPO'; exec(open('$G/fit.py').read())
 import bpy, glob, json, os
-# The model's textures as PNGs; ambient occlusion baked for any the model
-# brings no AO map for (its own maps, if any: tex/<texture>_ao.png and
-# _nrm.png, put there by hand from the model's files).
-tex = save_textures(OBS, '$G/tex/original', search=[G + '/model'] + list(globals().get('TEX_SEARCH', [])), colors=globals().get('TEX_COLORS', {}), assign={k: G + '/model/' + v for k, v in globals().get('TEX_ASSIGN', {}).items()})
-need = [t for t in set(tex.values()) if not os.path.exists(t[:-4] + '_ao.png')]
-if need and '$MODE' != '--check':
-    bake_ao({n: o for n, o in OBS.items() if any(m['hsd_texture'] in need for m in o.data.materials)}, '$G/tex/original')
-json.dump(tex, open('$G/tex/materials.json', 'w'))
-PYEOF
-if true; then
-  "$BLENDER" -b --factory-startup --python "$G/.blender_job.py" 2>&1 | grep -E "retargeted|removed|Error|Traceback|line [0-9]" || true
-  # The Melee-ified textures.
-  mkdir -p "$G/tex/melee"
-  for t in "$G"/tex/original/*.png; do
-    case "$t" in *_ao.png|*_nrm.png) continue ;; esac
-    b="${t%.png}"; args=()
-    [ -f "${b}_ao.png" ] && args+=(--ao "${b}_ao.png")
-    [ -f "${b}_nrm.png" ] && args+=(--normal "${b}_nrm.png")
-    "$PY" "$REPO/tools/fighter/melee_texture.py" "$t" "$G/tex/melee/$(basename "$t")" --strength "$MELEE_STRENGTH" ${args[@]+"${args[@]}"}
-  done
-fi
-
-cat > "$G/.blender_job.py" <<PYEOF
-DIR = '$BASE'; SKIP_REF = True; exec(open('$REPO/tools/fighter/blender_import_base.py').read())
-G = '$G'; REPO = '$REPO'; exec(open('$G/fit.py').read())
-import bpy, glob, json, os
-tex = json.load(open('$G/tex/materials.json'))
-melee = {m: '$G/tex/melee/' + os.path.basename(p) for m, p in tex.items()}
-use_textures(OBS, melee)
+# The model's own textures, as PNGs.
+tex = save_textures(OBS, '$G/tex/original', search=[G + '/model'] + list(globals().get('TEX_SEARCH', [])),
+                    colors=globals().get('TEX_COLORS', {}),
+                    assign={k: G + '/model/' + v for k, v in globals().get('TEX_ASSIGN', {}).items()})
+use_textures(OBS, tex)   # each image on its material's base colour, nothing else lit or see-through
 CHECK_POSES = sorted(glob.glob('$G/poses/*.json'))
+COSTUMES = [tex]
 if '$MODE' == '--check':
-    COSTUMES = [melee]; CHECK_ONLY = True
+    CHECK_ONLY = True
     OUT = '$G/ui'; exec(open('$REPO/tools/fighter/blender_render_ui.py').read())
     raise SystemExit
-OUT = '$G/mesh_original.json'; exec(open('$REPO/tools/fighter/blender_export_fighter.py').read())
-COSTUMES = [melee, tex]
+OUT = '$G/mesh.json'; exec(open('$REPO/tools/fighter/blender_export_fighter.py').read())
 POSE = {}
 ICON_JOINTS = '${ICON_JOINTS:-}'.split()
 ICON_POSE = '$G/poses/${ICON_POSE:-idle}.json' if os.path.exists('$G/poses/${ICON_POSE:-idle}.json') else {}
 CSP_POSE = '$G/poses/$CSP.json' if os.path.exists('$G/poses/$CSP.json') else {}
+$RENDER_PY
 OUT = '$G/ui'; exec(open('$REPO/tools/fighter/blender_render_ui.py').read())
-melee_mesh(OBS, $LO_RATIO)
-OUT = '$G/mesh_melee.json'; exec(open('$REPO/tools/fighter/blender_export_fighter.py').read())
 PYEOF
-"$BLENDER" -b --factory-startup --python "$G/.blender_job.py" 2>&1 | grep -E "retargeted|exported|rendered|melee mesh|Error|Traceback|line [0-9]" || true
+"$BLENDER" -b --factory-startup --python "$G/.blender_job.py" 2>&1 | grep -E "retargeted|prop |exported|rendered|Error|Traceback|line [0-9]" || true
 [ "$MODE" = --check ] && exit 0
 
 mkdir -p "$PACK"
 rm -rf "$PACK/textures" "$PACK"/Pl$ID??.dat
-"$PY" "$REPO/tools/fighter/build_dat.py" --base-dir "$BASE" --mesh "$G/mesh_melee.json" --symbol "$SYMBOL" \
-  --out "$PACK/Pl${ID}Nr.dat" --textures "$PACK/textures" | tail -1 | cut -c1-120
-orig=(); while IFS= read -r kv; do orig+=(--texture "$kv"); done < <("$PY" -c "import json;[print(f'{m}={p}') for m,p in json.load(open('$G/tex/materials.json')).items()]")  # names may have spaces
-"$PY" "$REPO/tools/fighter/build_dat.py" --base-dir "$BASE" --mesh "$G/mesh_original.json" --symbol "$SYMBOL$SECOND" \
-  --out "$PACK/Pl${ID}$SECOND.dat" --textures "$PACK/textures" ${orig[@]+"${orig[@]}"} | tail -1 | cut -c1-120
+forms=(); for f in ${FORMS[@]+"${FORMS[@]}"}; do forms+=(--form "$f"); done
+"$PY" "$REPO/tools/fighter/build_dat.py" --base-dir "$BASE" --mesh "$G/mesh.json" --symbol "$SYMBOL" \
+  --out "$PACK/Pl${ID}Nr.dat" --textures "$PACK/textures" --hide-joints "$HIDE_JOINTS" \
+  ${forms[@]+"${forms[@]}"} | tail -1 | cut -c1-120
 # Its own attacks, taunt and special animations.
 "$PY" "$REPO/tools/fighter/build_moves.py" "$G/moves.py" --base-dir "$BASE" --base "$BASE_CODE" --out "$PACK/motions.bin" | tail -1
-# The stock icons: the head renders made like Melee's own (stock_icon.py).
-for c in 0 1; do "$PY" "$REPO/tools/fighter/stock_icon.py" "$G/ui/stock$c.png" "$G/ui/stock_px$c.png"; done
-"$PY" "$REPO/tools/fighter/build_ui.py" --icon "$G/ui/icon.png" --csp "$G/ui/csp0.png" "$G/ui/csp1.png" \
-  --stock "$G/ui/stock_px0.png" "$G/ui/stock_px1.png" --name "$NAME" --textures "$PACK/textures" --out "$PACK/Pl${ID}Ui.dat"
+# The stock icon: the head render made like Melee's own (stock_icon.py).
+"$PY" "$REPO/tools/fighter/stock_icon.py" "$G/ui/stock0.png" "$G/ui/stock_px0.png"
+"$PY" "$REPO/tools/fighter/build_ui.py" --icon "$G/ui/icon.png" --csp "$G/ui/csp0.png" \
+  --stock "$G/ui/stock_px0.png" --name "$NAME" --textures "$PACK/textures" --out "$PACK/Pl${ID}Ui.dat"
 cat > "$PACK/fighter.cfg" <<CFG
 id $ID
 name "$NAME"
 base $BASE_CODE
 symbol $SYMBOL
-costumes Nr $SECOND
+costumes Nr
 moves ${MOVES:-$NAME}  # its specials' C (src/melee/ft/kinds/ft${MOVES:-$NAME}/), compiled in
-order ${ORDER:-100}  # place on character select among the packs, lowest first
+order $ORDER  # place on character select among the packs, lowest first
 voice none   # its own voice is not in the game: none of the base's
+size $SIZE
+${HIDE_JOINTS:+hidden $HIDE_JOINTS}
 # Attribute multipliers on the base's (moves.md §Attributes): from how the
 # character moves in its games.
-weight 1.0
-walk 1.0
-dash 1.0
-jump 1.0
-gravity 1.0
-fall 1.0
-air 1.0
+$ATTRS
 CFG
 # Its own effects (beams, glows, trails...: docs/fighters.md).
 if [ -f "$G/vfx.cfg" ]; then cp "$G/vfx.cfg" "$PACK/vfx.cfg"; else rm -f "$PACK/vfx.cfg"; fi

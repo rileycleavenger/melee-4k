@@ -1,4 +1,5 @@
 #include "ftdemo.h"
+#include "ftcustom.h"
 
 #include <Runtime/platform.h>
 
@@ -96,6 +97,10 @@ Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
             }
             ftData_80085B98(fp, a, b);
         }
+#ifdef TARGET_PC
+        /* A custom fighter's own results and victory poses (motions.bin). */
+        ftCustom_Motions(fp);
+#endif
         ftParts_80074E58(fp);
         ftParts_SetupParts(gobj);
         ftAnim_80070308(gobj);

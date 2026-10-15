@@ -59,7 +59,7 @@ bool ftCo_800C3B10(Fighter_GObj* gobj)
         return false;
     }
     if (ftCustom_GrabKind(fp) != Ft_Kind_Link && ftCustom_GrabKind(fp) != Ft_Kind_CLink &&
-        fp->kind != Ft_Kind_Samus)
+        ftCustom_GrabKind(fp) != Ft_Kind_Samus)
     {
         return false;
     }
@@ -92,7 +92,7 @@ void ftCo_800C3BE8(Fighter_GObj* gobj)
         if (ftCustom_GrabKind(fp) == Ft_Kind_Link || ftCustom_GrabKind(fp) == Ft_Kind_CLink) {
             Fighter_ChangeMotionState(gobj, ftLk_MS_AirCatch, Ft_MF_None, 0, 1,
                                       0, NULL);
-        } else if (fp->kind == Ft_Kind_Samus) {
+        } else if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) {
             Fighter_ChangeMotionState(gobj, ftSs_MS_AirCatch, Ft_MF_None, 0, 1,
                                       0, NULL);
         }
@@ -194,7 +194,7 @@ void ftCo_AirCatch_Anim(Fighter_GObj* gobj)
                 }
             }
         }
-    } else if (fp->kind == Ft_Kind_Samus) {
+    } else if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) {
         ftSs_DatAttrs* da = fp->dat_attrs;
         PAD_STACK(3 * 4);
         fp->mv.co.aircatch.x0 += 1.0;

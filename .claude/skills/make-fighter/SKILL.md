@@ -1,6 +1,6 @@
 ---
 name: make-fighter
-description: Make a new custom fighter for Melee 4K (any character) from a 3D model of it (or reference images) - the model on an existing fighter's skeleton as two costumes (the model as given and a Melee-ified one), a completely original moveset researched from the character's games and media (new animations, hitboxes, specials, taunt), its own effects (beams, auras, trails, its projectiles' look), the body it really has (four legs, a modelled weapon), a character select icon in the same style as the others, a stock icon rendered from its head - packaged as a fighter pack the game loads. Use when asked to add, build, model or improve a custom character.
+description: Make a new custom fighter for Melee 4K (any character) from a 3D model of it (or reference images) - the model on an existing fighter's skeleton with its own textures, a completely original moveset researched from the character's games and media (new animations, hitboxes, specials, taunt), its own effects (beams, auras, trails, its projectiles' look), the body it really has (four legs, a modelled weapon), a character select icon in the same style as the others, a stock icon rendered from its head - packaged as a fighter pack the game loads. Use when asked to add, build, model or improve a custom character.
 ---
 
 # Make a custom fighter
@@ -20,10 +20,9 @@ fighter. Without a model, see "No model" at the end.
 
 ## Requirements (the user's, non-negotiable)
 
-1. **Costumes: exactly two** - costume 1 (Nr, the default) is the
-   **Melee-ified** model (fewer triangles, Melee-style shading painted into
-   its textures); costume 2 is **the provided model as given** (its mesh
-   and textures unchanged). No recolours unless asked.
+1. **One costume: the provided model with its own textures** (its mesh
+   and textures unchanged; Nr). No restyled or recoloured costumes unless
+   asked.
 2. **A completely original moveset**, based on the character's
    appearances in other games and media: every jab, tilt, dash attack,
    smash, aerial, special and the taunt is the character's own animation
@@ -123,16 +122,19 @@ C for the character's specials (`src/melee/ft/kinds/ft<Name>/`, no art).
    hands are. Iterate. A model with no skeleton: `blender_autorig.py`
    first (`tools.md` §6d). Non-humanoids (a dog, a ghost, a bean): see
    "Fitting any body" in `tools.md` §6b.
-6. **Costumes** (requirement 1): `make_pack.sh` builds both: Nr = the
-   mesh decimated (`LO_RATIO` = ~5000 / the model's triangles: a 27k-
-   triangle model needs 0.18, a 7k one 0.6) with `melee_texture.py`
-   textures (the model's AO and normal maps painted in, or AO baked when
-   it has none); the second = the model's own mesh and textures.
+6. **The costume** (requirement 1): `make_pack.sh` builds Nr from the
+   model's own mesh and textures (`TEX_ASSIGN` in fit.py when the
+   converter lost which image goes on which material). Extra meshes the
+   moves need - a vehicle form, summoned helpers, a weapon from another
+   file - go on spare joints with `add_prop` (`tools.md` §6e).
 7. **Menu images**: the portrait renders in an attack's game pose (`CSP`,
    the face visible), the icon from the face; `build_ui.py --name`
    formats both exactly like the HD pack's (requirement 3). The stock
-   icon: `stock_icon.py` on the head-only render (`stock<n>.png`), one
-   per costume (`tools.md` §5c).
+   icon: `stock_icon.py` on the head-only render (`stock0.png`,
+   `tools.md` §5c). A body that reads badly in an attack (a dog, a
+   creature) gets a pose of its own: author it in moves.py (the results
+   screen's Lose pose is a good one) and take it with `build_moves.py
+   --preview` into `poses/` for `CSP`.
 8. **Moveset** (requirement 2, `moves.md`): research the character
    (games, anime, comics: its attacks, spells, weapons, signature
    poses), fill `notes.md` "Moveset research" for every slot, then pose
@@ -247,14 +249,25 @@ larger only.
   to normal); the base's own meshes on other joints showing (Young Link's
   shield, scabbard and sword: `build_dat.py` blanks every non-root DObj);
   a dog fitted upright like Pikachu's idle (author a four-legged
-  locomotion set; drape a cape with `SRC_POSE`); a dark Melee-ified
-  costume (`MELEE_STRENGTH` 0.4-0.6 for dark cloth); hand-typed pixel
+  locomotion set; drape a cape with `SRC_POSE`); hand-typed pixel
   stock icons; custom icons paged six at a time (the grid now shrinks to
   show them all).
-- A spike of stretched mesh in the game but not in Blender is a vertex
-  with more weights than the game allows: `melee_mesh` must clear every
-  group before writing the quantised weights (fixed); check
-  `mesh_melee.json` for vertices with 4+ weights after any change there.
+- The user's third review: no restyled ("Melee-ified") costume - the
+  model's own textures only; the base's grab (Samus's grapple beam, Link's
+  hookshot: `ftCustom_GrabKind` makes a pack on those bases grab by hand,
+  author Catch/CatchWait/CatchAttack and the throws); the base's jumps
+  (Kirby's five: fighter.cfg `jumps`, and the character's own jump
+  animations); recoveries rising far too high (aim for 30-40 units: a
+  leap of about the fighter's own height and a half); a generic
+  projectile where the character has something iconic (King Boo's ghosts,
+  Optimus's truck); the base's results-screen poses (Pikachu clapping as
+  a dog: author Win1-3, their Wait loops and Lose); a rigid cape (give
+  cloth spare joints and move it in every move); smash attacks that are
+  not the character's (a dog bites); the announcer naming the base on
+  character select (silenced for packs).
+- A rigid, stiff-looking model with holes at the joints came from nearest-
+  bone (rigid) weights on a one-piece organic mesh: `blender_autorig.py`
+  `SMOOTH = True` (heat weights) for those.
 - Parts of the model missing in the game but not in Blender (King Boo's
   crown and face, the Crewmate's visor): either a texture whose alpha
   only pads its UV islands made the mesh translucent (build_dat now drops
@@ -273,8 +286,7 @@ If there is no model, ask for one first (The Models Resource, the user's
 files). Otherwise: reference images through image-to-3D (`tools.md` §6,
 Hunyuan3D-MLX + `blender_fit_ai.py`) or primitives (`templates/no-model/`,
 `tools.md` §5). Both give a weaker likeness; say so in the report. The
-moveset, icon, stock and costume rules stay the same (costume 2 is then
-the unstyled model).
+moveset, icon, stock and costume rules stay the same.
 
 ## Rules
 

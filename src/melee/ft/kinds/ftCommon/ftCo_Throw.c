@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Throw.h"
 
 #include <Runtime/platform.h>
@@ -151,7 +152,9 @@ void ftCo_800DD398(Fighter_GObj* gobj, FtMotionId msid, FtMotionId victim_msid,
         }
         break;
     case Ft_Kind_Samus:
-        ftSs_Init_CreateThrowGrappleBeam(gobj, msid, anim_speed);
+        if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) { /* a pack throws without the beam */
+            ftSs_Init_CreateThrowGrappleBeam(gobj, msid, anim_speed);
+        }
         break;
     default:
         break;

@@ -68,15 +68,14 @@ inside Blender with globals as shown.
 | `blender_bake.py` | Blender: procedural paint materials, then one baked HD texture per export mesh and costume (colour x ambient occlusion) | see §5b |
 | `blender_snap.py` | Blender: quick solid render, framed on visible meshes | globals `OUT`, `VIEW` (front, side, back, threequarter), `HIDE` (object names) |
 | `blender_export_fighter.py` | Blender: meshes parented to Skeleton (not `Ref_`) -> `mesh.json` | global `OUT`; materials need `hsd_texture` (blender_parts.material sets it) |
-| `blender_render_ui.py` | Blender: portrait `csp<n>.png` (544x752), `icon.png` (640x560 face), `stock<n>.png` (144x144 head) with Cycles | globals `OUT`, `COSTUMES` (list of {material: png}), `POSE` ({bone: (x,y,z) degrees}: icon and stock), `CSP_POSE` (the portrait's pose; default `POSE`), `HEAD` (head's share of the height, 0.42), `SAMPLES` |
-| `build_dat.py` | one costume file `Pl<ID><C>.dat` from mesh.json over the base's | `--base-dir $DEV/base/BASE --mesh mesh.json --symbol <stem> --out pack/Pl<ID><C>.dat --textures pack/textures [--texture MAT=PNG ...]` |
+| `blender_render_ui.py` | Blender: portrait `csp<n>.png` (544x752), `icon.png` (640x560 face), `stock<n>.png` (144x144 head) with Cycles | globals `OUT`, `COSTUMES` (list of {material: png}), `POSE` ({bone: (x,y,z) degrees}: icon and stock), `CSP_POSE` (the portrait's pose; default `POSE`), `HEAD` (head's share of the height, 0.42), `SAMPLES`, `RENDER_HIDE` (mesh names left out: a vehicle form, summoned helpers) |
+| `build_dat.py` | one costume file `Pl<ID><C>.dat` from mesh.json over the base's | `--base-dir $DEV/base/BASE --mesh mesh.json --symbol <stem> --out pack/Pl<ID><C>.dat --textures pack/textures [--texture MAT=PNG ...] [--hide-joints J11,...] [--form PART:STATE=MATERIAL]` (§6e) |
 | `build_ui.py` | menu images `Pl<ID>Ui.dat` (disc sizes) and their HD replacements | `--icon icon.png --csp csp0.png ... --stock stock0.png ... --name "<Name>" --textures pack/textures --out pack/Pl<ID>Ui.dat`; `--name` sets the icon on a Melee HD-style plate (face cut by a grey frame, name on a dark bar) and gives portraits Melee's drop shadow |
 | `validate.py PACK` | checks a pack (cfg, symbols, skeleton, weights, budgets, UI, textures) | `--base-dir $DEV/base/BASE --disc DISC`; exit 1 on errors |
 | `preview.py DISC PACKS ID OUT` | CPU matches screenshotted into `OUT/sheet.jpg` | `--costumes 0,1,2 --stages 32,31,3 --frames 900` |
 | `closeup.py DISC PACKS ID OUT` | the fighter idle in a match, paused: the pause camera zoomed in and turned round it, screenshots into `OUT/closeups.jpg` (frames `OUT/frame_*.png`, full 4K) | `--costume 0 --stage 32`; the in-game model, shading and textures up close |
 | `base_joints.py BASE_DIR` | the base's skeleton as a tree: joint numbers, positions, deforming or helper, guessed limb roles | before fit.py and moves.py |
 | `frame_data.py BASE_DIR [MOTION...]` | the base's frame data: length, hitboxes, timers, IASA, charge, throw frames per motion | before moves.py |
-| `melee_texture.py ALBEDO OUT [--ao] [--normal] [--strength]` | the Melee-ified costume's texture: AO and relief painted into the colour map | make_pack.sh runs it |
 | `play.py DISC PACKS ID OUT "SCRIPT"` | plays the fighter (human, port 1) from a key script against an idle base fighter: screenshots every `--every` frames into `OUT/sheet.jpg` (frames `OUT/frame_*.png`), and on a crash the exit code and log tails | script: `"Right 700, wait 300, X 50, wait 600, Up+Z 100, wait 2000"` (Z B, X A, V jump, arrows the stick, I/J/K/L the C-stick: smashes on the ground, aerials in the air); `--boot 8 --stage 32` |
 | `blender_retarget.py` | Blender: a rigged glTF moved onto the base's skeleton bone by bone, its weights summed onto the base's bones | see §6b |
 | `blender_fit_ai.py` | Blender: an image-to-3D mesh dressed with a primitive proxy's parts, paint and weights | see §6 |
@@ -86,7 +85,7 @@ inside Blender with globals as shown.
 | `moveskit.py` | `Kit(ctx, Move, J)`: the posing and hitbox shorthand for `moves.py` (arms, legs, kick, punch, hit with a zero offset, attack/special/taunt over the base's rows, `family(prefix)`, `has`) | library, `moves.md` §3 |
 | `base_poses.py BASE_DIR OUT [--base Xx] [MOTION:FRAME:name ...]` | the base's poses from its own animations as pose dumps (idle, run, jab, smashes, jump, aerials, crouch, fall) | `poses/` for `make_pack.sh --check`, no game needed |
 | `blender_to_glb.py` | Blender: any model (.fbx, .blend, .obj) to .glb, textures searched beside it, an inventory printed | before `--inspect` when assimp is not enough (a .blend) |
-| `blender_autorig.py` | Blender: a skeleton for an unrigged model from hand-placed joints; each loose part (or vertex) on its nearest bone | §6d |
+| `blender_autorig.py` | Blender: a skeleton for an unrigged model from hand-placed joints; each loose part (or vertex) on its nearest bone, or `SMOOTH = True`: heat weights (one-piece organic bodies: no stiff limbs, no gaps at the joints) | §6d |
 | `dump_model.py` | prints a .dat's joints, DObjs, materials, vertex formats | `dump_model.py pack/Pl<ID>Nr.dat` or `dump_model.py DISC PlMrNr.dat` |
 | `hsd.py`, `model.py` | HSD archive reader/writer, mesh decode | libraries |
 
@@ -314,13 +313,11 @@ exec(open(f"{REPO}/tools/fighter/blender_retarget.py").read()); OBS = retarget()
 # then: material["hsd_texture"] per costume texture, blender_export_fighter.py
 ```
 
-The two costumes (the user's rule): the Melee-ified one is
-`melee_mesh(OBS, ratio)` (decimated to ~5k triangles, weights quantised
-again) with `melee_texture.py` textures (the model's own AO map and normal
-map painted into its albedo, else `bake_ao(OBS, dir)` bakes AO into the
-texture's UV space); the other is the model's own mesh and textures.
-Rendered side by side they differ subtly; in the game the Melee-ified one
-reads chunkier and more contrasted. Raise `--strength` if asked for more.
+The costume (the user's rule): the model's own mesh and textures, one
+costume, nothing restyled. `make_pack.sh` calls `use_textures(OBS, tex)`
+so every image sits on its material's base colour for the renders (a
+converted model's emission or opacity maps otherwise wash it out white
+or hide it); cut-out alpha (hair cards) is kept, as in the game.
 
 Models with **several textures** (body, face, eyes, hair): one object per
 material comes out of retarget(); each gets its own PNG. Textures with
@@ -385,9 +382,50 @@ exec(open(REPO + "/tools/fighter/blender_autorig.py").read())
 ```
 
 `Blender -b --python-expr "G='...'; REPO='...'; exec(open('rig.py').read())"`
-writes a skinned glb; fit it like any rigged model (Freddy: Fr/rig.py,
-Fr/fit.py). `RIGID = False` weights each vertex to its nearest bone (a
-one-piece mesh; then check the elbows and knees).
+writes a skinned glb; fit it like any rigged model (the character's
+<Id>/rig.py, then <Id>/fit.py). `RIGID = False` weights each vertex to its nearest bone;
+for a one-piece organic body (a creature in a robe, a person) use `RIGID = False; SMOOTH =
+True`: Blender's heat weights, so limbs bend smoothly - nearest-bone weights look stiff and
+open gaps at the elbows and knees. Read joint positions off orthographic front and side
+renders with a grid (game units of the model: 0.05 lines), not by guessing; note which way
+the model faces (fit.py `SRC_ROT_Z`: -90 for one facing +X, 180 for +Y).
+
+## 6e. Extra meshes: another form, summoned helpers (`add_prop`, `--form`, `--hide-joints`)
+
+A move that shows something the model is not - a vehicle it turns into,
+creatures it summons, a weapon from another file - gets that mesh from
+its own file, rigid on a **spare joint** (one the fighter's own moves are
+free to key: base_joints.py shows them; legs a legless character never
+uses, a tail chain, a face joint), placed in fit.py after retarget():
+
+```python
+add_prop(OBS, G + '/model/truck/truck.obj', 'J58', 'Truck', 22.0,       # joint, name, longest side
+         rot=(0, -29.5, 0), texture=G + '/model/truck/tex.png')        # degrees about game X Y Z: front to +Z
+add_prop(OBS, G + '/model/x.fbx', 'J38', 'Goob', 6.0, pick=r'^Goob',   # one object of several in a file
+         at=(0.98, 0.25, -0.48), texture=...)                          # footprint centre x/z, bottom y
+```
+
+(`rot`: turn it until its long axis lies along game Z, front +Z: a top-
+down plot of its vertices shows which way it faces.) Then show it only in
+its moves, one of two ways:
+
+- **`--form PART:STATE=MATERIAL`** (make_pack.sh `FORMS`): the mesh goes
+  in the DObj slots one state of one of the base's model parts shows (a
+  base with a multi-state part: Samus's body 0, state 1 the morph ball;
+  dump them with `build_dat.part_states`), every other mesh leaves that
+  state. The move's C switches it with `ftParts_80074B0C(gobj, part,
+  state)` each frame of the form; the next motion change puts the body
+  back however the move ends. Hitboxes and hurtboxes stay the body's:
+  keep the body's pose under the form (crouched inside the truck).
+- **`--hide-joints J38,...`** (make_pack.sh `HIDE_JOINTS`, written as
+  fighter.cfg `hidden`): the joint rests at ~0 scale; moves.py keys its
+  scale up in its moves (every move keys every hidden joint's scale: a
+  joint keeps the last one set) and its position (`Move.translate`) to fly
+  it about. The game keeps hidden joints hidden in the base's motions.
+  Hitboxes can ride the joint (the ghosts hit).
+
+`RENDER_HIDE` in make_pack.sh's `RENDER_PY` keeps them out of the menu
+images.
 
 ## 6c. AssetFurnace (Pixal3D image-to-3D)
 
@@ -455,7 +493,7 @@ id       Xx                 two letters (below)
 name     "Name"             title case like Melee's door names; <= 31 characters
 base     Mr                 base fighter code
 symbol   PlyName5K          joint symbol stem (§3)
-costumes Nr Bu              files Pl<id><C>.dat; first is the default (the Melee-ified one); <= 8
+costumes Nr                 files Pl<id><C>.dat; first is the default (the model as given); <= 8
 teams    Re Nr Gr           optional: red, blue, green team costumes (default Re Bu Gr)
 moves    Name               optional: compiled specials (moves.md); one word (make_pack.sh MOVES)
 order    5                  optional: place among the packs on character select, lowest first (100);
@@ -465,14 +503,19 @@ weight   0.95               optional multipliers on the base: weight walk dash
 jump     1.05                 jump gravity fall air (0.5-2 sensible)
 size     1.3                  optional: the whole fighter bigger (model, hurtboxes, reach), e.g. a
                               character much bigger than its base; 0.7-1.5 sensible
+jumps    2                  optional: its jumps, ground and air together (1-6; absent: the base's -
+                              Kirby's and Jigglypuff's six are rarely the character's)
+hidden   J11,J38            optional (make_pack.sh writes it from HIDE_JOINTS): joints the model
+                              rests at ~0 scale; the game keeps them hidden through every motion of
+                              the base's (a hit mid-move would leave the part out)
 ```
 
 **Ids.** A capital and a lower-case letter, not used by the disc's
 `Pl??.dat` files (`validate.py --disc` checks) or another pack. Taken on
 the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb Kp Lg Lk
 Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is Ganondorf). Packs
-made so far: Ge Geno, Fr Freddy, Cr Crewmate, Op Optimus Prime, Yo Yoda, Wa
-Waluigi, Kr Krypto, Sh Shadow, Th Thragg, Kg King Boo. Up to 16 packs.
+made so far: Ge Geno, Cr Crewmate, Op Optimus Prime, Yo Yoda, Kr Krypto, Kg
+King Boo (retired, ids free again: Fr Sh Th Wa). Up to 16 packs.
 
 fighter.cfg, motions.bin and every costume file are hashed for online play (same packs
 on both machines = custom fighters allowed; otherwise base fighters only).

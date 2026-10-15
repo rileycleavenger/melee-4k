@@ -16,6 +16,9 @@ rigid pieces: every piece moves as one) or per vertex.
     ]
     TAILS = {"Head": (0, 0, 0.77)}
     RIGID = True
+    SMOOTH = False              # True: Blender's automatic (heat) weights, a
+                                # smooth skin for one-piece organic models;
+                                # RIGID / nearest-bone only where it finds none
     PIN = {r"^Hat": "Head"}     # optional: parts whose material matches the
                                 # regex go to that bone whatever is nearest
     exec(open(".../blender_autorig.py").read())
@@ -35,6 +38,7 @@ OUT = globals()["OUT"]
 JOINTS = globals()["JOINTS"]
 TAILS = globals().get("TAILS", {})
 RIGID = globals().get("RIGID", True)
+SMOOTH = globals().get("SMOOTH", False)
 PIN = globals().get("PIN", {})
 
 
@@ -126,6 +130,20 @@ def autorig():
             for v in bm.verts:
                 assign[v.index] = nearest(v.co)
         bm.free()
+        if SMOOTH:
+            # Heat weights; a vertex they leave bare keeps its nearest bone.
+            for g in list(ob.vertex_groups):
+                ob.vertex_groups.remove(g)
+            bpy.ops.object.select_all(action="DESELECT")
+            ob.select_set(True)
+            arm.select_set(True)
+            bpy.context.view_layer.objects.active = arm
+            bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+            ob.modifiers.clear()
+            groups = {n: ob.vertex_groups.get(n) or ob.vertex_groups.new(name=n) for n in names}
+            bare = [v.index for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups)]
+            assign = {i: assign[i] for i in bare}
+            print(f"{ob.name}: heat weights, {len(bare)} vertices on their nearest bone")
         by_bone = {}
         for i, b in assign.items():
             by_bone.setdefault(b, []).append(i)

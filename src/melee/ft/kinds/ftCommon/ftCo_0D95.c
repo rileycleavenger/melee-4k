@@ -1,3 +1,4 @@
+#include <melee/ft/ftcustom.h>
 #include "ftCo_Attack100.h"
 #include <melee/ef/efsync.h>
 #include <melee/ft/fighter.h>
@@ -25,7 +26,7 @@ bool fn_800D9558(Fighter_GObj* gobj)
     f32 my;
     f32 r;
     PAD_STACK(0x18);
-    if (fp->kind == Ft_Kind_Samus) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) {
         attrs = fp->dat_attrs;
         fp->mv.ca.specials.grav += 1.0;
         grav = fp->mv.ca.specials.grav;
@@ -115,7 +116,7 @@ bool fn_800D9930(Fighter_GObj* gobj)
     f32 r;
     PAD_STACK(12);
 
-    if (fp->kind == Ft_Kind_Samus) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) {
         attrs = fp->dat_attrs;
         fp->mv.ca.specials.grav += 1.0;
         grav = fp->mv.ca.specials.grav;
@@ -175,7 +176,7 @@ void fn_800D9C64(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (fp->kind == Ft_Kind_Samus) {
+    if (ftCustom_GrabKind(fp) == Ft_Kind_Samus) {
         it_802B7B84(fp->u.ss.x223C);
     }
 }

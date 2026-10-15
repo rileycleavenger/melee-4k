@@ -19,9 +19,12 @@ inline constexpr uint64_t StorageBufferSize = 4194304;  // 4 MiB
 inline constexpr uint64_t TextureUploadSize = 12582912; // 12 MiB
 #else
 inline constexpr uint64_t UniformBufferSize = 50331648; // 48 MiB
-inline constexpr uint64_t VertexBufferSize = 5242880;   // 5 MiB
-inline constexpr uint64_t IndexBufferSize = 2097152;    // 2 MiB
-inline constexpr uint64_t StorageBufferSize = 8388608;  // 8 MiB
+/* Four custom fighters at their models' full detail (10-18k triangles
+ * each, every pass) on the results screen asked 5.03 MiB of vertices and
+ * 8.0 MiB of storage. */
+inline constexpr uint64_t VertexBufferSize = 16777216;  // 16 MiB
+inline constexpr uint64_t IndexBufferSize = 4194304;    // 4 MiB
+inline constexpr uint64_t StorageBufferSize = 33554432; // 32 MiB (the same screen: 8.0 MiB)
 inline constexpr uint64_t TextureUploadSize = 25165824; // 24 MiB
 #endif
 

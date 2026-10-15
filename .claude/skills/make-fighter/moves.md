@@ -182,7 +182,7 @@ costume, else the base's own. So the moves are per fighter, not per kind.
 Most specials are a pose sequence (moves.py) plus a little behaviour. Do
 those as data on the generic engine (ftcustom.h), not the base's code
 (which brings its guns and flames along); every V2.5 fighter's C is
-like this (src/melee/ft/kinds/ftWaluigi/ftwaluigi.c):
+like this (src/melee/ft/kinds/ftCrewmate/ftcrewmate.c):
 
 ```c
 static const FtCustomFx k_beam_fx = {        /* all optional, 0 = none */
@@ -204,8 +204,8 @@ static void ftXx_SpecialN(Fighter_GObj* g) { ftCustom_SpecialEnter(g, &k_beam); 
 
 The hitboxes are the move's script in moves.py (`k.script().until(f)
 .hitbox(...)...end()`), the same on all its rows. on_frame is only needed
-for what FtCustomFx does not cover (Geno's charged buff, Shadow's custom
-Chaos Control sparks). Vanish and armour are cleared when the move ends or
+for what FtCustomFx does not cover (Geno's charged buff, a teleport's
+reappearance). Vanish and armour are cleared when the move ends or
 is interrupted.
 
 ### Writing a special (the base's own motion states)
@@ -308,3 +308,38 @@ Moves are **simulation**: both machines must compute identical results.
 6. **Online**: `tools/online_test.py` with the fighter picked on both
    sides (Mac-Mac; Mac vs the Windows build under Wine, docs/testing.md):
    PASS. motions.bin is part of the content hash: both sides need the same.
+
+## The parts of a fighter people notice that are not attacks
+
+Check each against the character, not the base (the user's third review
+rejected every one of these left as the base's):
+
+- **Grab.** A pack on Link, Young Link or Samus grabs by hand
+  (`ftCustom_GrabKind`: no hookshot, grapple beam or tether air grab).
+  Author `Catch`, `CatchDash` (a grab box: `H(0, 0, size,
+  offset=(forward, up, 0), element="catch")`), `CatchWait`, `CatchAttack`
+  (the pummel) and the throws (`k.throw("ThrowF", ...)`: the base's
+  timing and release, the character's own swing). Its way of holding
+  someone: two big hands, the Force, the jaws.
+- **Jumps.** fighter.cfg `jumps N` (ground and air together); a base with
+  multiple air jumps (Kirby, Jigglypuff) otherwise lends its own. Author
+  `JumpF`/`JumpB`, every `k.family("JumpAerial")` row and the falls, in
+  the character's way of moving (a hop, a vent pop, a flap).
+- **Recovery height.** Up B should carry about the fighter's height and a
+  half (30-40 units): vel_y ~2.3 at normal gravity, or a vanish rising
+  ~3 a frame for 9-10 frames (a teleport: `FtCustomFx` vanish frames and
+  velocity, intangible meanwhile, `ftColl_8007B62C(gobj, 2)`, stopped where
+  it reappears). Height^2 / (2 x gravity) = v^2: work it out, do not guess.
+- **Results and victory screens.** Their poses are the base's demo rows
+  `Win1`, `Win1Wait`, `Win2`, `Win2Wait`, `Win3`, `Win3Wait`, `Lose`
+  (Pikachu claps as a loser): author all seven (`k.special([m], frames,
+  keys, k.script().end())`, `if k.has(m)`). Losing is still in character
+  (a dog sits like a good boy; a ghost sulks with its back turned).
+- **Cloth and hair** (a cape, a tail of hair): skin them to spare joints
+  (fit.py `WEIGHT_AS`), keep them rigidly with the body in every move
+  (the joint's bind relation to the chest: position and rotation) and
+  add motion on top - lifted and flapping by how fast the move goes
+  (idle sway, run streaming back, air billowing up), the halves out of
+  step; key every 3 frames (interpolate the body's keys between).
+- **A mouth or jaw** for bites, howls and breath: skin the jaw to a spare
+  joint the same way and open it per move.
