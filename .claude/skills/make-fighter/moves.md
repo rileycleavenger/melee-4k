@@ -110,6 +110,22 @@ must read (a pointing pose). Check every move from the side and front.
 **Preview** before the game: `build_moves.py ... --preview DIR` writes
 pose dumps per frame; render every 4th on the model (`tools.md` §11).
 
+### Its own idle and locomotion
+
+The idle is the animation seen most: every fighter gets its own `Wait`
+loop built on its stance (`k.special(["Wait1", "Wait"], frames, keys,
+k.script().end())`, keys every 12-20 frames, the last back to the first):
+breathing, a look around, the character's habit (an animatronic's head
+snap, a sly hand-rub, a nervous glance). A body unlike the base's also
+gets Walk*, Dash, Run, Turn (the root's YRotN 0 -> 180 over the base's
+Turn frames), Jump*, Fall*, Squat*, Guard*, Landing: either fresh poses
+(a quadruped: a `dogkit.py`-style kit in the character's folder - the
+spec's folder is on the import path) or the base's own frames with the
+character's upper body (`k.pose(motion, f)` then arms and lean). Attacks
+whose timing should be the character's own use `k.special([motion], ...)`
+with a script of their own instead of `k.attack` (the base's rescripted
+timing): Pikachu's multi-hit smashes made no sense on a dog.
+
 ## 4. Hitboxes (`ctx.rescript`)
 
 `ctx.rescript(motion, [hit(...), ...])` keeps the base's script and
