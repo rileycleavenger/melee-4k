@@ -2773,8 +2773,19 @@ void ftKb_SpecialN_800EEC34(int arg0, int arg1, int arg2)
     }
 }
 
+/* PC: Kirby's copy hats come in his six retail costumes' colours; a
+ * custom fighter's costume on Kirby (src/melee/ft/ftcustom.c, 6 and up)
+ * wears costume 0's. The hat tables end at 6: read past, the load hung. */
+static int kb_hat_costume(int costume)
+{
+    return costume >= 0 && costume < (int) (sizeof ftKb_Init_803C9ED8 / sizeof ftKb_Init_803C9ED8[0])
+               ? costume
+               : 0;
+}
+
 void ftKb_SpecialN_800EED50(s32 arg0, s32 arg1)
 {
+    arg1 = kb_hat_costume(arg1);
     ftKirby_CostumeArchive* item;
     Fighter_CostumeStrings* costumes;
     Fighter_CostumeStrings* cs;
@@ -2865,7 +2876,7 @@ void ftKb_SpecialN_800EF040(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
         struct Fighter_804D6540_t* ft_data =
             DP(struct Fighter_804D6540_t, Fighter_804D6540[fp->kind].v);
         int count = ft_data->x4;
-        HSD_Joint* joint = ftKb_Init_803C9FC8[arg1][fp->costume_id].joint;
+        HSD_Joint* joint = ftKb_Init_803C9FC8[arg1][kb_hat_costume(fp->costume_id)].joint;
         struct Fighter_804D6540_x0_t* parts =
             DP(struct Fighter_804D6540_x0_t, ft_data->x0);
         int i;
@@ -2942,7 +2953,7 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
     s32 byte_base;
 
     ftPartsPObjSetDefaultClass();
-    root = ftKb_Init_803C9FC8[arg1][fp->costume_id].joint;
+    root = ftKb_Init_803C9FC8[arg1][kb_hat_costume(fp->costume_id)].joint;
     ftKb_SpecialN_insert_joint_refs(&total_dobjs, root, fp, &insert_part_idx,
                                     &current_joint, &joint_idx, &byte_base);
     joint_idx = 0;
@@ -3010,7 +3021,7 @@ void ftKb_SpecialN_800EF35C(Fighter_GObj* gobj, int arg1, u8* arg2)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftKirby_CostumeArchive* costume_data = ftKb_Init_803C9FC8[arg1];
-    HSD_MatAnimJoint* matanimjoint = costume_data[fp->costume_id].matanim;
+    HSD_MatAnimJoint* matanimjoint = costume_data[kb_hat_costume(fp->costume_id)].matanim;
     int idx = 0;
     arg1 = 0;
     PAD_STACK(4);
