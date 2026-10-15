@@ -28,7 +28,8 @@
  * fighter's plane: 0 ahead, 90 up, -90 down. color=RRGGBB, core=RRGGBB
  * (the hot centre), alpha=0..1. Shapes: glow, flake (a snow crystal),
  * spark (a streak along its path). ground=1: a ring flat on the floor
- * under the fighter; otherwise it faces ahead. vis=1: shown while the
+ * under the fighter; otherwise it faces dir, turned tilt (0-1, 0.55) of
+ * the way to the camera. vis=1: shown while the
  * fighter is invisible too.
  *
  * Everything here is drawn from the fighter as it is (its animation, frame
@@ -74,7 +75,7 @@ typedef struct Vfx {
     int kind, from, to; /* to < 0: every frame */
     int at, at2;
     Vec3 off, off2;
-    float dir, len, w, r0, r1, alpha, life, speed, spread, n, grow, pulse;
+    float dir, len, w, r0, r1, alpha, life, speed, spread, n, grow, pulse, tilt;
     GXColor color, core;
     int shape;
     int item; /* shot: SHOT_RAY, SHOT_STAR */
@@ -149,6 +150,7 @@ static void parse_line(Vfx* e, char* line)
     e->spread = 20;
     e->n = 1;
     e->grow = 1;
+    e->tilt = 0.55F;
     e->color = parse_color("FFFFFF");
     e->core = parse_color("FFFFFF");
     for (i = 4; i < n; i++) {
@@ -176,6 +178,7 @@ static void parse_line(Vfx* e, char* line)
         else if (!strcmp(k, "n")) e->n = (float) atof(v);
         else if (!strcmp(k, "grow")) e->grow = (float) atof(v);
         else if (!strcmp(k, "pulse")) e->pulse = (float) atof(v);
+        else if (!strcmp(k, "tilt")) e->tilt = (float) atof(v);
         else if (!strcmp(k, "color")) e->color = parse_color(v);
         else if (!strcmp(k, "core")) e->core = parse_color(v);
         else if (!strcmp(k, "ground")) e->ground = atoi(v) != 0;
@@ -542,6 +545,10 @@ static void draw_one(Fighter* fp, const Vfx* e, int idx, float f, float sc)
             o = v3(fp->cur_pos.x, fp->cur_pos.y + 0.3F, fp->cur_pos.z);
         } else if (!point(fp, e->at, &e->off, sc, &o, e->ahead)) {
             break;
+        } else {
+            /* turned part way to the camera: a ring facing ahead is edge-on
+             * to a camera at the side */
+            n = vnorm(vadd(vmul(n, 1 - e->tilt), vmul(vnorm(vsub(s_eye, o)), e->tilt)));
         }
         ring(o, n, (e->r0 + (e->r1 - e->r0) * t) * sc, e->w * sc, e->color, e->alpha * (1 - t) * env);
         ring(o, n, (e->r0 + (e->r1 - e->r0) * t) * sc, e->w * sc * 0.35F, e->core, e->alpha * (1 - t) * env);

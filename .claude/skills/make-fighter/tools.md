@@ -601,7 +601,8 @@ fighter's animation, frame and joints (presentation only: no sync risk):
   `trail` (the ribbon a segment sweeps: off off2 at2 life), `stream`
   (particles poured along dir: n speed spread life w grow shape), `burst`
   (particles all ways at from), `ring` (shock wave: r0 r1 w; `ground=1`
-  flat under the fighter, else facing `dir`), `shot` (its projectiles'
+  flat under the fighter, else facing `dir`, turned `tilt` (0-1, default
+  0.55) toward the camera so a forward wave is not edge-on), `shot` (its projectiles'
   look: `item=ray|star shape=spear|disc|glow`, replaces the item's model).
 - points: `at=<joint>` `off=x,y,z` in the joint's axes, or with
   `axes=fighter` ahead/up/side from the joint; `at=0` is the feet.
