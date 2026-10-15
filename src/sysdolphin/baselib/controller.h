@@ -44,7 +44,7 @@ typedef enum _HSD_FlushType {
 
 /* The pads read each frame: the GameCube's four, and on PC four more for an
  * 8-player match's fifth to eighth players (PAD_PC_PORTS). */
-#if defined(TARGET_PC) && !defined(LINT) /* LINT checks the disc's layouts */
+#ifdef TARGET_PC
 #define HSD_PAD_PORTS PAD_PC_PORTS
 #else
 #define HSD_PAD_PORTS 4

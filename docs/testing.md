@@ -180,28 +180,6 @@ the game presents normally, which looks like a freeze and is not one. `devctl.py
 shot` detects two identical captures and nudges the window; when a screenshot and
 a backtrace disagree, believe the backtrace.
 
-### Eight players
-
-- `MELEE_DEBUG_VS_CHARS` takes up to eight entries; the seventh and eighth
-  play slots 7 and 8 (slot 6 is the disc's "no player").
-- `MELEE_KEY_PORT=1..8` puts the keyboard and `MELEE_KEY_FIFO` on that pad
-  port: an `h` player 5-8 plays ports 5-8.
-- Out-of-range array use (a table of six indexed by slot 7 or 8) shows up
-  fastest in a bounds-trap build, which stops on the faulting line:
-
-  ```sh
-  cmake -S . -B build/asan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DCMAKE_C_FLAGS="-fsanitize=bounds -fsanitize-trap=bounds -fno-omit-frame-pointer"
-  GCC_EXTRA_FLAGS="-fno-crossjumping -fno-ipa-icf" cmake --build build/asan --target melee
-  dsymutil build/asan/melee -o build/asan/melee.dSYM
-  ```
-
-  A trap leaves a crash report in `~/Library/Logs/DiagnosticReports`;
-  `atos -o build/asan/melee.dSYM/Contents/Resources/DWARF/melee -l <base> -i <pc>`
-  names the line. Retail code that reads past an array on purpose (attack
-  counters, Onett's first car) is kept as a pointer read, which the check
-  leaves alone.
-
 ## Harnesses for port bugs
 
 Three harnesses find the next batch of the bug classes listed in
