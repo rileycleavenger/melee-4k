@@ -64,6 +64,8 @@ def main():
     ap.add_argument("--stage", default="32")
     ap.add_argument("--boot", type=float, default=8.0)
     ap.add_argument("--every", type=int, default=6)
+    ap.add_argument("--foe", default="8:0h", help="the opponent (MELEE_DEBUG_VS_CHARS form): an idle Mario; "
+                    "\"8:0\" a level 9 CPU Mario that comes to fight (attacks land wherever you stand)")
     ap.add_argument("--game", default=os.path.join(REPO, "build", "macos", "melee"))
     a = ap.parse_args()
     steps = parse(a.script)
@@ -76,7 +78,7 @@ def main():
     frames = list(range(int(a.boot * 60), total, a.every))
     env = dict(os.environ, MELEE_USER_DIR=os.path.join(a.out, "user"),
                MELEE_FIGHTERS_DIR=os.path.abspath(a.packs), MELEE_BOOT_SCENE="vs",
-               MELEE_DEBUG_VS_CHARS=f"{a.id}:{a.costume}h,8:0h", MELEE_DEBUG_VS_STAGE=a.stage,
+               MELEE_DEBUG_VS_CHARS=f"{a.id}:{a.costume}h,{a.foe}", MELEE_DEBUG_VS_STAGE=a.stage,
                MELEE_KEY_FIFO=fifo, AURORA_SCREENSHOT_FRAMES=",".join(map(str, frames)),
                AURORA_SCREENSHOT_DIR=a.out, MELEE_EXIT_AFTER_FRAMES=str(total + 10),
                MELEE_LOG_FILE=os.path.join(a.out, "log"))

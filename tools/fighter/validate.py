@@ -271,6 +271,21 @@ def check_motions(path, r, moveset=MOVESET):
             r.error(f"motions.bin: {names[-1]}: animation out of the file or over 0x8000 bytes")
         if ssize and script + ssize > len(data):
             r.error(f"motions.bin: {names[-1]}: script out of the file")
+        elif ssize:
+            # A script stands alone: a goto, call or return (0x14, 0x1C, 0x18)
+            # would jump through a pointer into the base's file (a crash).
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import anim as _anim
+            words = struct.unpack(f">{ssize // 4}I", data[script:script + ssize])
+            i = 0
+            while i < len(words):
+                op = words[i] >> 26
+                if op << 2 in (0x14, 0x18, 0x1C):
+                    r.error(f"motions.bin: {names[-1]}: script has a goto/call/return ({op << 2:#x})")
+                    break
+                if op == 0:
+                    break
+                i += _anim._SIZES[op] if op < len(_anim._SIZES) else 1
     left = [m for m in moveset if m not in names]
     if left:
         r.warn("motions.bin leaves the base's: " + " ".join(left))

@@ -323,8 +323,9 @@ def read_script(a, off, _depth=0):
             out += [c for c in read_script(a, a.ptr(off + 4), _depth + 1) if c[0] not in (0x00, 0x18)]
             off += 4 * n
             continue
-        if op << 2 == 0x18 and _depth:  # return
-            break
+        if op << 2 == 0x18:      # return: the end of a subroutine; at the top
+            break                # (reached by a goto into shared code) the script's end:
+                                 # a return with no call jumps through garbage in the game
         out.append((op << 2, [a.u32(off + 4 * k) for k in range(n)]))
         if op == 0:
             break

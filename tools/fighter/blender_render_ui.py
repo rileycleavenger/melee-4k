@@ -32,6 +32,9 @@ COSTUMES = globals().get("COSTUMES", [{}])
 POSE = globals().get("POSE", {})
 CSP_POSE = globals().get("CSP_POSE", POSE)
 HEAD = globals().get("HEAD", 0.42)  # the head's share of the fighter's height
+ICON_JOINTS = globals().get("ICON_JOINTS", [])  # the head's joints ("J60"): icon and stock framed on
+                                                # the vertices mostly weighted to them (else HEAD)
+ICON_POSE = globals().get("ICON_POSE", POSE)    # the icon's and stock's pose (a pose dump: arms down)
 SAMPLES = globals().get("SAMPLES", 32)
 
 os.makedirs(OUT, exist_ok=True)
@@ -51,6 +54,27 @@ def bounds(objs):
         me = ev.to_mesh()
         pts += [o.matrix_world @ v.co for v in me.vertices]
         ev.to_mesh_clear()
+    lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+    hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    return lo, hi
+
+
+def bounds_joints(objs, names, share=0.5):
+    """Bounds of the posed vertices weighted at least `share` to the joints."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    pts = []
+    for o in objs:
+        idx = {o.vertex_groups[n].index for n in names if n in o.vertex_groups}
+        if not idx:
+            continue
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        for v, ve in zip(o.data.vertices, me.vertices):
+            if sum(g.weight for g in v.groups if g.group in idx) >= share:
+                pts.append(o.matrix_world @ ve.co)
+        ev.to_mesh_clear()
+    if not pts:
+        return None
     lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
     return lo, hi
@@ -166,11 +190,13 @@ for n, over in enumerate([] if globals().get("CHECK_ONLY") else COSTUMES):
         top = (lo.z + hi.z) / 2 + tall / 2
     shoot(os.path.join(OUT, f"csp{n}.png"), 544, 752, (0.62, -1.0, 0.16),
           Vector((ulo.x, ulo.y, top - tall)), Vector((uhi.x, uhi.y, top)), 1.0)
-    pose(POSE)
+    pose(ICON_POSE)
     lo, hi = bounds(parts)
     height = hi.z - lo.z
-    # The head: the top HEAD of the fighter's height (HEAD = 0.42 default).
-    hlo, hhi = bounds_above(parts, hi.z - height * HEAD)
+    # The head: its joints' vertices (ICON_JOINTS), else the top HEAD of
+    # the fighter's height (0.42 default).
+    hb = bounds_joints(parts, ICON_JOINTS) if ICON_JOINTS else None
+    hlo, hhi = hb if hb else bounds_above(parts, hi.z - height * HEAD)
     shoot(os.path.join(OUT, f"stock{n}.png"), 144, 144, (0.0, -1.0, 0.05), hlo, hhi, 1.0)
     if n == 0:
         # Icon: the face, close (build_ui.py fits it into the grid icon).
