@@ -3,17 +3,18 @@
  * (src/melee/ft/ftcustom.h). They run on Mario's motions -- the skeleton is
  * Mario's -- firing common items' shots.
  *
- *   Geno Beam   (B)        the Ray Gun's ray from his hand
- *   Geno Whirl  (side B)   the Star Rod's big spinning star
- *   Geno Boost  (down B)   a burst of lightning, then ten seconds of
- *                          armour and harder hits, sparking all along
- *   up B                   Mario's Super Jump Punch, wrapped in lightning
- *                          from start to end
- *   Geno Flash             his fire and coin hits are electric instead
+ *   Geno Beam   (B)        a shot from his hand (the Ray Gun's, drawn as
+ *                          his golden beam: vfx.cfg)
+ *   Geno Whirl  (side B)   a spinning disc (the Star Rod's star, drawn as
+ *                          his whirl)
+ *   Geno Boost  (down B)   a flash of light, then ten seconds of armour
+ *                          and harder hits, glowing
+ *   up B                   Mario's Super Jump Punch, in a column of light
+ *   Geno Flash             his fire and coin hits are plain blows
  *
  * His normal, smash and aerial attacks are his own animations and
- * hitboxes, from the pack (motions.bin, ftCustom_Motions); here they only
- * get their sparks.
+ * hitboxes, from the pack (motions.bin, ftCustom_Motions); their look is
+ * the pack's vfx.cfg.
  *
  * All state here is the fighter's own (ftGe_State by player slot) and moves
  * only with the simulation, so it is the same on every machine online. */
@@ -51,7 +52,6 @@
 #define GE_BOOST_ARMOR 40.0F
 #define GE_BOOST_COLANIM 53 /* the glow of a charged shot */
 #define GE_BOOST_DAMAGE 1.25F
-#define GE_ELEC_COLANIM 15 /* the flash of an electric hit */
 
 typedef enum GeShot {
     GE_SHOT_NONE,
@@ -71,13 +71,6 @@ static inline int slot_of(Fighter* fp)
     return fp->player_idx < 8 ? fp->player_idx : 0;
 }
 
-/* Lightning over his body: an electric spark on one of these bones every
- * other frame, in turn, and the electric hit's flash. Effects only. */
-static const Fighter_Part k_spark_bones[] = {
-    FtPart_HeadN, FtPart_LHandN, FtPart_BustN, FtPart_RKneeJ,  FtPart_RHandN,
-    FtPart_HipN,  FtPart_LKneeJ, FtPart_NeckN, FtPart_LFootJ, FtPart_RFootJ,
-};
-
 /* Where a part is on the stage; false if the base has no bone for it. */
 static bool part_pos(Fighter* fp, Fighter_Part part, Vec3* pos)
 {
@@ -89,33 +82,11 @@ static bool part_pos(Fighter* fp, Fighter_Part part, Vec3* pos)
     return true;
 }
 
-static void spark_at(Fighter* fp, Fighter_Part part)
-{
-    Vec3 pos;
-    if (part_pos(fp, part, &pos)) {
-        efSync_Spawn(Ef_Id_Unk1001, NULL, &pos);
-    }
-}
-
-static void sparks(Fighter* fp, int every)
-{
-    int n = (int) fp->cur_anim_frame;
-    if (every <= 0 || n % every != 0) {
-        return;
-    }
-    n /= every;
-    spark_at(fp, k_spark_bones[n % ARRAY_SIZE(k_spark_bones)]);
-}
-
 static void burst(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    int i;
-    for (i = 0; i < (int) ARRAY_SIZE(k_spark_bones); i++) {
-        spark_at(fp, k_spark_bones[i]);
-    }
     lbBgFlash_80021C48(4, 0);
-    ftCo_800BFFD0(fp, GE_ELEC_COLANIM + 2, false);
+    ftCo_800BFFD0(fp, GE_BOOST_COLANIM, false);
 }
 
 static void boost_start(Fighter_GObj* gobj)
@@ -142,9 +113,10 @@ static void spawn_shot(Fighter_GObj* gobj, GeShot shot)
     }
 }
 
-/* His hits flash with electricity where Mario's burn or shed coins (the
- * forward smash, the up B): Geno Flash. Set on the hitboxes the motion
- * made this frame, before they are checked. */
+/* His hits are plain blows where Mario's burn or shed coins (the forward
+ * smash, the up B): Geno's light is in the pack's vfx.cfg, not a fire or
+ * coin effect. Set on the hitboxes the motion made this frame, before they
+ * are checked. */
 static void flash_hits(Fighter* fp)
 {
     int i;
@@ -153,7 +125,7 @@ static void flash_hits(Fighter* fp)
         if (hit->state != HitCapsule_Disabled &&
             (hit->element == HitElement_Fire || hit->element == HitElement_Coin))
         {
-            hit->element = HitElement_Electric;
+            hit->element = HitElement_Normal;
         }
     }
 }
@@ -204,38 +176,6 @@ static void ftGe_SpecialLw(Fighter_GObj* g)
 }
 static void ftGe_SpecialAirLw(Fighter_GObj* g) { enter(g, GE_SHOT_BOOST, true); }
 
-/* Electricity where his electric hits are (the cannon blasts of his smash
- * attacks, the floor shock, the shove): sparks every other frame. */
-static void electric_sparks(Fighter* fp)
-{
-    int i;
-    if ((int) fp->cur_anim_frame % 2 != 0) {
-        return;
-    }
-    for (i = 0; i < 4; i++) {
-        HitCapsule* hit = &fp->x914[i];
-        /* (A hitbox's position is set after its first frame.) */
-        if (hit->state != HitCapsule_Disabled && hit->element == HitElement_Electric &&
-            (hit->x4C.x != 0.0F || hit->x4C.y != 0.0F))
-        {
-            efSync_Spawn(Ef_Id_Unk1001, NULL, &hit->x4C);
-        }
-    }
-}
-
-/* The taunt (his pack animation): three finger-gun shots, a spark and an
- * electric flash at his right hand on each. */
-static void taunt_shots(Fighter* fp)
-{
-    const int f = (int) fp->cur_anim_frame;
-    if ((fp->motion_id == ftCo_MS_AppealSR || fp->motion_id == ftCo_MS_AppealSL) &&
-        (f == 50 || f == 62 || f == 74))
-    {
-        spark_at(fp, FtPart_RHandN);
-        ftCo_800BFFD0(fp, GE_ELEC_COLANIM, false);
-    }
-}
-
 static void ftGe_Frame(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
@@ -246,14 +186,8 @@ static void ftGe_Frame(Fighter_GObj* gobj)
         fp->accessory4_cb = ftGe_ThrowFrame;
     }
     flash_hits(fp);
-    electric_sparks(fp);
-    taunt_shots(fp);
-    if (fp->motion_id == ftMr_MS_SpecialHi || fp->motion_id == ftMr_MS_SpecialAirHi) {
-        sparks(fp, 2);
-        if ((int) fp->cur_anim_frame % 12 == 0) {
-            ftCo_800BFFD0(fp, GE_ELEC_COLANIM, false);
-        }
-    }
+    /* His look - the golden beam and whirl, the up B's light, the boost's
+     * aura - is the pack's vfx.cfg (ftcustomvfx.h). */
     if (*boost > 0) {
         u8* boosted = &ftGe_State[slot_of(fp)].boosted;
         int i;
@@ -270,7 +204,6 @@ static void ftGe_Frame(Fighter_GObj* gobj)
             }
         }
         if (*boost % 30 == 0) {
-            sparks(fp, 1);
             ftCo_800BFFD0(fp, GE_BOOST_COLANIM, false);
         }
     }

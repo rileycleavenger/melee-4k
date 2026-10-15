@@ -18,6 +18,8 @@ J names: hips, waist, chest, neck, head; l_arm > l_fore > l_hand and r_...
 any extra (tail, ears, cape...) by name. Joints a base lacks are left out
 of J: arms() and legs() skip a missing side.
 """
+import anim
+
 FWD, UP, DOWN, BACK = (0, 0, 1), (0, 1, 0), (0, -1, 0), (0, 0, -1)
 PITCH, YAW, ROLL = (1, 0, 0), (0, 1, 0), (0, 0, 1)
 EFFECTS = (0x28, 0xA0)                 # rescript drops: graphics, model swaps
@@ -84,10 +86,16 @@ class Kit:
     # ---- hitboxes and scripts -----------------------------------------------------
     def hit(self, bone, damage, size, **kw):
         """A hitbox's fields for rescript. The offset defaults to none: the
-        base's (along its sword, say) would carry over. A script with more
+        base's (along its sword, say) would carry over; so would its element
+        (Pikachu's electricity on every hit): it defaults to normal, and the
+        hit sound to the element's (a kick's from a leg). A script with more
         hitboxes than given repeats the last."""
-        h = dict(bone=self.j(bone), damage=damage, size=size, offset=(0, 0, 0))
+        h = dict(bone=self.j(bone), damage=damage, size=size, offset=(0, 0, 0), element="normal")
         h.update(kw)
+        if "sfx" not in kw:
+            leg = any(self.J.get(n) == h["bone"] for n in self.J if n.startswith(("l_thigh", "l_shin", "l_foot",
+                                                                                   "r_thigh", "r_shin", "r_foot")))
+            h["sfx"] = anim.hit_sfx(h["element"], damage, kick=leg)
         return h
 
     def blade(self, damage, **kw):

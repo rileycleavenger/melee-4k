@@ -1,8 +1,8 @@
 #!/bin/bash
 # Rebuild <NAME>'s pack from the user's model: the model on the base's
 # skeleton (fit.py), the two costumes (Nr: Melee-ified; the second: the
-# model as given), menu images, its own moves (moves.py), the pixel stock
-# icon (make_stock.py), fighter.cfg, validation. Copy to
+# model as given), menu images, its own moves (moves.py), the stock
+# icon (stock_icon.py), fighter.cfg, validation. Copy to
 # ~/Melee4K-dev/fighters/<ID>/ and set the variables.
 #   ./make_pack.sh            everything
 #   ./make_pack.sh --inspect  the model's bones, skin and textures (step 2)
@@ -122,10 +122,10 @@ orig=(); while IFS= read -r kv; do orig+=(--texture "$kv"); done < <("$PY" -c "i
   --out "$PACK/Pl${ID}$SECOND.dat" --textures "$PACK/textures" ${orig[@]+"${orig[@]}"} | tail -1 | cut -c1-120
 # Its own attacks, taunt and special animations.
 "$PY" "$REPO/tools/fighter/build_moves.py" "$G/moves.py" --base-dir "$BASE" --base "$BASE_CODE" --out "$PACK/motions.bin" | tail -1
-# The stock icon: hand-drawn pixel art at 24x24.
-"$PY" "$G/make_stock.py" "$G/ui/stock_px.png"
+# The stock icons: the head renders made like Melee's own (stock_icon.py).
+for c in 0 1; do "$PY" "$REPO/tools/fighter/stock_icon.py" "$G/ui/stock$c.png" "$G/ui/stock_px$c.png"; done
 "$PY" "$REPO/tools/fighter/build_ui.py" --icon "$G/ui/icon.png" --csp "$G/ui/csp0.png" "$G/ui/csp1.png" \
-  --stock "$G/ui/stock_px.png" "$G/ui/stock_px.png" --name "$NAME" --textures "$PACK/textures" --out "$PACK/Pl${ID}Ui.dat"
+  --stock "$G/ui/stock_px0.png" "$G/ui/stock_px1.png" --name "$NAME" --textures "$PACK/textures" --out "$PACK/Pl${ID}Ui.dat"
 cat > "$PACK/fighter.cfg" <<CFG
 id $ID
 name "$NAME"
@@ -145,4 +145,6 @@ gravity 1.0
 fall 1.0
 air 1.0
 CFG
+# Its own effects (beams, glows, trails...: docs/fighters.md).
+if [ -f "$G/vfx.cfg" ]; then cp "$G/vfx.cfg" "$PACK/vfx.cfg"; else rm -f "$PACK/vfx.cfg"; fi
 "$PY" "$REPO/tools/fighter/validate.py" "$PACK" --base-dir "$BASE"

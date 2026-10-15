@@ -80,4 +80,6 @@ teams $TEAMS
 # voice none     # none of the base's voice clips
 # weight 1.0     # attribute multipliers: weight walk dash jump gravity fall air
 CFG
+# Its own effects (beams, glows, trails...: docs/fighters.md).
+if [ -f "$G/vfx.cfg" ]; then cp "$G/vfx.cfg" "$PACK/vfx.cfg"; else rm -f "$PACK/vfx.cfg"; fi
 "$PY" "$REPO/tools/fighter/validate.py" "$PACK" --base-dir "$BASE"

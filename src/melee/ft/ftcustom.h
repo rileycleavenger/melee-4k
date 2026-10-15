@@ -56,8 +56,9 @@ typedef struct FtCustomFx {
     int vanish_start, vanish_end;             /* invisible from..to (frames) */
     float vanish_vx, vanish_vy;               /* velocity meanwhile (x toward the front) */
     int spark_part, spark_from, spark_to, spark_every; /* sparks at a part */
-    int spark_ef;                             /* effect id (0: Ef_Id_Unk1001, sparks); only
-                                               * common effects every match loads */
+    int spark_ef;                             /* effect id (0: none); only common effects
+                                               * every match loads. A fighter's own look
+                                               * is its pack's vfx.cfg (ftcustomvfx.h) */
     int flash_frame, flash_colanim;           /* screen flash and the fighter's glow */
     float armor;                              /* damage armour while the move runs */
 } FtCustomFx;

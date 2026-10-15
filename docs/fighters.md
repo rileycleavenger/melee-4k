@@ -64,6 +64,7 @@ fighters/<id>/
   Pl<id><costume>.dat    one model file per costume (PlGeNr.dat, PlGeRe.dat ...)
   Pl<id>Ui.dat           menu images: icon, portraits, stock icons, results name
   motions.bin            optional: its own attacks (tools/fighter/build_moves.py)
+  vfx.cfg                optional: its own effects (below)
   textures/              HD replacements for the costume files' and menu images' textures
 ```
 
@@ -80,9 +81,18 @@ fighters/<id>/
 | `moves` | `Geno` | Optional: special moves compiled into the game (`src/melee/ft/ftcustom.h`) |
 | `voice` | `none` | Optional: none of the base fighter's voice clips |
 | `weight` `walk` `dash` `jump` `gravity` `fall` `air` | `0.94` | Optional: multipliers on the base's attributes, one per line, between 0.1 and 10 |
+| `size` | `1.3` | Optional: the whole fighter's size (model, hurtboxes, hitboxes, reach), as the base's model scale times this |
 
 Everything in the pack except `textures/` is simulation or menu data that
-online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
+online play hashes: `fighter.cfg`, `motions.bin`, `vfx.cfg` and every `.dat`.
+
+`vfx.cfg` is the fighter's own look: one effect per line, `<motions>
+<kind> <from> <to> key=value...` - glows, beams, glowing blades, swing
+trails, particle streams and bursts, shock-wave rings, and the look of its
+projectiles (drawn in place of the Ray Gun's or Star Rod's shot its
+specials fire). The full key list is at the top of
+`src/melee/ft/ftcustomvfx.c`. Effects are drawn from the fighter's
+animation, frame and joints and never feed back into the match.
 
 ## How it works
 
@@ -100,15 +110,25 @@ online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
   copied, keeping its skeleton, bind pose and eye material animation, and
   the new meshes are appended. The base data file shows and hides models by
   index, so the new model fills the slots it shows (normal and low detail),
-  and the eye slots keep the base's eye material.
+  and the eye slots keep the base's eye material. The base's meshes on
+  other joints (a sword, a shield, armour pieces) get an empty shape, so
+  nothing of the base's model shows; a custom fighter on Link or Young
+  Link carries no Hylian shield (`ftlinkattackair.c`, `ftclink.c`).
 - **Moves** (`ftCustom_Init`). This replaces the base kind's eight special
   entries with shims. Each shim calls the custom fighter's function if the
   fighter wears a costume whose pack has moves, and otherwise the base's.
   Attributes are multiplied where the game copies them from the data file
   (`ftchangeparam.c`). Most specials are data: `FtCustomSpecial` (the
   base's motion rows, entry velocity, gravity, a helpless fall) and
-  `FtCustomFx` (a shot from a body part, a vanish window, sparks, a flash,
+  `FtCustomFx` (a shot from a body part, a vanish window, a flash,
   armour), run by `ftCustom_SpecialEnter` and `ftCustom_Frame`.
+- **Effects** (`src/melee/ft/ftcustomvfx.c`). After a custom fighter is
+  drawn, its `vfx.cfg` lines matching its animation and frame are drawn
+  in the translucent pass with additive blending: soft discs and bars
+  facing the camera, rings, ribbons from each trail's last positions, and
+  particles placed by a hash of their index (not the game's random
+  numbers). Its Ray Gun and Star Rod shots are drawn the same way, in
+  place of their models (`it_8026EECC`).
 - **Bases with costume tables.** A costume past the base's retail ones
   must not index the base's own per-costume tables: Jigglypuff's hats and
   Kirby's copy hats are bounded (`ftpurin.c`, `ftkirby.c`); `build_dat.py` writes an empty eye animation

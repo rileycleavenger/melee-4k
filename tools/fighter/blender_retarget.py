@@ -41,6 +41,11 @@ ready for blender_export_fighter.py. Run blender_import_base.py first.
     OFFSET = {"Head": (0, 0.3, 0)}  # game units added to a bone's target
     WEIGHT_STEP = 0.1; MAX_BONES = 3   # quantise weights (few envelopes)
     NAME = "Fx"                 # object/material name prefix
+    SRC_POSE = [("CapeL1", (0, 1, 0), 50)]  # bend the model's own bones first,
+                                # in order, about a Blender-world axis through
+                                # each bone's head (degrees): a cape draped
+                                # down the sides, a tail curled. Only bones
+                                # that follow others (not in MAP)
     exec(open("./blender_retarget.py").read()); OBS = retarget()
 
 Then `save_textures(OBS, dir)` writes every material's image as a PNG
@@ -76,6 +81,7 @@ MAX_BONES = globals().get("MAX_BONES", 3)
 NAME = globals().get("NAME", "Fx")
 DROP_MESHES = globals().get("DROP_MESHES", [])
 REWEIGHT = globals().get("REWEIGHT", [])
+SRC_POSE = globals().get("SRC_POSE", [])
 
 # Blender (Z up, -Y front) -> game (Y up, +Z front).
 TO_GAME = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, -1, 0, 0), (0, 0, 0, 1)))
@@ -121,6 +127,17 @@ def retarget():
 
     face = Matrix.Rotation(SRC_ROT_Z * 3.141592653589793 / 180.0, 4, "Z")
 
+    # The model's own bones bent first (SRC_POSE): the meshes are taken as
+    # that pose deforms them.
+    for name, axis, deg in SRC_POSE:
+        pb = next(b for b in arm.pose.bones if b.name == name or b.name.endswith("_" + name))
+        head = arm.matrix_world @ pb.head
+        rw = (Matrix.Translation(head) @ Matrix.Rotation(deg * 3.141592653589793 / 180.0, 4, Vector(axis))
+              @ Matrix.Translation(-head))
+        pb.matrix = arm.matrix_world.inverted() @ rw @ arm.matrix_world @ pb.matrix
+        bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get() if SRC_POSE else None
+
     def game(p):
         return (TO_GAME @ face @ p) * SCALE
 
@@ -163,7 +180,8 @@ def retarget():
     for ob in meshes:
         groups = {g.index: short(g.name) for g in ob.vertex_groups}
         reweight = [(p, m) for p, m in REWEIGHT if re.search(p, ob.name)]
-        me = ob.data.copy()
+        me = (bpy.data.meshes.new_from_object(ob.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+              if dg else ob.data.copy())
         me.transform(rot)
         # Vertex group names live on the mesh: the base's joints are added
         # to the copy's list (through a stand-in object) before weighting.
@@ -386,6 +404,7 @@ def melee_mesh(obs, ratio=0.6, step=0.1, max_bones=3):
         d.ratio = ratio
         o.modifiers.move(len(o.modifiers) - 1, 0)
         bpy.ops.object.modifier_apply(modifier="Decimate")
+        new = {}
         for v in o.data.vertices:
             ws = sorted(((g.group, g.weight) for g in v.groups if g.weight > 0), key=lambda t: -t[1])[:max_bones]
             if not ws:
@@ -394,10 +413,15 @@ def melee_mesh(obs, ratio=0.6, step=0.1, max_bones=3):
             q = [(gi, round(w / s / step) * step) for gi, w in ws]
             q = [t for t in q if t[1] > 0] or [ws[0]]
             q[0] = (q[0][0], q[0][1] + 1.0 - sum(w for _, w in q))
-            for g in list(v.groups):
-                o.vertex_groups[g.group].remove([v.index])
+            new[v.index] = q
+        # Every group cleared of every vertex, then the quantised weights
+        # set (removing while reading v.groups leaves some behind).
+        idx = list(new)
+        for g in o.vertex_groups:
+            g.remove(idx)
+        for vi, q in new.items():
             for gi, w in q:
-                o.vertex_groups[gi].add([v.index], w, "REPLACE")
+                o.vertex_groups[gi].add([vi], w, "REPLACE")
     print(f"melee mesh: {sum(len(o.data.polygons) for o in obs.values())} faces")
 
 

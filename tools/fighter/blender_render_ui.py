@@ -7,7 +7,9 @@ relaxed pose, on a transparent background, with Cycles:
   csp<n>.png    character select portrait (544x752): three-quarter view,
                 in CSP_POSE (default POSE), the upper body
   icon.png      character select grid icon source (640x560): the face
-  stock<n>.png  stock icon (144x144): the head, front
+  stock<n>.png  stock icon source (192x192): the head alone (the vertices
+                mostly on ICON_JOINTS / STOCK_JOINTS), three-quarter on, for
+                stock_icon.py
 
 <n> is the costume: COSTUMES lists each costume's material image overrides
 ({material name: image path}); the first is the default costume.
@@ -35,6 +37,8 @@ HEAD = globals().get("HEAD", 0.42)  # the head's share of the fighter's height
 ICON_JOINTS = globals().get("ICON_JOINTS", [])  # the head's joints ("J60"): icon and stock framed on
                                                 # the vertices mostly weighted to them (else HEAD)
 ICON_POSE = globals().get("ICON_POSE", POSE)    # the icon's and stock's pose (a pose dump: arms down)
+STOCK_JOINTS = globals().get("STOCK_JOINTS") or ICON_JOINTS  # the stock icon's: the head and what it wears
+STOCK_DIR = globals().get("STOCK_DIR", (0.35, -1.0, 0.12))  # its view: three-quarter on, a little above
 SAMPLES = globals().get("SAMPLES", 32)
 
 os.makedirs(OUT, exist_ok=True)
@@ -78,6 +82,25 @@ def bounds_joints(objs, names, share=0.5):
     lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
     return lo, hi
+
+
+def head_only(names, on, share=0.5):
+    """Show only the vertices weighted at least `share` to the joints (a
+    Mask modifier after the skinning), or everything again."""
+    if not names:
+        return
+    for o in parts:
+        if on:
+            idx = {o.vertex_groups[n].index for n in names if n in o.vertex_groups}
+            g = o.vertex_groups.get("UiHead") or o.vertex_groups.new(name="UiHead")
+            g.remove([v.index for v in o.data.vertices])
+            keep = [v.index for v in o.data.vertices if sum(x.weight for x in v.groups if x.group in idx) >= share]
+            if keep:
+                g.add(keep, 1.0, "REPLACE")
+            m = o.modifiers.new("UiHead", "MASK")
+            m.vertex_group = "UiHead"
+        elif o.modifiers.get("UiHead"):
+            o.modifiers.remove(o.modifiers["UiHead"])
 
 
 def bounds_above(objs, zmin):
@@ -197,7 +220,11 @@ for n, over in enumerate([] if globals().get("CHECK_ONLY") else COSTUMES):
     # the fighter's height (0.42 default).
     hb = bounds_joints(parts, ICON_JOINTS) if ICON_JOINTS else None
     hlo, hhi = hb if hb else bounds_above(parts, hi.z - height * HEAD)
-    shoot(os.path.join(OUT, f"stock{n}.png"), 144, 144, (0.0, -1.0, 0.05), hlo, hhi, 1.0)
+    head_only(STOCK_JOINTS, True)
+    sb = bounds_joints(parts, STOCK_JOINTS) if STOCK_JOINTS else None
+    slo, shi = sb if sb else (hlo, hhi)
+    shoot(os.path.join(OUT, f"stock{n}.png"), 192, 192, STOCK_DIR, slo, shi, 1.02)
+    head_only(STOCK_JOINTS, False)
     if n == 0:
         # Icon: the face, close (build_ui.py fits it into the grid icon).
         shoot(os.path.join(OUT, "icon.png"), 640, 560, (0.45, -1.0, 0.08), hlo, hhi, 0.95)

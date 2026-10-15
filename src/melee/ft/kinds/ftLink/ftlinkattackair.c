@@ -1,6 +1,9 @@
 #include "ftlinkattackair.h"
 
 #include <Runtime/platform.h>
+#ifdef TARGET_PC
+#include <melee/ft/ftcustom.h>
+#endif
 
 #include <melee/ft/kinds/ftCommon/forward.h>
 #include <melee/lb/forward.h>
@@ -22,6 +25,12 @@ void ftLk_AttackAir_800EB3BC(HSD_GObj* gobj)
 {
     u8 _[8];
     Fighter* fp = GET_FIGHTER(gobj);
+#ifdef TARGET_PC
+    /* A custom fighter on Link carries no Hylian shield (ftcustom.h). */
+    if (ftCustom_Pack(fp->kind, fp->costume_id) >= 0) {
+        return;
+    }
+#endif
     if (fp->x5F4_arr[2].prev == 0) {
         ftLk_DatAttrs* da = fp->dat_attrs;
         ftColl_8007B1B8(gobj, (ShieldDesc*) &da->xC4, ftLk_800EB334);

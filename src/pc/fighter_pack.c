@@ -90,7 +90,7 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
     }
     memset(pk, 0, sizeof *pk);
     snprintf(pk->dir, sizeof pk->dir, "%s", dir);
-    pk->weight = pk->walk = pk->dash = pk->jump = pk->gravity = pk->fall = pk->air = 1.0f;
+    pk->weight = pk->walk = pk->dash = pk->jump = pk->gravity = pk->fall = pk->air = pk->size = 1.0f;
     pk->order = 100;
     snprintf(pk->team[0], sizeof pk->team[0], "Re");
     snprintf(pk->team[1], sizeof pk->team[1], "Bu");
@@ -148,6 +148,7 @@ static bool read_cfg(const char* dir, PcFighterPack* pk) {
                 {"gravity", offsetof(PcFighterPack, gravity)},
                 {"fall", offsetof(PcFighterPack, fall)},
                 {"air", offsetof(PcFighterPack, air)},
+                {"size", offsetof(PcFighterPack, size)},
             };
             for (size_t i = 0; i < sizeof k_attrs / sizeof k_attrs[0]; i++) {
                 if (strcmp(key, k_attrs[i].key) == 0) {

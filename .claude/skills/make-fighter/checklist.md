@@ -38,7 +38,7 @@ sheets, in-game screenshots). Note anything approximate in the report.
 - [ ] Icon: the face, as big and crisp as the Melee HD icons beside it (HD replacement in textures/), the name on the bar exactly like its neighbours' (Roy, Link: same font, warm grey, size, spacing, dark red bar) - check on character select with the HD pack loaded.
 - [ ] Portrait: big in the door like Melee's (upper body, the character's own pose), every costume.
 - [ ] CUSTOM switch (left of the top row): OFF hides the icon, ON shows it.
-- [ ] HUD stock icon: hand-made pixel art of the head (not a render), readable at 24x24, crisp (nearest-neighbour HD copy), every costume.
+- [ ] HUD stock icon: the head render through `stock_icon.py`, the face readable at 24x24 and in HD, every costume.
 - [ ] Metal box (items on): the metal fighter is the custom model, not the base's.
 - [ ] Results screen: winner banner and name plate say the name; the KO table's stock icon beside "P1" is the fighter's; the panel shows the 3D model.
 - [ ] Pause and announcer: no announcer call for the custom fighter (expected), no crash.
@@ -62,6 +62,14 @@ sheets, in-game screenshots). Note anything approximate in the report.
 - [ ] No crash with a CPU of the fighter (`MELEE_DEBUG_VS_CHARS="<Id>:0,8:0"`):
       it uses every move, the specials included, within a minute.
 - [ ] `validate.py` passes (it refuses scripts with goto/call/return).
+
+## Look (every fighter)
+
+- [ ] Every special and signature attack shows its own effect in the game (close, `MELEE_TEST_CAM_ZOOM=3`): colours and shapes from the character, timed with the hit.
+- [ ] No common spark effect, no electricity it does not have (hit elements chosen per move; the base's carried over nowhere).
+- [ ] Projectiles drawn as its own (`shot` lines), not the Ray Gun's ray or the Star Rod's star.
+- [ ] Nothing of the base's model or gear shows in any move (shield, scabbard, sword, hat) - watch idle, run, shield, item throws.
+- [ ] Its body: idle, walk, run, turn, jump, fall, crouch and shield are its own when its silhouette differs from the base's.
 
 ## Gates
 - [ ] `validate.py --base-dir --disc`: OK.

@@ -20,7 +20,8 @@ fighter's data file (PlXx.dat) shows and hides DObjs by index: the new
 meshes go in the slots it shows normally (its visibility table 0) and again
 in its low-detail slots (table 1); the eye slots keep the base's eye
 material, whose texture animation the fighter code requires; every other
-slot gets an empty triangle. The base's own meshes stay in the file,
+slot gets an empty triangle, as does every DObj the base hangs on another
+joint (a sword, a shield). The base's own meshes stay in the file,
 unreferenced.
 
 Textures: each material's PNG goes in the file at --lowres (RGB565, or
@@ -342,6 +343,13 @@ class Builder:
         for a_, b_ in zip(descs, descs[1:]):
             w.ptr(a_ + 4, b_)
         w.ptr(self.joints[0]["at"] + 0x10, descs[0])
+        # Meshes the base hangs on other joints (Young Link's shield and
+        # sword, Marth's, Samus's armour pieces, Pikachu's ears): each keeps
+        # its DObj and material (indices and material animations stay
+        # valid) with an empty triangle for its shape.
+        for j in self.joints[1:]:
+            for dobj in j["dobjs"]:
+                w.ptr(dobj["at"] + 12, self.empty())
         return [k for _, k in materials], len(parts)
 
     def empty_matanim(self, joint):

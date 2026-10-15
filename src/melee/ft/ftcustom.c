@@ -573,6 +573,7 @@ void ftCustom_ApplyAttrs(Fighter* fp)
     fp->co_attrs.terminal_velocity *= pk->fall;
     fp->co_attrs.fast_fall_velocity *= pk->fall;
     fp->co_attrs.air_drift_max *= pk->air;
+    fp->co_attrs.model_scaling *= pk->size;
 }
 
 /* MELEE_DUMP_POSE=path:frame[,frame...] (a test knob): on those frames of
@@ -691,10 +692,10 @@ static void fx_frame(Fighter_GObj* gobj)
             }
         }
     }
-    if (fx->spark_every > 0 && f >= fx->spark_from && f <= fx->spark_to &&
+    if (fx->spark_ef != 0 && fx->spark_every > 0 && f >= fx->spark_from && f <= fx->spark_to &&
         (f - fx->spark_from) % fx->spark_every == 0 && fx_part_pos(fp, fx->spark_part, &pos))
     {
-        efSync_Spawn(fx->spark_ef != 0 ? fx->spark_ef : Ef_Id_Unk1001, NULL, &pos);
+        efSync_Spawn(fx->spark_ef, NULL, &pos);
     }
     if (fx->flash_frame > 0 && f == fx->flash_frame) {
         lbBgFlash_80021C48(4, 0);

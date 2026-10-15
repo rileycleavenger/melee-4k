@@ -383,6 +383,15 @@ def rescript(commands, hits, drop=(0x28, 0xA0)):
     return out
 
 
+def hit_sfx(element, damage, kick=False):
+    """A hitbox's hit sound (strength, kind) for its element and damage, as
+    the game's own: kind 1 punch, 2 kick, 3 slash, 7 electric; strength
+    0-2 from the damage."""
+    el = element if isinstance(element, str) else next((k for k, v in ELEMENT.items() if v == element), "normal")
+    kind = {"slash": 3, "electric": 7}.get(el, 2 if kick else 1)
+    return (0 if damage < 7 else 1 if damage < 13 else 2, kind)
+
+
 ELEMENT = {"normal": 0, "fire": 1, "electric": 2, "slash": 3, "coin": 4, "ice": 5, "nap": 6, "sleep": 7,
            "catch": 8, "grounded": 9, "cape": 10, "inert": 11, "disable": 12, "darkness": 13, "screw": 14}
 
@@ -405,10 +414,11 @@ class Script:
         return self
 
     def hitbox(self, id, bone, damage, size, offset=(0, 0, 0), angle=361, kbg=100, bkb=0, wkb=0,
-               element="normal", shield=0, sfx=(1, 0), group=0, ground=True, air=True):
+               element="normal", shield=0, sfx=None, group=0, ground=True, air=True):
         """Hitbox `id` (0-3) on `bone` (joint index), size and offset in
         game units, angle 361 = Sakurai angle. On joint 0 (TopN) the
         offset's x is forward and y up."""
+        sfx = sfx or hit_sfx(element, damage)
         self.words += hitbox_words(dict(id=id, group=group, bone=bone, damage=damage, size=size,
                                         offset=offset, angle=angle, kbg=kbg, wkb=wkb, bkb=bkb,
                                         element=element, shield=shield, sfx=sfx, ground=ground, air=air))

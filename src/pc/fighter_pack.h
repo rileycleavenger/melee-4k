@@ -23,7 +23,8 @@
  *                                (ftcustom.h); absent: the base's
  *   weight   0.9                 multipliers on the base's attributes,
  *   walk     1.1                 one per line: weight, walk, dash, jump,
- *   ...                          gravity, fall, air
+ *   ...                          gravity, fall, air, size (the whole
+ *                                fighter: model, hurtboxes, reach)
  *
  * motions.bin (optional, tools/fighter/build_moves.py): the fighter's own
  * animations and action scripts, replacing the base's motion by motion
@@ -55,7 +56,7 @@ typedef struct PcFighterPack {
     bool mute; /* "voice none": none of the base fighter's voice clips */
     int order; /* "order N": place among the packs (character select), lowest first; 100 */
     /* Multipliers on the base fighter's attributes, 1 when not given. */
-    float weight, walk, dash, jump, gravity, fall, air;
+    float weight, walk, dash, jump, gravity, fall, air, size;
     uint8_t* motions; /* motions.bin, or NULL */
     uint32_t motions_size;
     char dir[512];

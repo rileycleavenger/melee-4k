@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "camera.h"
 
 #include <Runtime/platform.h>
@@ -15,6 +16,7 @@
 #include <dolphin/pad.h>
 #include <dolphin/types.h>
 #include <melee/ft/ftlib.h>
+#include <melee/ft/types.h>
 #include <melee/gm/gm_unsplit.h>
 #include <melee/gr/grcastle.h>
 #include <melee/gr/grcorneria.h>
@@ -1064,6 +1066,40 @@ Vec2* pc_camera_translation(void)
 }
 #endif
 
+#ifdef TARGET_PC
+/* MELEE_TEST_CAM_ZOOM=k (a test knob): the match camera k times closer,
+ * looking at the first fighter, for close screenshots. Drawing only. */
+static void pc_test_zoom(HSD_CObj* cobj)
+{
+    static float zoom = -1;
+    Vec3 eye, at, d;
+    HSD_GObj* ft = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
+    if (zoom < 0) {
+        const char* v = getenv("MELEE_TEST_CAM_ZOOM");
+        zoom = v != NULL ? (float) atof(v) : 0;
+    }
+    if (zoom <= 1) {
+        return;
+    }
+    HSD_CObjGetEyePosition(cobj, &eye);
+    HSD_CObjGetInterest(cobj, &at);
+    d.x = (eye.x - at.x) / zoom;
+    d.y = (eye.y - at.y) / zoom;
+    d.z = (eye.z - at.z) / zoom;
+    if (ft != NULL && ft->user_data != NULL) {
+        const Vec3* p = &((Fighter*) ft->user_data)->cur_pos;
+        at.x = p->x;
+        at.y = p->y + 8.0F;
+        at.z = p->z;
+    }
+    eye.x = at.x + d.x;
+    eye.y = at.y + d.y;
+    eye.z = at.z + d.z;
+    HSD_CObjSetInterest(cobj, &at);
+    HSD_CObjSetEyePosition(cobj, &eye);
+}
+#endif
+
 void Camera_8002A4AC(HSD_GObj* gobj)
 {
     f32 floor_height;
@@ -1077,6 +1113,10 @@ void Camera_8002A4AC(HSD_GObj* gobj)
     case CAMERA_FIXED:
         Camera_8002AF68(cobj, transform);
         Camera_8002AF68(cm_804D6464, &game_camera.transform_copy);
+#ifdef TARGET_PC
+        pc_test_zoom(cobj);
+        pc_test_zoom(cm_804D6464);
+#endif
         HSD_CObjSetNear(cobj, game_camera.nearz);
         HSD_CObjSetFar(cobj, game_camera.farz);
         break;

@@ -214,16 +214,22 @@ export. Lessons from the first fighter:
 - `--quick` builds in `make_pack.sh` (1024 px, 24 samples) take ~25 s;
   full ones (2048 px, 96) ~80 s on an M4 Pro.
 
-## 5c. Pixel-art stock icon
+## 5c. Stock icon (`stock_icon.py`)
 
-Melee's stock icons are hand-made 24x24 pixel art. Write the character's
-`make_stock.py`: a palette dict (`"K": (28, 18, 30, 255)` outline, one
-letter per colour, `"."` transparent) and 24 strings of 24 letters, the
-head in three-quarter view with a dark outline, 2-3 shades per material.
-`img.putdata([PAL[c] for row in ART for c in row])`, save; `build_ui.py
---stock` takes the 24x24 PNG for every costume and upscales it by nearest
-neighbour for the HD copy (no blur). Preview it 10x on a dark background
-and compare with the base's own stock icon.
+The stock icon is the model's head, rendered: `blender_render_ui.py`
+renders `ui/stock<n>.png` per costume (192x192) with only the vertices
+mostly weighted to `STOCK_JOINTS` (default `ICON_JOINTS`: the head and
+what it wears) shown, three-quarter on (`STOCK_DIR`), and
+
+    .venv/bin/python tools/fighter/stock_icon.py ui/stock0.png ui/stock_px0.png --preview /tmp/s.png
+
+cuts it out at 144x144 (the HD stock size), brightens it, and outlines it
+in a dark shade of its own colours; `build_ui.py --stock` takes one per
+costume and writes the game's 24x24 from it. Look at the preview (the
+144 and the 24 side by side): the face must read at 24. A head whose
+joints do not cover its hat or ears: `STOCK_JOINTS="J41 J42 J45"`. Hand-
+typed pixel art (`make_stock.py`) was rejected; keep one only where the
+user approved it.
 
 ## 6. Image-to-3D (Hunyuan3D-MLX)
 
@@ -315,6 +321,11 @@ are single sheets. Very high-poly models (>30k triangles): decimate the
 (build_dat.py splits PObjs at 10 envelopes) cost draw calls.
 
 ### Fitting any body (what the nine V2.5 fighters taught)
+
+- `SRC_POSE = [(bone, (x, y, z), degrees), ...]` in fit.py bends the
+  model's own bones before fitting (about a Blender-world axis through
+  each bone's head): a cape modelled flat and wide draped down the sides,
+  a tail curled. Only bones that follow others (not in `MAP`).
 
 The retarget is a bone-by-bone *placement*: each mapped bone's segment
 is turned and stretched onto a base segment, or (a plain joint name) only
@@ -442,6 +453,8 @@ order    5                  optional: place among the packs on character select,
 voice    none               optional: none of the base fighter's voice clips (a silent character)
 weight   0.95               optional multipliers on the base: weight walk dash
 jump     1.05                 jump gravity fall air (0.5-2 sensible)
+size     1.3                  optional: the whole fighter bigger (model, hurtboxes, reach), e.g. a
+                              character much bigger than its base; 0.7-1.5 sensible
 ```
 
 **Ids.** A capital and a lower-case letter, not used by the disc's
@@ -496,6 +509,9 @@ for k in ['Z 100','Right+Z 100','Down+Z 100','Up+Z 100']: net_test.fifo_write('k
 ```
 
 The opponent's damage climbing in the screenshots proves hits land.
+
+`MELEE_TEST_CAM_ZOOM=k`: the match camera k times closer, on the first
+fighter (close screenshots of effects and poses; drawing only).
 
 ## 10. Gates
 
@@ -562,3 +578,30 @@ joints left without tracks keep the previous animation's values (the
 builder gives every joint the base's animations move a track); animation
 archives over 0x8000 bytes do not fit the game's buffer.
 
+
+## 12. Effects (`vfx.cfg`, `src/melee/ft/ftcustomvfx.c`)
+
+Each pack's own effects, one per line, drawn by the game from the
+fighter's animation, frame and joints (presentation only: no sync risk):
+
+    <motions> <kind> <from> <to> key=value ...
+
+- `<motions>`: base motion names, comma-separated (`AttackS4,AttackAirF`);
+  `SpecialS*` = every motion starting so (start, loop, end, air); `*` =
+  always (a lit blade). `<from> <to>`: animation frames; `* *` = all.
+- kinds: `glow` (soft ball of light: r0 r1 pulse), `beam` (from a point
+  along `dir`: len w), `blade` (between two points: off off2 at2 w),
+  `trail` (the ribbon a segment sweeps: off off2 at2 life), `stream`
+  (particles poured along dir: n speed spread life w grow shape), `burst`
+  (particles all ways at from), `ring` (shock wave: r0 r1 w; `ground=1`
+  flat under the fighter, else facing `dir`), `shot` (its projectiles'
+  look: `item=ray|star shape=spear|disc|glow`, replaces the item's model).
+- points: `at=<joint>` `off=x,y,z` in the joint's axes, or with
+  `axes=fighter` ahead/up/side from the joint; `at=0` is the feet.
+  `dir` in degrees in the fighter's plane (0 ahead, 90 up).
+- colours: `color=RRGGBB` (the glow) `core=RRGGBB` (the hot centre),
+  `alpha`; shapes `glow`, `flake` (snow crystal / note), `spark` (streak).
+  `vis=1` shows it while the fighter is invisible (eyes in the dark).
+
+Look at each in the game, close: `MELEE_TEST_CAM_ZOOM=3` (§9) with
+`play.py`. Sizes are game units, scaled with the fighter's `size`.

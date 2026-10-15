@@ -69,6 +69,7 @@ src/melee/ft/ftcoll.c
 src/melee/ft/ftcommon.c
 src/melee/ft/ftcpuattack.c
 src/melee/ft/ftcustom.c
+src/melee/ft/ftcustomvfx.c
 src/melee/ft/ftdata.c
 src/melee/ft/ftdemo.c
 src/melee/ft/ftdevice.c

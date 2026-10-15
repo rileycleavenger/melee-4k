@@ -58,14 +58,6 @@ static bool part_pos(Fighter* fp, Fighter_Part part, Vec3* pos)
     return true;
 }
 
-static void spark_at(Fighter* fp, Fighter_Part part)
-{
-    Vec3 pos;
-    if (part_pos(fp, part, &pos)) {
-        efSync_Spawn(Ef_Id_Unk1001, NULL, &pos);
-    }
-}
-
 static void enter(Fighter_GObj* g, const FtCustomSpecial* d)
 {
     ftCustom_SpecialEnter(g, d);
@@ -84,7 +76,6 @@ static void ftSh_Frame(Fighter_GObj* gobj)
     if (d == &k_spear) {
         if (f == SH_SPEAR_FRAME && part_pos(fp, FtPart_RHandN, &pos)) {
             it_80298168(gobj, &pos, fp->facing_dir);
-            efSync_Spawn(Ef_Id_Unk1001, NULL, &pos);
         }
     } else if (d == &k_control) {
         /* Gone between the two frames, moving; back with the kick. */
@@ -98,24 +89,13 @@ static void ftSh_Frame(Fighter_GObj* gobj)
             }
         }
         if (f == SH_CC_START || f == SH_CC_END) {
-            spark_at(fp, FtPart_HipN);
-            spark_at(fp, FtPart_HeadN);
             ftCo_800BFFD0(fp, SH_FLASH_COLANIM, false);
         }
-    } else if (d == &k_jets) {
-        if (f < 20 && f % 2 == 0) {
-            spark_at(fp, f % 4 == 0 ? FtPart_LFootJ : FtPart_RFootJ);
-        }
     } else if (d == &k_blast) {
+        /* its look: the pack's vfx.cfg (the red sphere, the jets' flames) */
         if (f == SH_BLAST_FRAME) {
-            spark_at(fp, FtPart_HipN);
-            spark_at(fp, FtPart_HeadN);
-            spark_at(fp, FtPart_LHandN);
-            spark_at(fp, FtPart_RHandN);
             lbBgFlash_80021C48(4, 0);
             ftCo_800BFFD0(fp, SH_FLASH_COLANIM + 2, false);
-        } else if (f < SH_BLAST_FRAME && f % 4 == 0) {
-            spark_at(fp, FtPart_HipN);
         }
     }
 }

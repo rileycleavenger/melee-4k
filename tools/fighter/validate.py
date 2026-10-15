@@ -25,7 +25,7 @@ import hsd  # noqa: E402
 import model  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(HERE))
-ATTRS = ("weight", "walk", "dash", "jump", "gravity", "fall", "air")
+ATTRS = ("weight", "walk", "dash", "jump", "gravity", "fall", "air", "size")
 KEYS = {"id", "name", "base", "symbol", "costumes", "teams", "moves", "voice", "order"} | set(ATTRS)
 # Melee's own fighters draw 800-6000 triangles; an HD custom fighter can
 # afford more (smooth shapes), up to about 20000 with eight on screen.
@@ -292,6 +292,34 @@ def check_motions(path, r, moveset=MOVESET):
     return names
 
 
+VFX_KINDS = {"glow", "beam", "blade", "trail", "stream", "burst", "ring", "shot"}
+
+
+def all_motions(base_dir, code):
+    import anim
+    rows, _ = anim.motion_table(open(os.path.join(base_dir, f"Pl{code}.dat"), "rb").read())
+    return {row[1].split("_ACTION_")[1][:-len("_figatree")] for row in rows if row[1] and "_ACTION_" in row[1]}
+
+
+def check_vfx(path, r, motions=None):
+    """vfx.cfg (src/melee/ft/ftcustomvfx.c): known kinds, and motions the
+    base has (a typo shows nothing)."""
+    if not os.path.exists(path):
+        r.warn("no vfx.cfg: the fighter has none of its own effects (tools.md section 12)")
+        return
+    for n, line in enumerate(open(path), 1):
+        line = line.split("#", 1)[0].split()
+        if not line:
+            continue
+        if len(line) < 4 or line[1] not in VFX_KINDS:
+            r.error(f"vfx.cfg:{n}: not '<motions> <kind> <from> <to> ...' with a known kind")
+            continue
+        if motions and line[0] != "*":
+            for m in line[0].split(","):
+                if not (m.endswith("*") and any(x.startswith(m[:-1]) for x in motions)) and m not in motions:
+                    r.warn(f"vfx.cfg:{n}: the base has no motion {m!r}")
+
+
 def disc_names(disc):
     sys.path.insert(0, os.path.join(HERE, "..", "textures"))
     from extract import Disc  # noqa: E402
@@ -343,6 +371,8 @@ def main():
     if a.base_dir and os.path.exists(os.path.join(a.base_dir, f"Pl{cfg.get('base')}.dat")):
         moveset = base_moveset(a.base_dir, cfg.get("base"))
     motions = check_motions(os.path.join(a.pack, "motions.bin"), r, moveset)
+    check_vfx(os.path.join(a.pack, "vfx.cfg"), r,
+              all_motions(a.base_dir, cfg.get("base")) if a.base_dir and moveset is not MOVESET else None)
 
     print(f"{pid} \"{cfg.get('name', pid)}\" on {cfg.get('base')}: {len(cfg['costumes'])} costume(s) "
           + ", ".join(f"{c} ~{n} tris" for c, n in counts.items() if n is not None)

@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ftcustomvfx.h"
+#endif
 #include "ftdrawcommon.h"
 
 #include <Runtime/platform.h>
@@ -267,6 +270,9 @@ void ftDrawCommon_800805C8(HSD_GObj* gobj, s32 arg1, bool arg2)
                         HSD_GObj_80390EB8(arg1), 0);
     }
     ftCo_800C2600(gobj, arg1);
+#ifdef TARGET_PC
+    ftCustomVfx_Draw(gobj, arg1); /* a custom fighter's own effects */
+#endif
 }
 
 void ftDrawCommon_80080C28(HSD_GObj* gobj, intptr_t flag_index)

@@ -1,6 +1,6 @@
 ---
 name: make-fighter
-description: Make a new custom fighter for Melee 4K (any character) from a 3D model of it (or reference images) - the model on an existing fighter's skeleton as two costumes (the model as given and a Melee-ified one), a completely original moveset researched from the character's games and media (new animations, hitboxes, specials, taunt), a character select icon in the same style as the others, a pixel-art stock icon - packaged as a fighter pack the game loads. Use when asked to add, build, model or improve a custom character.
+description: Make a new custom fighter for Melee 4K (any character) from a 3D model of it (or reference images) - the model on an existing fighter's skeleton as two costumes (the model as given and a Melee-ified one), a completely original moveset researched from the character's games and media (new animations, hitboxes, specials, taunt), its own effects (beams, auras, trails, its projectiles' look), the body it really has (four legs, a modelled weapon), a character select icon in the same style as the others, a stock icon rendered from its head - packaged as a fighter pack the game loads. Use when asked to add, build, model or improve a custom character.
 ---
 
 # Make a custom fighter
@@ -18,7 +18,7 @@ of it (a game rip or their own: .dae, .fbx, .obj, .glb with textures).
 This file is the whole procedure from that model to a finished, verified
 fighter. Without a model, see "No model" at the end.
 
-## Three requirements (the user's, non-negotiable)
+## Requirements (the user's, non-negotiable)
 
 1. **Costumes: exactly two** - costume 1 (Nr, the default) is the
    **Melee-ified** model (fewer triangles, Melee-style shading painted into
@@ -35,10 +35,30 @@ fighter. Without a model, see "No model" at the end.
    the same frame (`build_ui.py` does this; compare with the neighbours
    on character select with the HD pack loaded, `checklist.md`).
 
+4. **Its own look**: every special and signature attack has the
+   character's own effects (`vfx.cfg`, `tools.md` §12): its beam, breath,
+   aura, shock wave, weapon glow and swing trails in its colours, its
+   projectiles drawn as its own (a microphone, a tennis ball, a dark orb,
+   not the Ray Gun's ray). Never a shared generic effect: no common spark
+   effect, no base element carried over (Pikachu's electricity on a dog's
+   bite). Hit elements are chosen per move (normal unless the move burns,
+   freezes, cuts...). The user rejected "generic lightning" on every
+   fighter: each must feel unique.
+5. **Its own body**: the character moves as it does - a quadruped stands,
+   walks, runs, crouches, jumps and fights on four legs (author the
+   locomotion rows too: Wait, Walk*, Dash, Run, Turn, Jump*, Fall*,
+   Squat*, Guard*, Landing; a posing kit for the body like the dog's
+   `dogkit.py`); its weapon is modelled (a lightsaber, not the base's
+   sword); nothing of the base's own model shows (Young Link's shield and
+   scabbard, Marth's sword) and none of its gear (the Hylian shield's
+   blocking is off for packs).
+
 Also standard (the user asked for each before): the name in title case
 (`Geno`, like "Mario" on the door; the icon draws it upper-case); a
-hand-drawn **pixel-art stock icon**; a silent fighter unless it has a
-voice of its own (`voice none`); the model never see-through, limbs never
+**stock icon rendered from the model's head** (`stock_icon.py`; hand-typed
+pixel art was rejected); `size` in fighter.cfg when the character is much
+bigger or smaller than its base; a silent fighter unless it has a voice
+of its own (`voice none`); the model never see-through, limbs never
 fused, nothing of the base showing (metal box, costume emblems).
 
 ## Companion files
@@ -52,7 +72,7 @@ fused, nothing of the base showing (metal box, costume emblems).
 - `templates/model/` - copied into the character's folder: `make_pack.sh`
   (one command: model, costumes, menus, moves, pack, validation; also
   `--inspect` and `--check`), `fit.py` (bone map), `moves.py` (the
-  moveset), `make_stock.py` (stock icon), `notes.md` (design notes).
+  moveset), `vfx.cfg` (its effects), `notes.md` (design notes).
 - `templates/no-model/` - the primitives route (no model).
 
 ## Where things live
@@ -65,7 +85,7 @@ before publishing or uploading anything). Per character, outside the repo:
   base/<Base>/        export_base.py output: PlXx.dat, PlXxNr.dat, PlXxAJ.dat, skeleton.json
   <Id>/               the character's working folder
     model/            the user's model files (and model.glb, converted)
-    notes.md fit.py moves.py make_stock.py make_pack.sh   (from templates/model/)
+    notes.md fit.py moves.py vfx.cfg make_pack.sh   (from templates/model/)
     poses/            game pose dumps (MELEE_DUMP_POSE): idle, run, jab, smashes, jump, aerial...
     tex/ ui/ mesh_*.json   generated
   packs/<Id>/         the pack the game loads (MELEE_FIGHTERS_DIR=.../packs)
@@ -110,9 +130,9 @@ C for the character's specials (`src/melee/ft/kinds/ft<Name>/`, no art).
    it has none); the second = the model's own mesh and textures.
 7. **Menu images**: the portrait renders in an attack's game pose (`CSP`,
    the face visible), the icon from the face; `build_ui.py --name`
-   formats both exactly like the HD pack's (requirement 3). Draw the
-   stock icon (`make_stock.py`: 24x24 pixel art of the head, colours
-   sampled from the textures).
+   formats both exactly like the HD pack's (requirement 3). The stock
+   icon: `stock_icon.py` on the head-only render (`stock<n>.png`), one
+   per costume (`tools.md` §5c).
 8. **Moveset** (requirement 2, `moves.md`): research the character
    (games, anime, comics: its attacks, spells, weapons, signature
    poses), fill `notes.md` "Moveset research" for every slot, then pose
@@ -122,7 +142,10 @@ C for the character's specials (`src/melee/ft/kinds/ft<Name>/`, no art).
    ones left), and write the specials' C (`src/melee/ft/kinds/ft<Name>/`:
    mostly data, `FtCustomSpecial` + `FtCustomFx`, `moves.md` §5).
    Set `MOVES` when NAME has spaces, `ORDER` for its place on character
-   select, the attribute multipliers in the cfg block.
+   select, the attribute multipliers in the cfg block. Then its effects
+   (requirement 4): `vfx.cfg` in `<Id>/` (make_pack copies it into the
+   pack), one line per effect, timed to the move's frames; check each in
+   the game with `MELEE_TEST_CAM_ZOOM`.
 9. **Build the pack**: `./make_pack.sh` (model, both costumes, menus,
    motions.bin, stock, fighter.cfg, `validate.py`).
 10. **Check in the game** (`tools.md` §9, `checklist.md`): `closeup.py`
@@ -218,6 +241,24 @@ larger only.
 - Editing a script that a running bash loop is executing can corrupt
   that run; and never splice files by the first match of a common word
   (`index("weight ")` hit Python code): match whole lines.
+- The user's second review (what was rejected, and the fix in place
+  now): every fighter's specials sparking with the same common effect
+  and inheriting the base's element (`vfx.cfg`; `moveskit.hit` defaults
+  to normal); the base's own meshes on other joints showing (Young Link's
+  shield, scabbard and sword: `build_dat.py` blanks every non-root DObj);
+  a dog fitted upright like Pikachu's idle (author a four-legged
+  locomotion set; drape a cape with `SRC_POSE`); a dark Melee-ified
+  costume (`MELEE_STRENGTH` 0.4-0.6 for dark cloth); hand-typed pixel
+  stock icons; custom icons paged six at a time (the grid now shrinks to
+  show them all).
+- A spike of stretched mesh in the game but not in Blender is a vertex
+  with more weights than the game allows: `melee_mesh` must clear every
+  group before writing the quantised weights (fixed); check
+  `mesh_melee.json` for vertices with 4+ weights after any change there.
+- A base's animations never fit a different body: when the character's
+  silhouette differs (four legs, no arms, a floating ghost), check every
+  row the player sees most - idle, walk, dash, run, turn, jump, fall,
+  crouch, shield - in the game, not only the attacks.
 
 ## No model
 

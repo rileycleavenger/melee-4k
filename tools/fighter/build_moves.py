@@ -201,6 +201,8 @@ def main():
     ap.add_argument("--only")
     a = ap.parse_args()
     ctx = Ctx(a.base_dir, a.base)
+    # The spec's own folder too: its helper modules (a body's posing kit).
+    sys.path.insert(0, os.path.dirname(os.path.abspath(a.spec)))
     spec = importlib.util.spec_from_file_location("spec", a.spec)
     mod = importlib.util.module_from_spec(spec)
     mod.Move = Move

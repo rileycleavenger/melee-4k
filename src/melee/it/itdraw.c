@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include <melee/ft/ftcustomvfx.h>
+#endif
 #include "itdraw.h"
 
 #include "inlines.h"
@@ -254,6 +257,12 @@ void it_8026EECC(HSD_GObj* gobj, intptr_t arg1)
     Item* ip = GET_ITEM(gobj);
     Vec3 pos;
 
+#ifdef TARGET_PC
+    /* a custom fighter's shot in its own look (ftcustomvfx.h) */
+    if (ftCustomVfx_DrawItem(gobj, (int) arg1)) {
+        return;
+    }
+#endif
     if (ip->xDAA_flag.b7) {
         pos.x = pos.y = pos.z = 0.0F;
         if (ip->xDC8_word.flags.x13) {
