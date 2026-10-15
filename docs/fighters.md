@@ -110,7 +110,11 @@ animation, frame and joints and never feed back into the match.
   copied, keeping its skeleton, bind pose and eye material animation, and
   the new meshes are appended. The base data file shows and hides models by
   index, so the new model fills the slots it shows (normal and low detail),
-  and the eye slots keep the base's eye material. The base's meshes on
+  and the eye slots keep the base's eye material. Where the base swaps
+  sets of slots by state (Kirby's mouth shapes, Young Link's sword drawn or
+  sheathed), each new mesh goes in a slot of every state, so it shows in
+  all of them. A texture is translucent only when its meshes' UVs reach
+  transparent texels. The base's meshes on
   other joints (a sword, a shield, armour pieces) get an empty shape, so
   nothing of the base's model shows; a custom fighter on Link or Young
   Link carries no Hylian shield (`ftlinkattackair.c`, `ftclink.c`).

@@ -214,6 +214,13 @@ export. Lessons from the first fighter:
 - `--quick` builds in `make_pack.sh` (1024 px, 24 samples) take ~25 s;
   full ones (2048 px, 96) ~80 s on an M4 Pro.
 
+## 5b2. Portrait framing
+
+The portrait (`csp<n>.png`) is the upper body by default. A body that is
+wide rather than tall (a quadruped) reads better as a bust: in the Blender
+job of make_pack.sh, `CSP_JOINTS = ['J05', 'J14', ...]` frames it on
+those joints' vertices (head, chest, forelegs).
+
 ## 5c. Stock icon (`stock_icon.py`)
 
 The stock icon is the model's head, rendered: `blender_render_ui.py`

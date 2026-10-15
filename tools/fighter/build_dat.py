@@ -51,6 +51,40 @@ MAX_INFLUENCES = 4
 
 # ----------------------------------------------------------- base fighter ----
 
+def base_groups(base_data, table, eyes):
+    """Slot groups for new meshes from visibility table `table` (0 normal,
+    1 low detail): each group is shown in every state of the base. A model
+    part with one state gives a group per slot; one with several states
+    (Kirby's mouth shapes, Young Link's sword drawn or sheathed) shows one
+    state's slots at a time, so a group takes the k-th slot of every state
+    and a mesh put in all of them shows whichever is on. Eye slots are left
+    out. Then, if more are needed, the first state's leftover slots (shown
+    only in that state), marked partial."""
+    a = hsd.Archive(base_data)
+    ft = next(off for s, off in a.symbols.items() if s.startswith("ftData"))
+    x8 = a.ptr(ft + 8)
+    model_num, vis = a.u32(x8), a.ptr(x8 + 4)
+    lk = a.ptr(vis + table * 4)
+    groups, partial = [], []
+    if lk is None:
+        return groups, partial
+    for m in range(model_num):
+        n, arr = a.u32(lk + m * 8), a.ptr(lk + m * 8 + 4)
+        states = []
+        for j in range(n):
+            c, idx = a.u32(arr + j * 8), a.ptr(arr + j * 8 + 4)
+            states.append([a.u8(idx + k) for k in range(c) if a.u8(idx + k) not in eyes] if idx is not None else [])
+        if not states:
+            continue
+        if len(states) == 1:
+            groups += [[s] for s in states[0]]
+            continue
+        depth = min(len(st) for st in states)
+        groups += [[st[k] for st in states] for k in range(depth)]
+        partial += [[s] for s in states[0][depth:]]
+    return groups, partial
+
+
 def base_tables(base_data):
     """(visible slots, low-detail slots, eye slots) from PlXx.dat."""
     a = hsd.Archive(base_data)
@@ -260,12 +294,23 @@ class Builder:
             self.empty_pobj = self.pobj_chain([[v, v, v]], False)
         return self.empty_pobj
 
-    def material(self, mat, lowres, textures_dir):
+    def material(self, mat, lowres, textures_dir, uvs=()):
         """MObjDesc for a textured material, copying the template's first
-        material's render mode, colours and texture settings."""
+        material's render mode, colours and texture settings. Translucent
+        only if its meshes' UVs reach transparent texels: an alpha channel
+        that only masks the gaps between UV islands is dropped (as
+        translucent, such meshes went missing in the game: King Boo's
+        crown)."""
         w, t = self.w, self.t
         img = load_png(mat["texture"])
         has_alpha = img.getextrema()[3][0] < 255
+        if has_alpha and uvs:
+            a = img.getchannel("A")
+            W, H = img.size
+            clear = sum(a.getpixel((min(W - 1, int(u % 1 * W)), min(H - 1, int(v % 1 * H)))) < 128 for u, v in uvs)
+            if clear <= len(uvs) // 100:  # a few corners on an island's soft edge
+                img = img.convert("RGB").convert("RGBA")
+                has_alpha = False
         fmt = GX_TF_RGB5A3 if has_alpha else GX_TF_RGB565
         side = lowres
         small = img.resize((side, side))
@@ -304,25 +349,35 @@ class Builder:
         w.ptr(mobj + 20, pe)
         return mobj, key
 
-    def build(self, mesh, vis_slots, low_slots, eye_slots, lowres, textures_dir):
+    def build(self, mesh, vis_groups, low_groups, eye_slots, lowres, textures_dir):
         w = self.w
         old = self.joints[0]["dobjs"]
         n_slots = len(old)
-        materials = [self.material(m, lowres, textures_dir) for m in mesh["materials"]]
+        uvs = [[] for _ in mesh["materials"]]
+        for m in mesh["meshes"]:
+            uvs[m["material"]] += [tuple(v["uv"]) for tri in m["tris"] for v in tri]
+        materials = [self.material(m, lowres, textures_dir, uvs[i]) for i, m in enumerate(mesh["materials"])]
         parts = []
         for m in mesh["meshes"]:
             mat = mesh["materials"][m["material"]]
             parts.append((materials[m["material"]][0],
                           self.pobj_chain(m["tris"], mat.get("double_sided", False))))
-        free_vis = [s for s in vis_slots if s not in eye_slots]
-        free_low = [s for s in low_slots if s not in eye_slots]
-        if len(parts) > len(free_vis):
-            raise SystemExit(f"{len(parts)} meshes, but the base shows only {len(free_vis)} slots")
+        vis, vis_partial = vis_groups
+        low, low_partial = low_groups
+        if len(parts) > len(vis):
+            print(f"warning: {len(parts)} meshes, {len(vis)} slots shown in every state: "
+                  f"{len(parts) - len(vis)} go in slots shown only in the base's first state")
+            vis = vis + vis_partial
+            low = low + low_partial
+        if len(parts) > len(vis):
+            raise SystemExit(f"{len(parts)} meshes, but the base shows only {len(vis)} slots")
         slot_part = {}
         for i, part in enumerate(parts):
-            slot_part[free_vis[i]] = part
-            if i < len(free_low):
-                slot_part[free_low[i]] = part
+            for slot in vis[i]:
+                slot_part[slot] = part
+            if i < len(low):
+                for slot in low[i]:
+                    slot_part[slot] = part
         descs = []
         for s in range(n_slots):
             d = w.alloc(0x10)
@@ -345,10 +400,13 @@ class Builder:
         w.ptr(self.joints[0]["at"] + 0x10, descs[0])
         # Meshes the base hangs on other joints (Young Link's shield and
         # sword, Marth's, Samus's armour pieces, Pikachu's ears): each keeps
-        # its DObj and material (indices and material animations stay
-        # valid) with an empty triangle for its shape.
+        # its DObj (indices stay valid) with an empty triangle for its
+        # shape and the base's first material, as the empty root slots: its
+        # own may read a second texture the triangle does not carry (a
+        # crash on Captain Falcon's, "unmapped vtx attr 14").
         for j in self.joints[1:]:
             for dobj in j["dobjs"]:
+                w.ptr(dobj["at"] + 8, self.template_mobj["at"])
                 w.ptr(dobj["at"] + 12, self.empty())
         return [k for _, k in materials], len(parts)
 
@@ -396,7 +454,9 @@ def main():
     skel = json.load(open(os.path.join(a.base_dir, "skeleton.json")))
     code = skel["base"]
     template = open(os.path.join(a.base_dir, f"Pl{code}Nr.dat"), "rb").read()
-    vis, low, eyes = base_tables(open(os.path.join(a.base_dir, f"Pl{code}.dat"), "rb").read())
+    base_data = open(os.path.join(a.base_dir, f"Pl{code}.dat"), "rb").read()
+    vis, low, eyes = base_tables(base_data)
+    vis_groups, low_groups = base_groups(base_data, 0, eyes), base_groups(base_data, 1, eyes)
     b = Builder(template, skel["joint_symbol"])
     mesh = json.load(open(a.mesh))
     for t in a.texture:
@@ -406,7 +466,7 @@ def main():
             raise SystemExit(f"--texture {t}: no material {name!r} in the mesh, or no file {png}")
         for m in mats:
             m["texture"] = png
-    keys, n = b.build(mesh, vis, low, eyes, a.lowres, a.textures)
+    keys, n = b.build(mesh, vis_groups, low_groups, eyes, a.lowres, a.textures)
     data = b.finish(a.symbol)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     open(a.out, "wb").write(data)

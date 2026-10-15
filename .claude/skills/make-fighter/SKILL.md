@@ -255,6 +255,13 @@ larger only.
   with more weights than the game allows: `melee_mesh` must clear every
   group before writing the quantised weights (fixed); check
   `mesh_melee.json` for vertices with 4+ weights after any change there.
+- Parts of the model missing in the game but not in Blender (King Boo's
+  crown and face, the Crewmate's visor): either a texture whose alpha
+  only pads its UV islands made the mesh translucent (build_dat now drops
+  such alpha), or the mesh sat in a slot the base shows in only one of
+  its states (Kirby's mouth shapes, Young Link's sword drawn/sheathed:
+  build_dat now fills a slot of every state). Look at both costumes
+  close in the game (`MELEE_TEST_CAM_ZOOM=4`) before calling one done.
 - A base's animations never fit a different body: when the character's
   silhouette differs (four legs, no arms, a floating ghost), check every
   row the player sees most - idle, walk, dash, run, turn, jump, fall,

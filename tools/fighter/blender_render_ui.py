@@ -37,6 +37,8 @@ HEAD = globals().get("HEAD", 0.42)  # the head's share of the fighter's height
 ICON_JOINTS = globals().get("ICON_JOINTS", [])  # the head's joints ("J60"): icon and stock framed on
                                                 # the vertices mostly weighted to them (else HEAD)
 ICON_POSE = globals().get("ICON_POSE", POSE)    # the icon's and stock's pose (a pose dump: arms down)
+CSP_JOINTS = globals().get("CSP_JOINTS", [])   # the portrait framed on these joints' vertices (a
+                                                # quadruped's head, chest and forelegs: a bust)
 STOCK_JOINTS = globals().get("STOCK_JOINTS") or ICON_JOINTS  # the stock icon's: the head and what it wears
 STOCK_DIR = globals().get("STOCK_DIR", (0.35, -1.0, 0.12))  # its view: three-quarter on, a little above
 SAMPLES = globals().get("SAMPLES", 32)
@@ -211,8 +213,18 @@ for n, over in enumerate([] if globals().get("CHECK_ONLY") else COSTUMES):
     if tall > height * 1.06:
         # The whole fighter fits: centred, not hung from the top.
         top = (lo.z + hi.z) / 2 + tall / 2
-    shoot(os.path.join(OUT, f"csp{n}.png"), 544, 752, (0.62, -1.0, 0.16),
-          Vector((ulo.x, ulo.y, top - tall)), Vector((uhi.x, uhi.y, top)), 1.0)
+    cb = bounds_joints(parts, CSP_JOINTS, 0.3) if CSP_JOINTS else None
+    if cb:
+        # A bust on the joints: the box's height made the portrait's, hung
+        # a little above the top of them.
+        clo, chi = cb
+        tall = max(chi.z - clo.z, math.hypot(chi.x - clo.x, chi.y - clo.y) * 752 / 544 * 0.86)
+        top = chi.z + tall * 0.04
+        shoot(os.path.join(OUT, f"csp{n}.png"), 544, 752, (0.62, -1.0, 0.16),
+              Vector((clo.x, clo.y, top - tall)), Vector((chi.x, chi.y, top)), 1.0)
+    else:
+        shoot(os.path.join(OUT, f"csp{n}.png"), 544, 752, (0.62, -1.0, 0.16),
+              Vector((ulo.x, ulo.y, top - tall)), Vector((uhi.x, uhi.y, top)), 1.0)
     pose(ICON_POSE)
     lo, hi = bounds(parts)
     height = hi.z - lo.z
