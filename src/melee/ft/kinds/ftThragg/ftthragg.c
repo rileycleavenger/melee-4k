@@ -21,13 +21,13 @@ static const FtCustomFx k_haymaker_fx = {
     0, 0, 0, 0, 0, 0, 0, FtPart_RHandN, 23, 23, 1, 0, 23, 0, 18.0F,
 };
 static const FtCustomFx k_tackle_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 6, 26, 5, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 6, 26, 5, 0,
 };
 static const FtCustomFx k_flight_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_LFootJ, 4, 28, 6, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_LFootJ, 4, 28, 6, 0,
 };
 static const FtCustomFx k_crack_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_RHandN, 12, 12, 1, 1000, 12, 0,
+    0, 0, 0, 0, 0, 0, 0, FtPart_RHandN, 12, 12, 1, 0, 12, 0,
 };
 
 static const FtCustomSpecial k_haymaker = {

@@ -27,10 +27,10 @@ static const FtCustomFx k_kill_fx = {
     0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 10, 10, 1,
 };
 static const FtCustomFx k_eject_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 3, 28, 6, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 3, 28, 6, 0,
 };
 static const FtCustomFx k_vent_fx = {
-    0, 0, 0, 8, 28, 1.6F, 0.0F, FtPart_HipN, 8, 28, 20, 1000,
+    0, 0, 0, 8, 28, 1.6F, 0.0F, FtPart_HipN, 8, 28, 20, 0,
 };
 
 static const FtCustomSpecial k_meeting = {

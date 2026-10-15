@@ -22,13 +22,13 @@ static const FtCustomFx k_serve_fx = {
     FT_CUSTOM_SHOT_STAR, 16, FtPart_RHandN, 0, 0, 0, 0, FtPart_RHandN, 14, 16, 2,
 };
 static const FtCustomFx k_slide_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_RFootJ, 4, 22, 4, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_RFootJ, 4, 22, 4, 0,
 };
 static const FtCustomFx k_whirl_fx = {
     0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 2, 30, 6,
 };
 static const FtCustomFx k_stomp_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_LFootJ, 14, 14, 1, 1000, 14, 0,
+    0, 0, 0, 0, 0, 0, 0, FtPart_LFootJ, 14, 14, 1, 0, 14, 0,
 };
 
 static const FtCustomSpecial k_serve = {

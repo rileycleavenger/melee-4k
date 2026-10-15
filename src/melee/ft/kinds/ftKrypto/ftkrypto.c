@@ -19,10 +19,10 @@ static const FtCustomFx k_heat_fx = {
     FT_CUSTOM_SHOT_RAY, 12, FtPart_HeadN, 0, 0, 0, 0, FtPart_HeadN, 10, 12, 2,
 };
 static const FtCustomFx k_flight_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 5, 26, 5, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 5, 26, 5, 0,
 };
 static const FtCustomFx k_away_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 4, 28, 6, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 4, 28, 6, 0,
 };
 static const FtCustomFx k_breath_fx = {
     0, 0, 0, 0, 0, 0, 0, FtPart_HeadN, 16, 36, 4,

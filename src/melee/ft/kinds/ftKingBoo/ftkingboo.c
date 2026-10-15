@@ -28,7 +28,7 @@ static const FtCustomFx k_rise_fx = {
     0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 3, 28, 6,
 };
 static const FtCustomFx k_slam_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 14, 14, 1, 1000, 14, 0,
+    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 14, 14, 1, 0, 14, 0,
 };
 
 static const FtCustomSpecial k_orb = {

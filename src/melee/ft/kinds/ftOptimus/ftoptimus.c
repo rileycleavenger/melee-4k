@@ -24,7 +24,7 @@ static const FtCustomFx k_blaster_fx = {
     FT_CUSTOM_SHOT_RAY, 14, FtPart_RHandN, 0, 0, 0, 0, FtPart_RHandN, 14, 14, 1,
 };
 static const FtCustomFx k_roll_fx = {
-    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 6, 30, 4, 1000,
+    0, 0, 0, 0, 0, 0, 0, FtPart_HipN, 6, 30, 4, 0,
 };
 static const FtCustomFx k_axe_fx = {
     0, 0, 0, 0, 0, 0, 0, FtPart_RHandN, 6, 24, 3,
