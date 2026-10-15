@@ -730,6 +730,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         SDL_RaiseWindow(info.window);
     }
     pc_platform_init();
+    pc_latest_release_start(); /* online's version gate, in the background */
     aurora_card_set_present(card);
     int rc = melee_main();
     pc_shutdown_once();

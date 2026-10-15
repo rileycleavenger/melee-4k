@@ -998,3 +998,113 @@ bool apply_update_and_restart(std::string& error) {
 }
 
 }  // namespace pc::updater
+
+/* ---- online's version gate (pc.h pc_latest_release_*) ----------------------------------
+ *
+ * Online play is for the latest release only: this copy's version must not
+ * be older than the newest non-prerelease release on GitHub. Checked once a
+ * run, in the background, from boot. The answer is cached in the user
+ * folder (latest_release: "<tag> <unix seconds>") and a cached answer under
+ * a week old stands in when GitHub cannot be reached.
+ * MELEE_ONLINE_LATEST=<tag>: the latest release, without asking (tests). */
+namespace {
+
+std::mutex g_latest_mutex;
+int g_latest_state = 0; /* PC_LATEST_* */
+bool g_latest_running = false;
+std::string g_latest_tag;
+std::thread g_latest_thread;
+struct LatestJoin {
+    ~LatestJoin() {
+        if (g_latest_thread.joinable()) {
+            g_latest_thread.join();
+        }
+    }
+} g_latest_join;
+
+std::filesystem::path latest_cache_path() {
+    char* dir = pc_user_dir();
+    std::filesystem::path p = dir != nullptr ? std::filesystem::path(dir) / "latest_release" : "latest_release";
+    SDL_free(dir);
+    return p;
+}
+
+void latest_decide(const std::string& tag) {
+    const char* rev = std::getenv("MELEE_APP_REV");
+    std::string current = rev != nullptr && *rev ? rev : pc::get_app_version();
+    std::lock_guard lock(g_latest_mutex);
+    g_latest_tag = tag;
+    g_latest_state = pc::is_update_available(current, tag) ? 2 : 1;
+    g_latest_running = false;
+}
+
+}  // namespace
+
+extern "C" void pc_latest_release_start(void) {
+    {
+        std::lock_guard lock(g_latest_mutex);
+        if (g_latest_state == 1 || g_latest_state == 2 || g_latest_running) {
+            return; /* known, or being checked */
+        }
+        g_latest_state = 0;
+        g_latest_running = true;
+    }
+    if (const char* fake = std::getenv("MELEE_ONLINE_LATEST"); fake != nullptr && *fake) {
+        latest_decide(fake);
+        return;
+    }
+    if (g_latest_thread.joinable()) {
+        g_latest_thread.join();
+    }
+    g_latest_thread = std::thread([] {
+        std::string body, error;
+        bool ok = false;
+#if defined(_WIN32)
+        ok = pc::updater::http_get_string_winhttp(
+            L"api.github.com", L"/repos/rileycleavenger/melee-4k/releases", body, error);
+#elif defined(MELEE_USE_CURL)
+        ok = pc::updater::http_get_string_curl(
+            "https://api.github.com/repos/rileycleavenger/melee-4k/releases", body, error);
+#endif
+        std::string best;
+        if (ok) {
+            pc::SemVer best_ver;
+            for (const auto& rel : pc::updater::parse_github_releases(body)) {
+                auto v = pc::SemVer::parse(rel.tag_name);
+                if (!rel.prerelease && v.valid && (best.empty() || best_ver < v)) {
+                    best = rel.tag_name;
+                    best_ver = v;
+                }
+            }
+        }
+        const auto now = (long long)std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!best.empty()) {
+            std::ofstream(latest_cache_path()) << best << " " << now << "\n";
+            latest_decide(best);
+            SDL_Log("online: latest release %s", best.c_str());
+            return;
+        }
+        std::string cached;
+        long long when = 0;
+        std::ifstream(latest_cache_path()) >> cached >> when;
+        if (!cached.empty() && now - when < 7 * 24 * 3600) {
+            latest_decide(cached);
+            SDL_Log("online: GitHub not reachable (%s); latest release %s from the cache", error.c_str(),
+                    cached.c_str());
+            return;
+        }
+        std::lock_guard lock(g_latest_mutex);
+        g_latest_state = 3;
+        g_latest_running = false;
+        SDL_Log("online: could not check the latest release (%s)", error.c_str());
+    });
+}
+
+extern "C" int pc_latest_release_state(char* tag, size_t n) {
+    std::lock_guard lock(g_latest_mutex);
+    if (tag != nullptr && n > 0) {
+        SDL_strlcpy(tag, g_latest_tag.c_str(), n);
+    }
+    return g_latest_state;
+}

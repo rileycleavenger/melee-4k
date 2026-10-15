@@ -59,6 +59,8 @@ enum OnlineError {
     ONLINE_ERR_PLAYER_LEFT, /* a player left mid-game: back to the lobby */
     ONLINE_ERR_TIMEOUT,     /* nothing heard for too long */
     ONLINE_ERR_DESYNC,      /* the machines' games differ */
+    ONLINE_ERR_OUTDATED,    /* this copy is not the latest release */
+    ONLINE_ERR_UNCHECKED,   /* the latest release could not be checked */
 };
 
 typedef struct OnlinePlayer {
@@ -101,9 +103,9 @@ bool online_copy_code(void);
 /* A lobby code on the clipboard, canonical (15 characters), or false. */
 bool online_clipboard_code(char out[16]);
 
-/* True when this lobby plays the base game only: its players are on
- * different versions (v1.1.0 or newer, the same base simulation) or have
- * different custom fighters. Custom fighters are hidden then. */
+/* True when this lobby plays the base fighters only: its players (all on
+ * the latest release) have different custom fighter packs. Custom
+ * fighters are hidden then. */
 bool online_base_only(void);
 
 /* Host: true once a game can start: 2+ players, everyone's ping measured,

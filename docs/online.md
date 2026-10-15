@@ -126,32 +126,34 @@ until each guest's bitmap has them all and the data's hash matches.
 
 ## Versions and custom fighters
 
-Who can play whom is decided once, when a player joins (`on_join` in
-src/pc/online.c). Since v2 a JOIN carries an extension (`JoinExt`, magic
-`M4KX`): the base game's simulation revision (`BASE_SIM_REV`), the
-content hash of the custom fighter packs (docs/fighters.md), and the
-version string.
+**Only the latest release plays online.** At boot the game asks GitHub for
+the newest non-prerelease release of rileycleavenger/melee-4k
+(`pc_latest_release_start`, src/pc/updater.cpp; in the background). Hosting
+and joining wait for that answer (`latest_or_fail` in src/pc/online.c) and
+are refused when this copy is older: "Online needs the latest Melee 4K
+(vX): Check for Updates in the menu". A copy newer than the latest release
+(a test or pre-release build) may play. The answer is cached in the user
+folder (`latest_release`, the tag and when); when GitHub cannot be reached
+a cached answer under a week old stands in, and without one online is
+refused ("Couldn't reach GitHub to check for the latest version").
 
-| Joiner | Session |
-|---|---|
-| same build, same packs (same content hash) | **full**: custom fighters available |
-| another version, or other packs, same `BASE_SIM_REV` | **base fighters only**, for the whole lobby |
-| v1.1.0 (no extension, its build id) | **base fighters only** |
-| another `BASE_SIM_REV` | refused: "Another Melee 4K version: update both to play" |
+A host then lets in only its own build: a JOIN from any other version is
+refused ("The host has another Melee 4K version: both need the latest").
+So everyone in a lobby runs the same latest version.
 
-In a base-only lobby every player speaks v1.1.0's build id on the wire,
-custom fighter icons are hidden on character select, and the lobby shows
-"Base fighters only". A v2 player joining a v1.1.0 host is refused by it
-(v1.1.0 refuses other builds) and joins again as base-only on v1.1.0's
-build id. This is sound only while the base fighters' simulation is
-bit-identical across versions: `BASE_SIM_REV` changes, and old and new
-versions stop playing together, if it ever is not.
+Custom fighters: the JOIN's extension (`JoinExt`, magic `M4KX`) carries
+the content hash of the custom fighter packs (docs/fighters.md). The same
+packs play with custom fighters; different packs play with the **base
+fighters only**, for the whole lobby: the host marks its packets
+(`Hdr.flags`, `HDR_BASE_ONLY`), custom fighter icons are hidden on
+character select, and the lobby shows "Base fighters only".
 
-Tests: `tools/online_test.py` with `--guest-exe` set to another version's
-binary (the released v1.1.0 Mac app plays both ways), with packs on one
-side only (`MELEE_FIGHTERS_DIR` in `--guest-env`), or posing as another
-version (`--guest-env MELEE_APP_REV=v9.0.0`, plus `MELEE_TEST_BASE_REV=2`
-for the refusal).
+Tests: `tools/online_test.py` runs both sides on this build (both pass the
+gate); `--guest-env MELEE_APP_REV=v9.0.0` poses as another version (the
+host refuses it), `MELEE_FIGHTERS_DIR` in `--guest-env` gives one side
+other packs (base fighters only). `MELEE_ONLINE_LATEST=<tag>` sets the
+latest release without asking GitHub; `MELEE_APP_REV=<tag>` makes this copy
+that version (an older one is refused).
 
 Timeouts: 10 s of silence in the lobby, 15 s in a game, 20 s for a join to
 be answered.

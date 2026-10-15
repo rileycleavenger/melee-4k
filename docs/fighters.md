@@ -47,11 +47,11 @@ costumes 5-9`).
   screen's KO table), and on the results screen its own winner banner and
   name plate. The announcer says nothing for it; with `voice none` neither
   does it.
-- **Online.** Two players with the same game version and the same packs
-  (the same bytes, compared by hash when they join) can both use custom
-  fighters. Otherwise, from v1.1 up, the session is **base fighters only**:
-  custom icons are hidden and the lobby says so. v2 can still play v1.1.0
-  this way. See [online.md](online.md).
+- **Online.** Online play is for the latest release only, so everyone in
+  a lobby runs the same version. Players with the same packs (the same
+  bytes, compared by hash when they join) can use custom fighters; with
+  different packs the session is **base fighters only**: custom icons are
+  hidden and the lobby says so. See [online.md](online.md).
 
 ## Pack format
 
@@ -111,8 +111,8 @@ online play hashes: `fighter.cfg`, `motions.bin` and every `.dat`.
   whatever the animation picks. The images are the disc's sizes, with HD
   replacements in `textures/` like the costume textures'.
 - **Online** (`src/pc/online.c`). The JOIN message carries the content hash.
-  A mismatch puts the session in base-only mode, and v1.1.0 peers are
-  answered in v1.1.0's own protocol.
+  A mismatch puts the session in base-only mode (the host marks its
+  packets so every guest follows).
 
 ## Tools
 

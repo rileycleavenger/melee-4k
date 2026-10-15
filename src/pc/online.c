@@ -10,6 +10,13 @@
  *   JOIN      guest -> host   the code's token, our name, our build
  *   WELCOME   host -> guest   you are in (session id, the token back)
  *   REFUSE    host -> guest   full / other version / already playing
+ *
+ * Only the latest release plays online (pc_latest_release_state: GitHub's
+ * newest release, checked from boot): hosting and joining wait for that
+ * check and refuse an older version, and a host lets in only its own
+ * build, so everyone in a lobby runs the same latest version. Players with
+ * different custom fighter packs play with the base fighters only: the
+ * host marks every packet then (Hdr.flags).
  *   LOBBY     host -> guests  the players and their pings, every 250 ms
  *   PING/PONG                 round trips (the host pings everyone)
  *   SETUP     host -> guest   the setup: seed, delay, ports, and the host's
@@ -66,26 +73,6 @@ extern int pc_get_net_delay(void); /* launcher.cpp: Input Delay, -1 = Auto */
 
 #define MAGIC 0x314B344Du /* "M4K1" */
 #define JOIN_EXT 0x584B344Du /* "M4KX" */
-/* The base game's simulation: same number, same frames, whatever the version
- * and its custom fighters. v1.1.0 is revision 1. Changing anything a base
- * fighter's match computes means a new number, and versions on different
- * numbers cannot play together at all. */
-#define BASE_SIM_REV 1
-
-/* BASE_SIM_REV, or MELEE_TEST_BASE_REV: a test build posing as another base
- * revision, to see versions on different revisions refused. */
-static int base_rev(void) {
-    static int rev = -1;
-    if (rev < 0) {
-        const char* e = getenv("MELEE_TEST_BASE_REV");
-        rev = e != NULL ? atoi(e) : BASE_SIM_REV;
-    }
-    return rev;
-}
-/* The build v1.1.0 identifies itself with (set_identity in v1.1.0: its
- * version string and "proto1"). Base-only sessions -- different versions,
- * v1.1.0 among them -- all speak it on the wire. */
-#define LEGACY_VERSION "v1.1.0"
 #define PROTO 2
 #define HOST_PORT 41000
 #define RING 256       /* frames of inputs and bundles kept */
@@ -115,9 +102,10 @@ enum {
 };
 
 #pragma pack(push, 1)
+#define HDR_BASE_ONLY 1 /* Hdr.flags, from the host: the lobby plays base fighters only */
 typedef struct Hdr {
     uint32_t magic;
-    uint8_t proto, type, from, pad;
+    uint8_t proto, type, from, flags;
     uint32_t session;
     uint32_t build;
 } Hdr;
@@ -126,12 +114,11 @@ typedef struct JoinMsg {
     uint32_t token;
     char name[ONLINE_NAME_LEN];
 } JoinMsg;
-/* After v1.1.0's JOIN, from v1.2 on: what a host needs to decide whether
- * the two can play with custom fighters or only with the base game's.
- * v1.1.0 hosts read only the JoinMsg in front of it. */
+/* After the JoinMsg: what a host needs to decide whether the two play with
+ * custom fighters (the same packs) or with the base fighters only. */
 typedef struct JoinExt {
     uint32_t magic; /* JOIN_EXT */
-    uint32_t base_rev;
+    uint32_t base_rev; /* unused (0) */
     uint32_t content; /* pc_fighter_packs_hash() */
     char version[16];
 } JoinExt;
@@ -230,8 +217,7 @@ static enum OnlineError s_error;
 static bool s_is_host;
 static OnSocket s_sock = ON_INVALID;
 static uint32_t s_session, s_token, s_build;
-/* What our packets carry: s_build, or s_legacy in a base-only session. */
-static uint32_t s_wire, s_legacy;
+static char s_latest[32]; /* the latest release's tag, for the message */
 static bool s_base_only;
 static char s_name[ONLINE_NAME_LEN];
 static int s_slot; /* ours: 0 host, 1-3 guest */
@@ -435,9 +421,9 @@ static void hdr(Hdr* h, uint8_t type) {
     h->proto = PROTO;
     h->type = type;
     h->from = (uint8_t)s_slot;
-    h->pad = 0;
+    h->flags = s_is_host && s_base_only ? HDR_BASE_ONLY : 0;
     h->session = s_session;
-    h->build = s_wire;
+    h->build = s_build;
 }
 
 static void send_peer(int slot, void* msg, size_t n) {
@@ -533,8 +519,6 @@ static uint32_t build_of(const char* rev) {
 static void set_identity(const char* name) {
     snprintf(s_name, sizeof s_name, "%s", name != NULL && name[0] ? name : "PLAYER");
     s_build = build_of(pc_app_rev());
-    s_legacy = build_of(LEGACY_VERSION);
-    s_wire = s_build;
     s_base_only = false;
 }
 
@@ -542,7 +526,6 @@ static void set_identity(const char* name) {
 static void go_base_only(const char* why) {
     if (!s_base_only) {
         s_base_only = true;
-        s_wire = s_legacy;
         pc_log_line("online: base fighters only (%s)", why);
     }
 }
@@ -551,9 +534,33 @@ bool online_base_only(void) {
     return s_base_only;
 }
 
+/* The version gate: only the latest release goes online. Waits up to 8 s
+ * for the check boot started (hosting and joining come from the lobby
+ * screen, a menu). */
+static bool latest_or_fail(void) {
+    char tag[32];
+    int st;
+    pc_latest_release_start();
+    for (int i = 0; i < 160 && (st = pc_latest_release_state(tag, sizeof tag)) == PC_LATEST_CHECKING; i++) {
+        SDL_Delay(50);
+    }
+    snprintf(s_latest, sizeof s_latest, "%s", tag);
+    if (st == PC_LATEST_OK) {
+        return true;
+    }
+    fail(st == PC_LATEST_OUTDATED ? ONLINE_ERR_OUTDATED : ONLINE_ERR_UNCHECKED);
+    pc_log_line("online: refused: %s (this is %s, the latest release %s)",
+        st == PC_LATEST_OUTDATED ? "not the latest version" : "could not check the latest version",
+        pc_app_rev(), tag[0] ? tag : "unknown");
+    return false;
+}
+
 bool online_host(const char* name) {
     online_leave();
     set_identity(name);
+    if (!latest_or_fail()) {
+        return false;
+    }
     if (!open_socket(HOST_PORT, false)) {
         fail(ONLINE_ERR_SOCKET);
         return false;
@@ -576,6 +583,9 @@ bool online_host(const char* name) {
 bool online_join(const char* code, const char* name) {
     online_leave();
     set_identity(name);
+    if (!latest_or_fail()) {
+        return false;
+    }
     if (!pc_net_code_decode(code, &s_target)) {
         return false;
     }
@@ -631,7 +641,15 @@ const char* online_error_text(void) {
     case ONLINE_ERR_FULL:
         return "That lobby is full";
     case ONLINE_ERR_VERSION:
-        return "Another Melee 4K version: update both to play";
+        return "The host has another Melee 4K version: both need the latest";
+    case ONLINE_ERR_OUTDATED: {
+        static char text[96];
+        snprintf(text, sizeof text, "Online needs the latest Melee 4K (%s): Check for Updates in the menu",
+            s_latest[0] ? s_latest : "newer");
+        return text;
+    }
+    case ONLINE_ERR_UNCHECKED:
+        return "Couldn't reach GitHub to check for the latest version";
     case ONLINE_ERR_STARTED:
         return "That lobby's game has already started";
     case ONLINE_ERR_HOST_LEFT:
@@ -931,22 +949,16 @@ static void on_join(const JoinMsg* m, int n, const struct sockaddr_in* from) {
     hdr(&r.h, T_REFUSE);
     r.token = s_token;
     if (slot < 0) {
-        /* Same build and the same custom fighters: everything. A JOIN from
-         * v1.1.0 (no extension, its build) or from another version on the
-         * same base revision: the base game only, for the whole lobby. */
+        /* Only our own build (the latest release: both checked it); the
+         * same custom fighters play with them, others with the base
+         * fighters only, for the whole lobby. */
         const JoinExt* ext = n >= (int)(sizeof *m + sizeof(JoinExt)) &&
                                      ((const JoinExt*)(m + 1))->magic == JOIN_EXT
                                  ? (const JoinExt*)(m + 1)
                                  : NULL;
-        bool ok = true;
-        if (ext != NULL && m->h.build == s_build && ext->content == pc_fighter_packs_hash()) {
-            /* full */
-        } else if (ext == NULL && m->h.build == s_legacy) {
-            go_base_only("a " LEGACY_VERSION " player");
-        } else if (ext != NULL && ext->base_rev == (uint32_t)base_rev()) {
-            go_base_only(m->h.build == s_build ? "different custom fighters" : "different versions");
-        } else {
-            ok = false;
+        const bool ok = ext != NULL && m->h.build == s_build;
+        if (ok && ext->content != pc_fighter_packs_hash()) {
+            go_base_only("different custom fighters");
         }
         if (!ok) {
             r.reason = ONLINE_ERR_VERSION;
@@ -1076,22 +1088,10 @@ static void guest_receive(const uint8_t* buf, int n, const struct sockaddr_in* f
             s_session = h->session;
             s_slot = w->slot;
             s_state = ONLINE_JOINED;
-            if (h->build == s_legacy && s_build != s_legacy) {
-                go_base_only("the host's lobby is base-only");
-            }
             pc_log_line("online: joined the lobby at %s as slot %d", ip_text(from), s_slot);
         } else if (h->type == T_REFUSE && n >= (int)sizeof(RefuseMsg) &&
                    ((const RefuseMsg*)buf)->token == s_target.token)
         {
-            /* A v1.1.0 host refuses any other build. It speaks the base
-             * game's revision 1: join again as base-only, on its build. */
-            if (((const RefuseMsg*)buf)->reason == ONLINE_ERR_VERSION && h->build == s_legacy &&
-                !s_base_only && base_rev() == 1)
-            {
-                go_base_only("the host has " LEGACY_VERSION);
-                s_join_sent_ms = 0;
-                return;
-            }
             fail((enum OnlineError)((const RefuseMsg*)buf)->reason);
         }
         return;
@@ -1226,17 +1226,13 @@ static void receive_all(void) {
         if (h->magic != MAGIC || h->proto != PROTO) {
             continue;
         }
-        if (h->build != s_wire && h->type != T_JOIN && h->type != T_REFUSE) {
-            /* A host that turned base-only (a v1.1.0 or other-version
-             * player joined) sends on the legacy build: follow it. Its
-             * WELCOME may be the first we hear of it. */
-            if (!s_is_host && h->build == s_legacy &&
-                (s_state != ONLINE_JOINING || h->type == T_WELCOME))
-            {
-                go_base_only("the host's lobby is base-only");
-            } else {
-                continue; /* another build: only the refusal that says so gets through */
-            }
+        if (h->build != s_build && h->type != T_JOIN && h->type != T_REFUSE) {
+            continue; /* another build: only the refusal that says so gets through */
+        }
+        /* A host whose lobby went base-only (a player with other custom
+         * fighters joined) says so on every packet. */
+        if (!s_is_host && (h->flags & HDR_BASE_ONLY) && h->type != T_REFUSE) {
+            go_base_only("the host's lobby is base-only");
         }
         if (s_is_host) {
             host_receive(buf, n, &from);
@@ -1298,7 +1294,7 @@ static void guest_tick(void) {
             m.j.token = s_target.token;
             snprintf(m.j.name, sizeof m.j.name, "%s", s_name);
             m.x.magic = JOIN_EXT;
-            m.x.base_rev = (uint32_t)base_rev();
+            m.x.base_rev = 0;
             m.x.content = pc_fighter_packs_hash();
             snprintf(m.x.version, sizeof m.x.version, "%s", pc_app_rev());
             struct sockaddr_in to = {0};

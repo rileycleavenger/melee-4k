@@ -449,8 +449,9 @@ MELEE_FIGHTERS_DIR=$DEV/packs python3 REPO/tools/online_test.py --disc DISC --gu
 python3 REPO/tools/soak.py DISC /tmp/soak --fighters $DEV/packs          # N/N passed
 ```
 
-Online with a peer that lacks the pack, or runs v1.1.0, must fall back to
-base fighters only (`online: base fighters only (...)` in the log);
+Online with a peer that lacks the pack must fall back to base fighters
+only (`online: base fighters only (...)` in the log); online is for the
+latest release only (docs/online.md);
 `docs/testing.md` covers the online harness, including a Windows peer
 under Wine.
 

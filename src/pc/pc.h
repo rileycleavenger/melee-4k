@@ -3,6 +3,7 @@
 #define PC_PC_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -124,6 +125,12 @@ const char* pc_app_version(void);
 uint64_t pc_install_id(void);
 /* Build identity online players must share (the app version, src/pc/version.cpp). */
 const char* pc_app_rev(void);
+/* Online's version gate (updater.cpp): is this the latest release? Start
+ * the check (background; once known, again after a failure), then poll.
+ * The latest release's tag goes to `tag`. */
+enum { PC_LATEST_CHECKING, PC_LATEST_OK, PC_LATEST_OUTDATED, PC_LATEST_UNKNOWN };
+void pc_latest_release_start(void);
+int pc_latest_release_state(char* tag, size_t n);
 
 /* Audio volume control */
 void pc_audio_set_volume(float volume);
