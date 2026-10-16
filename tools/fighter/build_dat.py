@@ -212,6 +212,7 @@ class Builder:
         self.vd_pnmtx = self.t.bytes(self.t.ptr(d0["at"] + 8), 0x18)
         self.template_mobj = self.joints[0]["dobjs"][0]["mobj"]
         self.empty_pobj = None
+        self.has_xlu = False
 
     def joint_at(self, index):
         return self.joints[index]["at"]
@@ -319,9 +320,9 @@ class Builder:
         """MObjDesc for a textured material, copying the template's first
         material's render mode, colours and texture settings. Translucent
         only if its meshes' UVs reach transparent texels: an alpha channel
-        that only masks the gaps between UV islands is dropped (as
-        translucent, such meshes went missing in the game: King Boo's
-        crown)."""
+        that only masks the gaps between UV islands is dropped (hair
+        cards and the like stay translucent; build() marks the root joint
+        for them)."""
         w, t = self.w, self.t
         img = load_png(mat["texture"])
         has_alpha = img.getextrema()[3][0] < 255
@@ -357,6 +358,10 @@ class Builder:
             w.ptr(tobj + slot, t.ptr(tm["tex"][0] + slot))
         w.ptr(tobj + 0x4, None)  # one texture per material
         w.ptr(tobj + 0x4C, imd)
+        if has_alpha:
+            # The template's texture gives colour only: alpha from it too
+            # (TEX_ALPHAMAP_REPLACE), for the cut-out below.
+            w.put(tobj + 0x40, "I", t.u32(tm["tex"][0] + 0x40) & ~(0xF << 20) | 4 << 20)
         mobj = w.blob(t.bytes(tm["at"], 0x18))
         w.ptr(mobj + 0, None)
         w.ptr(mobj + 8, tobj)
@@ -365,8 +370,19 @@ class Builder:
         rm = t.u32(tm["at"] + 4)
         if has_alpha:
             rm |= 0x40000000  # RENDER_XLU
+            self.has_xlu = True
         w.put(mobj + 4, "I", rm)
         pe = t.ptr(tm["at"] + 20)
+        if has_alpha:
+            # The template's pixel engine draws every texel (no alpha test):
+            # a see-through material gets a cut-out one instead - texels
+            # under half alpha dropped, the rest opaque and depth-written.
+            pe = w.alloc(0xC)
+            w.put(pe, "12B", 0x01 | 0x10 | 0x20,  # colour update, z compare, z update
+                  128, 0, 0,  # ref0, ref1, dst alpha
+                  0, 4, 5, 3,  # no blend (src alpha / inv src alpha), copy
+                  3,  # z: less-or-equal
+                  6, 0, 7)  # alpha >= ref0 AND always
         w.ptr(mobj + 20, pe)
         return mobj, key
 
@@ -432,6 +448,13 @@ class Builder:
         for a_, b_ in zip(descs, descs[1:]):
             w.ptr(a_ + 4, b_)
         w.ptr(self.joints[0]["at"] + 0x10, descs[0])
+        # The display draws a joint's see-through meshes only if the joint's
+        # flags say it has some: a RENDER_XLU material loads into the
+        # texture-edge pass (dobj.c), JOBJ_TEXEDGE. The template's root is
+        # opaque only, so a see-through material (hair cards) went missing.
+        if self.has_xlu:
+            root = self.joints[0]["at"]
+            w.put(root + 4, "I", self.t.u32(root + 4) | 0x100000 | 0x80000)  # JOBJ_TEXEDGE | JOBJ_XLU
         # Meshes the base hangs on other joints (Young Link's shield and
         # sword, Marth's, Samus's armour pieces, Pikachu's ears): each keeps
         # its DObj (indices stay valid) with an empty triangle for its

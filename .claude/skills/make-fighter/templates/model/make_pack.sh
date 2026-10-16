@@ -40,7 +40,8 @@ MODE="${1:-}"
 
 # The model as glTF (Blender 5 reads no .dae; assimp reads .dae/.fbx/.obj/...).
 case "$MODEL_SRC" in
-  *.glb|*.gltf) [ -f "$G/model/model.glb" ] || cp "$G/$MODEL_SRC" "$G/model/model.glb" ;;
+  *.glb) [ -f "$G/model/model.glb" ] || cp "$G/$MODEL_SRC" "$G/model/model.glb" ;;
+  # a .gltf (JSON plus .bin and images beside it) is packed into one .glb
   *) [ -f "$G/model/model.glb" ] || assimp export "$G/$MODEL_SRC" "$G/model/model.glb" -f glb2 >/dev/null ;;
 esac
 

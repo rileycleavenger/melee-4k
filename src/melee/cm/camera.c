@@ -1068,7 +1068,8 @@ Vec2* pc_camera_translation(void)
 
 #ifdef TARGET_PC
 /* MELEE_TEST_CAM_ZOOM=k (a test knob): the match camera k times closer,
- * looking at the first fighter, for close screenshots. Drawing only. */
+ * looking at the first fighter, for close screenshots. Not drawing only:
+ * fighters it leaves off screen take the off-screen bubble's damage. */
 static void pc_test_zoom(HSD_CObj* cobj)
 {
     static float zoom = -1;

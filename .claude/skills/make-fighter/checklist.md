@@ -11,6 +11,8 @@ sheets, in-game screenshots). Note anything approximate in the report.
 ## Model
 - [ ] Silhouette matches the references from front, side, back (blender_snap, 4 views side by side with the references).
 - [ ] Head/body ratio and the character's signature parts (hat, cape, hair, weapon, tail...) read at Melee's camera distance (check a `preview.py` frame at full size, not just the sheet).
+- [ ] In the game, not only in Blender's renders: hair cards and thin sheets (ears, robe edges) are there (back faces are culled, alpha under half is cut), and every texture is the right way up and from the right file (the face on the face).
+- [ ] Size against the base roster: a character as big as another fighter in its games is that big in a match (fighter.cfg `size`, from the base's model scale; `PlXx.dat` attributes +0x8C).
 - [ ] Nothing hangs inside out or is see-through (one-sided faces seen from behind): sheets solidified (capes, collars, ribbons); textures sample the right places in the game, not only in Blender (UVs in the 0-1 tile).
 - [ ] Limbs are separate (arms not fused to the body) and every part keeps its shape in the base's poses (game pose dumps): no spikes from joints the game never animates.
 - [ ] Triangles 5-20k (`validate.py` prints the count; Melee's own are 0.8-6k).

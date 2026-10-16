@@ -321,9 +321,14 @@ or hide it); cut-out alpha (hair cards) is kept, as in the game.
 
 Models with **several textures** (body, face, eyes, hair): one object per
 material comes out of retarget(); each gets its own PNG. Textures with
-**alpha** (hair cards, eyelashes) keep it (build_dat.py stores RGB5A3);
-mark such materials `m["hsd_double_sided"] = True` if the model's cards
-are single sheets. Very high-poly models (>30k triangles): decimate the
+**alpha** (hair cards, eyelashes) keep it: build_dat.py stores RGB5A3, takes
+alpha from the texture and draws it as a cut-out (texels under half alpha
+dropped) in the root joint's texture-edge pass. Fine wisps whose alpha is
+mostly under half vanish in the game: boost the alpha (x2-3) in a copy of
+the texture, and give strands one light colour (dark texels under the
+wisps otherwise show). Mark such materials `m["hsd_double_sided"] = True`
+if the model's cards are single sheets (hair cards, ears, an open robe):
+the game culls back faces, Blender's renders do not. Very high-poly models (>30k triangles): decimate the
 "as given" costume too (to ~10-15k), or the game's envelope limits
 (build_dat.py splits PObjs at 10 envelopes) cost draw calls.
 
@@ -350,8 +355,27 @@ moved there; unmapped bones ride their nearest mapped ancestor. So:
   points along the old spine: `FOLLOW` its chain roots to the hips so it
   turns with them and hangs down the back.
 - **A ball body** (a ghost, a bean on Jigglypuff/Kirby): the body bone on
-  the base's body joint by position only; stubby arms as segments; the
-  base's legs can stay empty (a ghost floats).
+  the base's body joint by position only; stubby arms by position only
+  too (a segment stretches them to the base's longer arms); the base's
+  legs can stay empty (a ghost floats).
+- **A body raised above the base** (`OFFSET` to float it): the base's
+  joints stay where they were, so limbs weighted to them turn about a
+  pivot far below and stretch long. Weight such limbs to the body joint
+  (`WEIGHT_AS`), or keep the offset small.
+- **An armature object with its own scale or offset** (Unity/Sketchfab
+  exports: scale 95, placed far from the origin; `--inspect` shows bone
+  heads in odd units): the fit comes out as spikes. Apply its transforms
+  first in a small Blender script - import, drop stray objects and the
+  animation, select all, `transform_apply(location, rotation, scale)`,
+  export glb as model/model.glb - and note it in notes.md.
+- **A near-zero-length bone** (a knee at the ankle): aiming it at its
+  child points it anywhere; map it by position only, and aim the bone
+  above it at the next real joint (`("J06", "LeftFoot")`).
+- **Loose texture files beside a model** can be another layout than the
+  images its file embeds, or stored upside down for it: prefer the
+  embedded ones; render the face close up and flip a loose image
+  (PIL `FLIP_TOP_BOTTOM`, once, into model/) if the mouth lands on the
+  forehead.
 - **Rigid shells** (an animatronic): position-only mapping for the torso,
   segments for the limbs, `OFFSET` to close gaps.
 - **Mesh UV tile / no image**: `TEX_ASSIGN = {"material": "file.png"}`
@@ -514,8 +538,8 @@ hidden   J11,J38            optional (make_pack.sh writes it from HIDE_JOINTS): 
 `Pl??.dat` files (`validate.py --disc` checks) or another pack. Taken on
 the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb Kp Lg Lk
 Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is Ganondorf). Packs
-made so far: Ge Geno, Cr Crewmate, Op Optimus Prime, Yo Yoda, Kr Krypto, Kg
-King Boo (retired, ids free again: Fr Sh Th Wa). Up to 16 packs.
+made so far: Ge Geno, Cr Crewmate, Op Optimus Prime, Yo Yoda, Kg King Boo
+(retired, ids free again: Fr Kr Sh Th Wa). Up to 16 packs.
 
 fighter.cfg, motions.bin and every costume file are hashed for online play (same packs
 on both machines = custom fighters allowed; otherwise base fighters only).

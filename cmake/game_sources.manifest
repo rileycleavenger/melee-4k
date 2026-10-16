@@ -451,7 +451,6 @@ src/melee/ft/kinds/ftSeak/ftseakspecialn.c
 src/melee/ft/kinds/ftSeak/ftseakspecials.c
 src/melee/ft/kinds/ftOptimus/ftoptimus.c
 src/melee/ft/kinds/ftYoda/ftyoda.c
-src/melee/ft/kinds/ftKrypto/ftkrypto.c
 src/melee/ft/kinds/ftKingBoo/ftkingboo.c
 src/melee/ft/kinds/ftCrewmate/ftcrewmate.c
 src/melee/ft/kinds/ftYoshi/ftyoshi.c
