@@ -383,7 +383,7 @@ moved there; unmapped bones ride their nearest mapped ancestor. So:
   also for "Plain", the material given to parts with none).
 - **Props the model lacks** (a lightsaber for a sword base): build the
   mesh in `fit.py` after `retarget()`, weight it wholly to the weapon
-  joint, add it to `OBS` and its colour to `TEX_COLORS` (Yoda's fit.py).
+  joint, add it to `OBS` and its colour to `TEX_COLORS`.
 - **A part of one material that needs another colour** (the inside of a
   mouth): split those faces off in `fit.py` into their own object and
   material (King Boo's fit.py: faces well inside the body, on its front).
@@ -538,8 +538,8 @@ hidden   J11,J38            optional (make_pack.sh writes it from HIDE_JOINTS): 
 `Pl??.dat` files (`validate.py --disc` checks) or another pack. Taken on
 the NTSC 1.02 disc: Bo Ca Ch Cl Co Dk Dr Fc Fe Fx Gk Gl Gn Gw Kb Kp Lg Lk
 Mh Mr Ms Mt Nn Ns Pc Pe Pk Pp Pr Sb Sk Ss Ys Zd (Gn is Ganondorf). Packs
-made so far: Ge Geno, Cr Crewmate, Op Optimus Prime, Yo Yoda, Kg King Boo
-(retired, ids free again: Fr Kr Sh Th Wa). Up to 16 packs.
+made so far: Ge Geno, Cr Crewmate, Op Optimus Prime, Kg King Boo
+(retired, ids free again: Fr Kr Sh Th Wa Yo). Up to 16 packs.
 
 fighter.cfg, motions.bin and every costume file are hashed for online play (same packs
 on both machines = custom fighters allowed; otherwise base fighters only).
@@ -672,7 +672,7 @@ hidden key the frame before and after each window (crisp edges).
 A custom fighter on Link or Young Link has no hookshot: the grab code asks
 `ftCustom_GrabKind` and treats it as an ordinary grabber, so its Catch,
 CatchDash (catch-element hitboxes, `k.hit(..., element="catch")` on the
-base's Catch script), CatchWait and CatchAttack are its own (Yoda's Force
+base's Catch script), CatchWait and CatchAttack are its own (a Force-style
 grab). Other bases' grabs are already ordinary: give them the character's
 own animations the same way.
 
