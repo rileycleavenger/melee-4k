@@ -51,7 +51,8 @@ mkdir -p "${STAGE}/PUT-YOUR-ROM-HERE" "${STAGE}/.setup"
 ditto "${BUILD_DIR}/Melee.app" "${STAGE}/${PRODUCT_FILE}.app"
 if [[ -n "${FIGHTERS:-}" ]]; then
     mkdir -p "${STAGE}/${PRODUCT_FILE}.app/Contents/Resources/fighters"
-    cp -R "${FIGHTERS}"/. "${STAGE}/${PRODUCT_FILE}.app/Contents/Resources/fighters/"
+    # -X: no extended attributes (the zip would carry them as ._ files)
+    cp -RX "${FIGHTERS}"/. "${STAGE}/${PRODUCT_FILE}.app/Contents/Resources/fighters/"
     codesign --force --deep --sign - --timestamp=none "${STAGE}/${PRODUCT_FILE}.app"
     codesign --verify --deep --strict "${STAGE}/${PRODUCT_FILE}.app"
     # Every pack's model credits, where players see them.
