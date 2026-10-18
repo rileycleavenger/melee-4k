@@ -8,6 +8,7 @@
 #     Setup.command         one-time setup (platforms/release/Setup.command)
 #     .setup/<slug>-setup   tools/setup/setup.py frozen with PyInstaller
 #     README.txt            platforms/release/README.txt
+#     CREDITS.txt           the custom fighters' model credits (with FIGHTERS)
 #
 # FIGHTERS=<folder of packs> ships those custom fighters inside the app
 # (Contents/Resources/fighters); the product must load packs
@@ -53,6 +54,10 @@ if [[ -n "${FIGHTERS:-}" ]]; then
     cp -R "${FIGHTERS}"/. "${STAGE}/${PRODUCT_FILE}.app/Contents/Resources/fighters/"
     codesign --force --deep --sign - --timestamp=none "${STAGE}/${PRODUCT_FILE}.app"
     codesign --verify --deep --strict "${STAGE}/${PRODUCT_FILE}.app"
+    # Every pack's model credits, where players see them.
+    for credits in "${FIGHTERS}"/*/CREDITS.txt; do
+        [[ -f "${credits}" ]] && { cat "${credits}"; printf '\n\n'; }
+    done > "${STAGE}/CREDITS.txt"
 fi
 cp "${SETUP_WORK}/dist/${PRODUCT_SLUG}-setup" "${STAGE}/.setup/"
 cp "${ROOT_DIR}/platforms/release/Setup.command" "${STAGE}/"
