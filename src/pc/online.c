@@ -513,8 +513,11 @@ static void reset_all(void) {
     s_held_n = 0;
 }
 
+/* The product (product.env) and its version: Melee 4K and a fork never
+ * share a lobby, even at the same version number. */
 static uint32_t build_of(const char* rev) {
-    return fnv(fnv(2166136261u, rev, strlen(rev)), "proto1", 6);
+    const uint32_t product = fnv(2166136261u, PC_PRODUCT_SLUG, strlen(PC_PRODUCT_SLUG));
+    return fnv(fnv(product, rev, strlen(rev)), "proto1", 6);
 }
 
 static void set_identity(const char* name) {
