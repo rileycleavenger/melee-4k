@@ -52,13 +52,14 @@ static struct {
     const FtCustomMoves* moves;
 } s_custom[PC_FIGHTER_PACKS_MAX];
 
-/* Every custom fighter's compiled moves, by the name fighter.cfg uses. */
+/* Every custom fighter's compiled moves, by the name fighter.cfg uses;
+ * NULL ends the list. */
 extern const FtCustomMoves ftGe_Moves;
 extern const FtCustomMoves ftOp_Moves;
 extern const FtCustomMoves ftKg_Moves;
 extern const FtCustomMoves ftCr_Moves;
 static const FtCustomMoves* const k_moves[] = {
-    &ftGe_Moves, &ftOp_Moves, &ftKg_Moves, &ftCr_Moves,
+    &ftGe_Moves, &ftOp_Moves, &ftKg_Moves, &ftCr_Moves, NULL,
 };
 
 /* The base fighter's own special entries, for the fighters not wearing a
@@ -191,7 +192,7 @@ void ftCustom_Init(void)
         s_custom[s_n_custom].first = have;
         s_custom[s_n_custom].count = pk->n_costumes;
         s_custom[s_n_custom].moves = NULL;
-        for (c = 0; pk->moves[0] != '\0' && c < (int) (sizeof k_moves / sizeof k_moves[0]); c++) {
+        for (c = 0; pk->moves[0] != '\0' && k_moves[c] != NULL; c++) {
             if (strcmp(k_moves[c]->name, pk->moves) == 0) {
                 s_custom[s_n_custom].moves = k_moves[c];
                 take_specials(base);
