@@ -3,6 +3,10 @@
 Super Smash Bros. Melee on your Mac or Windows PC: 4K, widescreen, HD
 textures, and up to 144 fps.
 
+New fighters (Geno, King Boo, Optimus Prime, the Crewmate) are in
+**[Melee++](https://github.com/rileycleavenger/melee-plus-plus)**, Melee 4K's
+sister edition. Melee 4K itself stays the original roster.
+
 [![Gameplay on Yoshi's Story: click to watch](docs/media/yoshis-story.jpg)](docs/media/gameplay.mp4)
 
 **[▶ Watch gameplay](docs/media/gameplay.mp4)**
