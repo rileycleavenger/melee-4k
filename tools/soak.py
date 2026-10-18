@@ -64,7 +64,7 @@ GS_VS, GS_TRAINING = 0x02, 0x04
 
 def pack_slots(packs):
     """(pack id, costume) for every costume of every pack in `packs`
-    (fighters/<id>/fighter.cfg, docs/fighters.md)."""
+    (fighters/<id>/fighter.cfg; packs load in Melee++ only)."""
     out = []
     for d in sorted(os.listdir(packs)):
         cfg = os.path.join(packs, d, "fighter.cfg")

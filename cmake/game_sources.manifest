@@ -305,7 +305,6 @@ src/melee/ft/kinds/ftGameWatch/ftgamewatchspeciallw.c
 src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c
 src/melee/ft/kinds/ftGameWatch/ftgamewatchspecials.c
 src/melee/ft/kinds/ftGanon/ftganon.c
-src/melee/ft/kinds/ftGeno/ftgeno.c
 src/melee/ft/kinds/ftGigaKoopa/ftgkoopa.c
 src/melee/ft/kinds/ftKirby/ftkirby.c
 src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c
@@ -449,9 +448,6 @@ src/melee/ft/kinds/ftSeak/ftseakspecialhi.c
 src/melee/ft/kinds/ftSeak/ftseakspeciallw.c
 src/melee/ft/kinds/ftSeak/ftseakspecialn.c
 src/melee/ft/kinds/ftSeak/ftseakspecials.c
-src/melee/ft/kinds/ftOptimus/ftoptimus.c
-src/melee/ft/kinds/ftKingBoo/ftkingboo.c
-src/melee/ft/kinds/ftCrewmate/ftcrewmate.c
 src/melee/ft/kinds/ftYoshi/ftyoshi.c
 src/melee/ft/kinds/ftYoshi/ftyoshiguard.c
 src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c

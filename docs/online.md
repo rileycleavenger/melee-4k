@@ -141,8 +141,9 @@ A host then lets in only its own build: a JOIN from any other version is
 refused ("The host has another Melee 4K version: both need the latest").
 So everyone in a lobby runs the same latest version.
 
-Custom fighters: the JOIN's extension (`JoinExt`, magic `M4KX`) carries
-the content hash of the custom fighter packs (docs/fighters.md). The same
+Custom fighters (Melee++ only; Melee 4K loads none): the JOIN's extension
+(`JoinExt`, magic `M4KX`) carries the content hash of the custom fighter
+packs. The same
 packs play with custom fighters; different packs play with the **base
 fighters only**, for the whole lobby: the host marks its packets
 (`Hdr.flags`, `HDR_BASE_ONLY`), custom fighter icons are hidden on

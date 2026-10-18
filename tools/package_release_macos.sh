@@ -10,8 +10,8 @@
 #     README.txt            platforms/release/README.txt
 #
 # FIGHTERS=<folder of packs> ships those custom fighters inside the app
-# (Contents/Resources/fighters, docs/fighters.md); the product must load
-# packs (PRODUCT_FIGHTER_PACKS=1).
+# (Contents/Resources/fighters); the product must load packs
+# (PRODUCT_FIGHTER_PACKS=1: Melee++, not Melee 4K).
 #
 # Setup downloads the newest texture pack release by default (setup.py's
 # DEFAULT_MANIFEST). Needs the repo .venv with pyinstaller

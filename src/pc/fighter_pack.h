@@ -7,8 +7,10 @@
  * (Pl<id><suffix>.dat) and textures/ (HD replacements). It is played as an
  * existing fighter (its base) wearing its own costumes: the game gives the
  * base fighter extra costume numbers (src/melee/ft/ftcustom.c), and every
- * costume file becomes a file on the virtual disc. tools/fighter/ and the
- * make-fighter skill make packs; docs/fighters.md has the layout.
+ * costume file becomes a file on the virtual disc. Melee 4K loads no packs
+ * (product.env PRODUCT_FIGHTER_PACKS=0): custom fighters, the tools that
+ * make them (tools/fighter/) and their docs (docs/fighters.md) are in the
+ * Melee++ fork, github.com/rileycleavenger/melee-plus-plus.
  *
  * fighter.cfg, one "key value" per line, # comments:
  *   id       Ge                  two letters, unused by the disc's Pl*.dat

@@ -52,8 +52,8 @@ workflow (see [setup.md](setup.md)).
 |---|---|
 | Rendering | `AURORA_SCREENSHOT_FRAMES=600,1200` writes those frames at full render resolution as TGA (`extern/aurora/lib/gfx/screenshot.cpp`). Aurora logs every framebuffer resize. |
 | Textures | `MELEE_TEXTURE_DIR` loads a pack from any folder. `MELEE_TEXTURE_DUMP=1` writes every texture with no replacement to `<cache>/texture_dumps`. Thumbnails of block-compressed replacements whose mip tail is not 4x4 aligned are skipped instead of failing (`dds_io.cpp`). |
-| Testing | `MELEE_DEBUG_VS_CHARS=<ckind>:<costume>[h],...` boots the debug VS match with up to four chosen fighters: CPUs, or human with `h`; `<ckind>` can be a custom fighter's pack id. |
-| Custom fighters | Fighter packs add new characters on an existing fighter's skeleton: [fighters.md](fighters.md). |
+| Testing | `MELEE_DEBUG_VS_CHARS=<ckind>:<costume>[h],...` boots the debug VS match with up to four chosen fighters: CPUs, or human with `h`; `<ckind>` can be a custom fighter's pack id (Melee++). |
+| Custom fighters | Not in Melee 4K: they live in the [Melee++](https://github.com/rileycleavenger/melee-plus-plus) fork, which builds this same game with fighter packs on (`product.env`). The engine hooks for packs stay here, unused. |
 | Product | `product.env` names what the tree builds: the name players see, the GitHub repo its updates and online's latest-version check use, the app, folder and zip names, the version, and whether custom fighter packs load. A fork that ships its own game (Melee++) changes only that file and `install.sh`'s copy of it (`tools/test_product.py` checks they agree). The settings folder (and so the HD textures) is shared. |
 | Apple arm64 | Variadic `lbArchive_*` lists end in `NULL`, not `0` (crash loading stages; see `porting-notes.md`). Aurora's `system_info.cpp` builds on older SDKs. |
 | Gameplay fixes | Pichu's Thunder no longer dereferences a stale pointer (`ftpikachuspeciallw.c`). Big Blue's stage parameters are read as big-endian disc data (`grbigblue.c`): before this, every Big Blue match crashed at entry. |

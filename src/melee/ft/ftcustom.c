@@ -54,12 +54,8 @@ static struct {
 
 /* Every custom fighter's compiled moves, by the name fighter.cfg uses;
  * NULL ends the list. */
-extern const FtCustomMoves ftGe_Moves;
-extern const FtCustomMoves ftOp_Moves;
-extern const FtCustomMoves ftKg_Moves;
-extern const FtCustomMoves ftCr_Moves;
 static const FtCustomMoves* const k_moves[] = {
-    &ftGe_Moves, &ftOp_Moves, &ftKg_Moves, &ftCr_Moves, NULL,
+    NULL,
 };
 
 /* The base fighter's own special entries, for the fighters not wearing a
