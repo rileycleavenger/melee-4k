@@ -70,5 +70,7 @@ codesign --force --sign - --timestamp=none "${STAGE}/.setup/${PRODUCT_SLUG}-setu
 
 echo "=== Zipping ==="
 rm -f "${ZIP}"
-ditto -c -k --keepParent "${STAGE}" "${ZIP}"
+# No extended attributes (macOS tags files with com.apple.provenance): the
+# zip would carry them as ._ files.
+ditto -c -k --norsrc --noextattr --keepParent "${STAGE}" "${ZIP}"
 ls -lh "${ZIP}"
