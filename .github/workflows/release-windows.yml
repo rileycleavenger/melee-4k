@@ -1,8 +1,9 @@
 name: Release (Windows)
 
-# The player-facing Windows zip:
-#   Melee4K/
-#     Melee4K/              melee.exe, DLLs, resources (tools/package_windows.sh)
+# The player-facing Windows zip, <FILE>-Windows-x86_64.zip (<FILE> from
+# product.env: Melee4K):
+#   <FILE>/
+#     <FILE>/               melee.exe, DLLs, resources (tools/package_windows.sh)
 #     PUT-YOUR-ROM-HERE/
 #     Setup.exe             tools/setup/setup.py frozen with PyInstaller
 #     README.txt            platforms/release/README.txt
@@ -44,7 +45,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Assemble Melee4K-Windows
+    name: Assemble the Windows zip
     needs: game
     runs-on: windows-latest
     steps:
@@ -56,6 +57,12 @@ jobs:
         with:
           name: game
           path: game
+      - name: Read product.env
+        shell: pwsh
+        run: |
+          foreach ($line in Get-Content product.env) {
+            if ($line -match '^([A-Z_]+)="?([^"]*)"?$') { "$($Matches[1])=$($Matches[2])" >> $env:GITHUB_ENV }
+          }
       - name: Freeze Setup.exe
         shell: pwsh
         env:
@@ -69,21 +76,21 @@ jobs:
               $env:MANIFEST)
           }
           Set-Content -Path setup_frozen.py -Value $src -NoNewline
-          python -m PyInstaller --onefile --console --collect-data certifi --icon platforms/windows/melee.ico --name Setup setup_frozen.py
+          python -m PyInstaller --onefile --console --collect-data certifi --icon platforms/windows/melee.ico --add-data "product.env:." --name Setup setup_frozen.py
       - name: Assemble and zip
         shell: pwsh
         run: |
           Expand-Archive game/Melee-Windows-x86_64.zip -DestinationPath unpacked
-          $stage = "out/Melee4K"
+          $stage = "out/$env:PRODUCT_FILE"
           New-Item -ItemType Directory -Force "$stage/PUT-YOUR-ROM-HERE" | Out-Null
-          Move-Item unpacked/melee-windows-x86_64 "$stage/Melee4K"
+          Move-Item unpacked/melee-windows-x86_64 "$stage/$env:PRODUCT_FILE"
           Copy-Item dist/Setup.exe $stage
           Copy-Item platforms/release/README.txt $stage
           Set-Content "$stage/PUT-YOUR-ROM-HERE/put your .iso here.txt" `
             "Put your Super Smash Bros. Melee (USA 1.02) disc image in this folder."
-          Compress-Archive -Path $stage -DestinationPath out/Melee4K-Windows-x86_64.zip
+          Compress-Archive -Path $stage -DestinationPath "out/$env:PRODUCT_FILE-Windows-x86_64.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: Melee4K-Windows-x86_64
-          path: out/Melee4K-Windows-x86_64.zip
+          name: ${{ env.PRODUCT_FILE }}-Windows-x86_64
+          path: out/${{ env.PRODUCT_FILE }}-Windows-x86_64.zip
           if-no-files-found: error

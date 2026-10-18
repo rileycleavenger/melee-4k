@@ -36,11 +36,11 @@ int main(int argc, char**) {
 #endif
     const std::vector<Asset> releases{
         {"Melee-aarch64.AppImage", "linux-arm", 10},
-        {"Melee4K-Windows-arm64.zip", "windows-arm", 20},
-        {"Melee4K-macOS-arm64.zip", "mac-arm", 30},
+        {PC_PRODUCT_FILE "-Windows-arm64.zip", "windows-arm", 20},
+        {PC_PRODUCT_FILE "-macOS-arm64.zip", "mac-arm", 30},
         {"Melee-x86_64.AppImage", "linux-x86", 40},
-        {"Melee4K-Windows-x86_64.zip", "windows-x86", 50},
-        {"Melee4K-macOS-x86_64.zip", "mac-x86", 60},
+        {PC_PRODUCT_FILE "-Windows-x86_64.zip", "windows-x86", 50},
+        {PC_PRODUCT_FILE "-macOS-x86_64.zip", "mac-x86", 60},
         {"Melee-Android-arm64.apk", "android", 70},
         {"Melee-iOS-arm64.ipa", "ios", 80},
         {"melee-linux-x86_64.tar.gz", "tar", 90},

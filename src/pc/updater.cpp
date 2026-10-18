@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "updater.hpp"
 #include "version.hpp"
+#include "product.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -364,9 +365,9 @@ std::string select_best_asset(const std::vector<Asset>& assets, std::string& out
         const std::string linux_arch = architecture == "arm64" ? "aarch64" : arch;
         names = {"Melee-" + linux_arch + ".AppImage", "melee-linux-" + linux_arch + ".tar.gz"};
     } else if (platform == "Windows" || platform == "macOS") {
-        /* Melee 4K's release zips (tools/package_release_macos.sh,
+        /* The release zips (tools/package_release_macos.sh,
          * .github/workflows/release-windows.yml) */
-        names = {"Melee4K-" + std::string(platform) + "-" + arch + ".zip"};
+        names = {PC_PRODUCT_FILE "-" + std::string(platform) + "-" + arch + ".zip"};
     } else if (platform == "Android") {
         names = {"Melee-Android-" + arch + ".apk"};
     } else if (platform == "iOS") {
@@ -654,10 +655,10 @@ void check_for_updates_async(bool include_prereleases) {
 
 #if defined(_WIN32)
         ok = http_get_string_winhttp(
-            L"api.github.com", L"/repos/rileycleavenger/melee-4k/releases", body, error);
+            L"api.github.com", L"/repos/" PC_PRODUCT_REPO "/releases", body, error);
 #elif defined(MELEE_USE_CURL)
         ok = http_get_string_curl(
-            "https://api.github.com/repos/rileycleavenger/melee-4k/releases", body, error);
+            "https://api.github.com/repos/" PC_PRODUCT_REPO "/releases", body, error);
 #else
         error = "Networking unsupported on this platform";
 #endif
@@ -678,7 +679,7 @@ void check_for_updates_async(bool include_prereleases) {
         auto releases = parse_github_releases(body);
         if (releases.empty()) {
             g_updater_state.status = Status::UpToDate;
-            g_updater_state.message = "Melee 4K is up to date.";
+            g_updater_state.message = PC_PRODUCT_NAME " is up to date.";
             return;
         }
 
@@ -700,7 +701,7 @@ void check_for_updates_async(bool include_prereleases) {
 
         if (!best_release) {
             g_updater_state.status = Status::UpToDate;
-            g_updater_state.message = "Melee 4K is up to date.";
+            g_updater_state.message = PC_PRODUCT_NAME " is up to date.";
             return;
         }
 
@@ -715,7 +716,7 @@ void check_for_updates_async(bool include_prereleases) {
             g_updater_state.message = "Update available: " + best_release->tag_name;
         } else {
             g_updater_state.status = Status::UpToDate;
-            g_updater_state.message = "Melee 4K is up to date (" + current_ver + ").";
+            g_updater_state.message = PC_PRODUCT_NAME " is up to date (" + current_ver + ").";
         }
     });
 }
@@ -825,7 +826,7 @@ void open_release_in_browser() {
         url = g_updater_state.latest_release.html_url;
     }
     if (url.empty()) {
-        url = "https://github.com/rileycleavenger/melee-4k/releases";
+        url = "https://github.com/" PC_PRODUCT_REPO "/releases";
     }
     SDL_OpenURL(url.c_str());
 }
@@ -851,18 +852,18 @@ void open_downloaded_location() {
 /* Check for Updates' install: Setup (tools/setup/setup.py --update) waits
  * for the game to close, puts the release over this install, keeping the
  * disc, saves, settings and textures, and starts the game again. Setup's
- * folder is the one its last run wrote down (melee4k-install-root.txt in the
+ * folder is the one its last run wrote down (<slug>-install-root.txt in the
  * settings folder); failing that, where the release zips put it. */
 static std::filesystem::path find_setup(std::filesystem::path& root) {
     std::error_code ec;
 #if defined(_WIN32)
     const char* setup_name = "Setup.exe";
 #else
-    const char* setup_name = ".setup/melee4k-setup";
+    const char* setup_name = ".setup/" PC_PRODUCT_SLUG "-setup";
 #endif
     std::vector<std::filesystem::path> roots;
     if (char* user = pc_user_dir()) {
-        std::ifstream f(std::filesystem::u8path(user) / "melee4k-install-root.txt");
+        std::ifstream f(std::filesystem::u8path(user) / PC_PRODUCT_SLUG "-install-root.txt");
         SDL_free(user);
         std::string line;
         if (std::getline(f, line)) {
@@ -875,12 +876,12 @@ static std::filesystem::path find_setup(std::filesystem::path& root) {
     if (const char* base = SDL_GetBasePath()) {
         auto exe_dir = std::filesystem::u8path(base);
 #if defined(_WIN32)
-        roots.push_back(exe_dir.parent_path().parent_path()); /* Melee4K\Melee4K\melee.exe */
+        roots.push_back(exe_dir.parent_path().parent_path()); /* <FILE>\<FILE>\melee.exe */
         roots.push_back(exe_dir.parent_path());
 #endif
     }
     if (const char* home = std::getenv("HOME"))
-        roots.push_back(std::filesystem::u8path(home) / "Melee4K");
+        roots.push_back(std::filesystem::u8path(home) / PC_PRODUCT_FILE);
     for (const auto& r : roots) {
         auto setup = r / setup_name;
         if (std::filesystem::is_regular_file(setup, ec)) {
@@ -1004,7 +1005,7 @@ bool apply_update_and_restart(std::string& error) {
  * Online play is for the latest release only: this copy's version must not
  * be older than the newest non-prerelease release on GitHub. Checked once a
  * run, in the background, from boot. The answer is cached in the user
- * folder (latest_release: "<tag> <unix seconds>") and a cached answer under
+ * folder (<slug>-latest_release: "<tag> <unix seconds>") and a cached answer under
  * a week old stands in when GitHub cannot be reached.
  * MELEE_ONLINE_LATEST=<tag>: the latest release, without asking (tests). */
 namespace {
@@ -1024,7 +1025,8 @@ struct LatestJoin {
 
 std::filesystem::path latest_cache_path() {
     char* dir = pc_user_dir();
-    std::filesystem::path p = dir != nullptr ? std::filesystem::path(dir) / "latest_release" : "latest_release";
+    const char* name = PC_PRODUCT_SLUG "-latest_release";
+    std::filesystem::path p = dir != nullptr ? std::filesystem::path(dir) / name : name;
     SDL_free(dir);
     return p;
 }
@@ -1061,10 +1063,10 @@ extern "C" void pc_latest_release_start(void) {
         bool ok = false;
 #if defined(_WIN32)
         ok = pc::updater::http_get_string_winhttp(
-            L"api.github.com", L"/repos/rileycleavenger/melee-4k/releases", body, error);
+            L"api.github.com", L"/repos/" PC_PRODUCT_REPO "/releases", body, error);
 #elif defined(MELEE_USE_CURL)
         ok = pc::updater::http_get_string_curl(
-            "https://api.github.com/repos/rileycleavenger/melee-4k/releases", body, error);
+            "https://api.github.com/repos/" PC_PRODUCT_REPO "/releases", body, error);
 #endif
         std::string best;
         if (ok) {

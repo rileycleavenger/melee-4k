@@ -9,13 +9,13 @@
     <key>CFBundleIconFile</key>
     <string>melee</string>
     <key>CFBundleIdentifier</key>
-    <string>org.melee-pc.melee</string>
+    <string>@BUNDLE_ID@</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Melee</string>
+    <string>@PRODUCT_NAME@</string>
     <key>CFBundleDisplayName</key>
-    <string>Melee</string>
+    <string>@PRODUCT_NAME@</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -34,7 +34,7 @@
          (mDNS discovery in src/pc/net_lan.c and the match socket). Without
          these the system can block that traffic without ever asking. -->
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Melee 4K connects to other players on your network for online matches.</string>
+    <string>@PRODUCT_NAME@ connects to other players on your network for online matches.</string>
     <key>NSBonjourServices</key>
     <array>
         <string>_meleepc._udp</string>

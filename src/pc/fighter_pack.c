@@ -7,6 +7,7 @@
 #include "pc/fighter_pack.h"
 
 #include "pc/pc.h"
+#include "pc/product.h"
 
 #include <SDL3/SDL.h>
 #include <aurora/dvd.h>
@@ -298,7 +299,8 @@ void pc_fighter_packs_init(void) {
     }
     done = true;
     char root[512];
-    if (fighters_dir(root, sizeof root)) {
+    /* A product without custom fighters (product.env) never loads packs. */
+    if (PC_PRODUCT_FIGHTER_PACKS && fighters_dir(root, sizeof root)) {
         pc_fighter_packs_load(root);
     }
 }

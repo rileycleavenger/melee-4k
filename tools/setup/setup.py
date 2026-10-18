@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Melee 4K Setup: put your disc image in PUT-YOUR-ROM-HERE, run this, play.
+(The game it sets up is product.env's: its name, release repo and files.)
 
     Setup.command (macOS) / Setup.exe (Windows), or: python3 tools/setup/setup.py
         [--root DIR] [--manifest URL|FILE] [--no-launch] [--skip-textures]
@@ -43,12 +44,33 @@ DISC_EXTS = (".iso", ".gcm", ".ciso", ".rvz", ".gcz", ".wbfs")
 DEFAULT_MANIFEST = os.environ.get(
     "MELEE4K_MANIFEST",
     "https://github.com/rileycleavenger/melee-4k-textures/releases/latest/download/manifest.json")
-PACK_VERSION_FILE = ".melee4k-pack"
-REPO = "rileycleavenger/melee-4k"
-RELEASE_ASSET = {"Darwin": "Melee4K-macOS-arm64.zip", "Windows": "Melee4K-Windows-x86_64.zip"}
+PACK_VERSION_FILE = ".melee4k-pack"  # the textures are shared by every product
+
+
+def read_product():
+    """The product (product.env at the repo root: name, release repo, file
+    names); a frozen Setup carries the file (--add-data)."""
+    here = getattr(sys, "_MEIPASS", None) or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "..")
+    values = {}
+    with open(os.path.join(here, "product.env"), encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                values[key] = value.strip('"')
+    return values
+
+
+PRODUCT = read_product()
+NAME = PRODUCT["PRODUCT_NAME"]  # "Melee 4K"
+FILE = PRODUCT["PRODUCT_FILE"]  # "Melee4K": the app, its folder, the zips
+SLUG = PRODUCT["PRODUCT_SLUG"]  # "melee4k": Setup's program, its files in user_dir()
+REPO = PRODUCT["PRODUCT_REPO"]
+RELEASE_ASSET = {"Darwin": f"{FILE}-macOS-arm64.zip", "Windows": f"{FILE}-Windows-x86_64.zip"}
 # Where the game looks for Setup when the player asks for an update: this
 # install's folder, written by every Setup run (src/pc/updater.cpp).
-INSTALL_ROOT_FILE = "melee4k-install-root.txt"
+INSTALL_ROOT_FILE = f"{SLUG}-install-root.txt"
 
 
 def ssl_contexts():
@@ -149,8 +171,8 @@ def user_dir():
 
 def find_game(root):
     candidates = {
-        "Darwin": ["Melee4K.app/Contents/MacOS/melee", "build/macos/melee"],
-        "Windows": ["Melee4K/melee.exe", "melee.exe", "build/windows/melee.exe"],
+        "Darwin": [f"{FILE}.app/Contents/MacOS/melee", "build/macos/melee"],
+        "Windows": [f"{FILE}/melee.exe", "melee.exe", "build/windows/melee.exe"],
     }.get(platform.system(), ["melee", "build/linux/melee"])
     for rel in candidates:
         path = os.path.join(root, rel)
@@ -218,7 +240,7 @@ def fetch(url, dest):
         shutil.copyfile(url[7:] if url.startswith("file://") else url, dest)
         return
     have = os.path.getsize(dest) if os.path.exists(dest) else 0
-    req = urllib.request.Request(url, headers={"User-Agent": "Melee4K-Setup"})
+    req = urllib.request.Request(url, headers={"User-Agent": f"{FILE}-Setup"})
     if have:
         req.add_header("Range", f"bytes={have}-")
     with urlopen(req, timeout=60) as resp:
@@ -252,7 +274,7 @@ def sha256(path):
 def load_manifest(where):
     try:
         if where.startswith(("http://", "https://")):
-            req = urllib.request.Request(where, headers={"User-Agent": "Melee4K-Setup"})
+            req = urllib.request.Request(where, headers={"User-Agent": f"{FILE}-Setup"})
             with urlopen(req, timeout=60) as resp:
                 return json.load(resp)
         with open(where[7:] if where.startswith("file://") else where) as f:
@@ -344,32 +366,32 @@ def install_textures(manifest_src, root):
 def clear_quarantine(root):
     if platform.system() != "Darwin":
         return
-    app = os.path.join(root, "Melee4K.app")
+    app = os.path.join(root, f"{FILE}.app")
     if os.path.isdir(app):
         subprocess.run(["xattr", "-dr", "com.apple.quarantine", app],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def desktop_shortcut(game):
-    """Windows: a "Melee 4K" shortcut on the desktop (README step 4)."""
+    """Windows: a NAME shortcut on the desktop (README step 4)."""
     if platform.system() != "Windows":
         return
     # The real Desktop folder: OneDrive moves it out of %USERPROFILE%.
     script = ("$d = [Environment]::GetFolderPath('Desktop'); "
               "$s = (New-Object -ComObject WScript.Shell).CreateShortcut("
-              "(Join-Path $d 'Melee 4K.lnk')); "
+              "(Join-Path $d $env:M4K_LINK)); "
               "$s.TargetPath = $env:M4K_GAME; $s.WorkingDirectory = $env:M4K_DIR; "
               "$s.IconLocation = $env:M4K_GAME; $s.Save()")
-    env = dict(os.environ, M4K_GAME=game, M4K_DIR=os.path.dirname(game))
+    env = dict(os.environ, M4K_GAME=game, M4K_DIR=os.path.dirname(game), M4K_LINK=f"{NAME}.lnk")
     try:
         subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
                        env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        say("    Added a \"Melee 4K\" shortcut to your desktop.")
+        say(f"    Added a \"{NAME}\" shortcut to your desktop.")
     except (OSError, subprocess.CalledProcessError) as e:
         log(f"shortcut: {e}")  # optional; the game still runs from its folder
 
 
-FIREWALL_RULE = "Melee 4K"
+FIREWALL_RULE = NAME
 
 
 def firewall_rule(game):
@@ -387,7 +409,7 @@ def firewall_rule(game):
              "verbose"], capture_output=True, text=True)
         if shown.returncode == 0 and game.lower() in shown.stdout.lower():
             return
-        say("    Allowing Melee 4K through Windows Firewall for online play "
+        say(f"    Allowing {NAME} through Windows Firewall for online play "
             "(Windows will ask for permission)...")
         args = (f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow '
                 f'program="{game}" protocol=UDP profile=any enable=yes')
@@ -416,8 +438,8 @@ def mac_desktop_link(root):
     """macOS: the Desktop shortcut install.sh makes, made again on update."""
     if platform.system() != "Darwin":
         return
-    app = os.path.realpath(os.path.join(root, "Melee4K.app"))
-    desk = os.path.expanduser("~/Desktop/Melee 4K.app")
+    app = os.path.realpath(os.path.join(root, f"{FILE}.app"))
+    desk = os.path.expanduser(f"~/Desktop/{NAME}.app")
     if os.path.isdir(app) and (os.path.islink(desk) or not os.path.exists(desk)):
         try:
             if os.path.islink(desk):
@@ -442,7 +464,7 @@ def wait_for_exit(pid, seconds=30):
             except OSError:
                 return
         time.sleep(0.5)
-    raise SetupError("Melee 4K did not close; close it and choose Check for Updates again.")
+    raise SetupError(f"{NAME} did not close; close it and choose Check for Updates again.")
 
 
 def release_asset(tag):
@@ -453,7 +475,7 @@ def release_asset(tag):
     api = (f"https://api.github.com/repos/{REPO}/releases/tags/{tag}" if tag
            else f"https://api.github.com/repos/{REPO}/releases/latest")
     try:
-        req = urllib.request.Request(api, headers={"User-Agent": "Melee4K-Setup",
+        req = urllib.request.Request(api, headers={"User-Agent": f"{FILE}-Setup",
                                                    "Accept": "application/vnd.github+json"})
         with urlopen(req, timeout=60) as resp:
             release = json.load(resp)
@@ -503,7 +525,7 @@ def replace_file(src, dst):
 def update(root, tag):
     """Download the release and put it over this install."""
     version, url = release_asset(tag)
-    say(f"    Downloading Melee 4K {version}...")
+    say(f"    Downloading {NAME} {version}...")
     work = os.path.join(root, "downloads", "update")
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
@@ -535,20 +557,20 @@ def update(root, tag):
     else:
         with zipfile.ZipFile(zip_path) as z:
             z.extractall(os.path.join(work, "new"))
-    new = os.path.join(work, "new", "Melee4K")
+    new = os.path.join(work, "new", FILE)
     if not os.path.isdir(new):
         raise SetupError("The update download is not valid; try again later.")
     if platform.system() == "Darwin":
         # install.sh moves the app to ~/Applications and leaves a link here.
-        app = os.path.realpath(os.path.join(root, "Melee4K.app"))
-        replace_tree(os.path.join(new, "Melee4K.app"), app)
-        replace_file(os.path.join(new, ".setup", "melee4k-setup"),
-                     os.path.join(root, ".setup", "melee4k-setup"))
-        os.chmod(os.path.join(root, ".setup", "melee4k-setup"), 0o755)
+        app = os.path.realpath(os.path.join(root, f"{FILE}.app"))
+        replace_tree(os.path.join(new, f"{FILE}.app"), app)
+        replace_file(os.path.join(new, ".setup", f"{SLUG}-setup"),
+                     os.path.join(root, ".setup", f"{SLUG}-setup"))
+        os.chmod(os.path.join(root, ".setup", f"{SLUG}-setup"), 0o755)
         subprocess.run(["xattr", "-dr", "com.apple.quarantine", app],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        replace_tree(os.path.join(new, "Melee4K"), os.path.join(root, "Melee4K"))
+        replace_tree(os.path.join(new, FILE), os.path.join(root, FILE))
         replace_file(os.path.join(new, "Setup.exe"), os.path.join(root, "Setup.exe"))
     for extra in ("README.txt", "Setup.command"):
         if os.path.exists(os.path.join(new, extra)):
@@ -558,12 +580,12 @@ def update(root, tag):
         os.rmdir(os.path.join(root, "downloads"))  # only when nothing else is in it
     except OSError:
         pass
-    say(f"    Melee 4K {version} installed.")
+    say(f"    {NAME} {version} installed.")
 
 
 def launch(root, game):
-    if platform.system() == "Darwin" and os.path.isdir(os.path.join(root, "Melee4K.app")):
-        subprocess.Popen(["open", os.path.join(root, "Melee4K.app")])
+    if platform.system() == "Darwin" and os.path.isdir(os.path.join(root, f"{FILE}.app")):
+        subprocess.Popen(["open", os.path.join(root, f"{FILE}.app")])
     else:
         subprocess.Popen([game], cwd=os.path.dirname(game))
 
@@ -572,10 +594,10 @@ def run_update(root, args):
     """Check for Updates, from the game: replace the game, keep everything
     else, and start it again. A failure leaves the old version in place
     where it can, and says so."""
-    say("Melee 4K update")
+    say(f"{NAME} update")
     say("")
     if args.wait_pid:
-        say("[1/3] Waiting for Melee 4K to close...")
+        say(f"[1/3] Waiting for {NAME} to close...")
         wait_for_exit(args.wait_pid)
     else:
         say("[1/3] Starting...")
@@ -619,7 +641,7 @@ def main():
     try:
         if args.update:
             return run_update(root, args)
-        say("Melee 4K Setup")
+        say(f"{NAME} Setup")
         say("")
         say("[1/4] Finding your disc image...")
         disc = find_disc(root)
@@ -645,8 +667,8 @@ def main():
             launch(root, game)
         say("")
         say("Done. Next time, just open " +
-            ("Melee4K.app." if platform.system() == "Darwin"
-             else "the Melee 4K shortcut on your desktop."))
+            (f"{FILE}.app." if platform.system() == "Darwin"
+             else f"the {NAME} shortcut on your desktop."))
         return 0
     except SetupError as e:
         say("")

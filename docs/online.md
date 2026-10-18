@@ -133,7 +133,7 @@ and joining wait for that answer (`latest_or_fail` in src/pc/online.c) and
 are refused when this copy is older: "Online needs the latest Melee 4K
 (vX): Check for Updates in the menu". A copy newer than the latest release
 (a test or pre-release build) may play. The answer is cached in the user
-folder (`latest_release`, the tag and when); when GitHub cannot be reached
+folder (`melee4k-latest_release`, the tag and when); when GitHub cannot be reached
 a cached answer under a week old stands in, and without one online is
 refused ("Couldn't reach GitHub to check for the latest version").
 

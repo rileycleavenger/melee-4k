@@ -27,6 +27,7 @@
 #include "pc/pc.h"
 #include "pc/android_hooks.h"
 #include "pc/launcher.h"
+#include "pc/product.h"
 
 int melee_main(void);
 
@@ -112,8 +113,8 @@ static void melee_install_crash_handler(void) {}
 
 /* A log file sink, so a double-clicked build still leaves a diagnosable
  * trace after its console disappears. MELEE_LOG_FILE picks the path; an
- * empty value disables it. On the desktop it defaults to melee4k.log in the
- * settings folder (the previous run's is kept as melee4k-previous.log), so a
+ * empty value disables it. On the desktop it defaults to <slug>.log in the
+ * settings folder (the previous run's is kept as <slug>-previous.log), so a
  * player can always send one: ~/Library/Application Support/melee-pc on
  * macOS, %APPDATA%\melee-pc on Windows. */
 static FILE* log_file(void) {
@@ -128,8 +129,8 @@ static FILE* log_file(void) {
             char* dir = pc_user_dir();
             if (dir != NULL) {
                 char previous[1024];
-                snprintf(fallback, sizeof fallback, "%smelee4k.log", dir);
-                snprintf(previous, sizeof previous, "%smelee4k-previous.log", dir);
+                snprintf(fallback, sizeof fallback, "%s" PC_PRODUCT_SLUG ".log", dir);
+                snprintf(previous, sizeof previous, "%s" PC_PRODUCT_SLUG "-previous.log", dir);
                 remove(previous);
                 rename(fallback, previous);
                 path = fallback;
@@ -515,7 +516,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
             }
             return pc_verify_disc_cli(argv[i + 1], pc_user_dir());
         } else if (strcmp(argv[i], "--version") == 0) {
-            printf("Melee 4K %s\n", pc_app_version());
+            printf(PC_PRODUCT_NAME " %s\n", pc_app_version());
             return 0;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);

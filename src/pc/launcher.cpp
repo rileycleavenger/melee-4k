@@ -3,6 +3,7 @@
 #include "textures.h"
 #include "widescreen.h"
 #include "launcher_data.hpp"
+#include "product.h"
 #include "discfont.h"
 #include "version.hpp"
 #include "updater.hpp"
@@ -416,7 +417,7 @@ class Launcher final : public Rml::EventListener {
         } else if (ustate.status == pc::updater::Status::Failed) {
             text("check-status", ustate.message);
         } else {
-            text("check-status", "Melee 4K is up to date (" + pc::get_app_version() + ").");
+            text("check-status", PC_PRODUCT_NAME " is up to date (" + pc::get_app_version() + ").");
         }
         notice();
         quiet = false;
@@ -1005,7 +1006,7 @@ public:
                         text("update-title", ustate.latest_release.name.empty() ?
                                                  ustate.latest_release.tag_name :
                                                  ustate.latest_release.name);
-                        std::string desc = "A newer version of Melee 4K is available (" +
+                        std::string desc = "A newer version of " PC_PRODUCT_NAME " is available (" +
                                            ustate.latest_release.tag_name + ").";
                         if (!ustate.target_asset_name.empty()) {
                             desc += " Ready to download: " + ustate.target_asset_name;
@@ -1493,7 +1494,7 @@ public:
         label("port-auto-update", prefs.check_updates ? "On" : "Off");
         label("port-disc", disc_reset ? "Undo" : "Choose another");
         label("port-disc-name", disc_reset ?
-                                    "The disc picker opens the next time you start Melee 4K." :
+                                    "The disc picker opens the next time you start " PC_PRODUCT_NAME "." :
                                     std::filesystem::path(prefs.disc).filename().string());
         auto ustate = pc::updater::get_state();
         label("port-check-update",
@@ -2198,7 +2199,7 @@ extern "C" const char* pc_m4k_description(int row) {
     if (row == M4K_UPDATES) {
         return pc::updater::get_state().status == pc::updater::Status::UpdateAvailable ?
                    "A: install. The game closes and reopens." :
-                   "A: look for a newer Melee 4K.";
+                   "A: look for a newer " PC_PRODUCT_NAME ".";
     }
     return row >= 0 && row < M4K_ROWS ? descriptions[row] : "";
 }

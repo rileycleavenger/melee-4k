@@ -41,6 +41,7 @@
 #include "fighter_pack.h"
 #include "net_code.h"
 #include "net_portmap.h"
+#include "product.h"
 #include "pc.h"
 
 #include <SDL3/SDL_clipboard.h>
@@ -641,10 +642,10 @@ const char* online_error_text(void) {
     case ONLINE_ERR_FULL:
         return "That lobby is full";
     case ONLINE_ERR_VERSION:
-        return "The host has another Melee 4K version: both need the latest";
+        return "The host has another " PC_PRODUCT_NAME " version: both need the latest";
     case ONLINE_ERR_OUTDATED: {
         static char text[96];
-        snprintf(text, sizeof text, "Online needs the latest Melee 4K (%s): Check for Updates in the menu",
+        snprintf(text, sizeof text, "Online needs the latest " PC_PRODUCT_NAME " (%s): Check for Updates in the menu",
             s_latest[0] ? s_latest : "newer");
         return text;
     }

@@ -12,6 +12,18 @@ endif ()
 
 include(cmake/MeleeToolchainCheck.cmake)
 
+# The product (product.env): its name, release repo, file names and version.
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/product.env" _product_lines REGEX "^[A-Z_]+=")
+foreach (_line IN LISTS _product_lines)
+    string(REGEX MATCH "^([A-Z_]+)=\"?([^\"]*)\"?$" _match "${_line}")
+    set(${CMAKE_MATCH_1} "${CMAKE_MATCH_2}")
+endforeach ()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/product.env")
+add_compile_definitions(
+    PC_PRODUCT_NAME="${PRODUCT_NAME}" PC_PRODUCT_FILE="${PRODUCT_FILE}"
+    PC_PRODUCT_SLUG="${PRODUCT_SLUG}" PC_PRODUCT_REPO="${PRODUCT_REPO}"
+    PC_PRODUCT_FIGHTER_PACKS=${PRODUCT_FIGHTER_PACKS} MELEE_APP_VERSION="v${PRODUCT_VERSION}")
+
 # Every platform builds the simulation at -O2 (Windows/Android packaging use
 # Release, Linux RelWithDebInfo): -O3 vectorises float reductions differently
 # and netplay needs identical bits on both peers.

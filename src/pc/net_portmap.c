@@ -11,6 +11,7 @@
  * Everything blocking runs on one background thread; the game reads the
  * result through the getters. */
 #include "net_portmap.h"
+#include "product.h"
 
 #include <SDL3/SDL_atomic.h>
 #include <SDL3/SDL_mutex.h>
@@ -489,7 +490,7 @@ static bool upnp_add(uint16_t ext, uint16_t internal, uint32_t client, int lease
         "<NewRemoteHost></NewRemoteHost><NewExternalPort>%u</NewExternalPort>"
         "<NewProtocol>UDP</NewProtocol><NewInternalPort>%u</NewInternalPort>"
         "<NewInternalClient>%s</NewInternalClient><NewEnabled>1</NewEnabled>"
-        "<NewPortMappingDescription>Melee 4K</NewPortMappingDescription>"
+        "<NewPortMappingDescription>" PC_PRODUCT_NAME "</NewPortMappingDescription>"
         "<NewLeaseDuration>%d</NewLeaseDuration>",
         ext, internal, ip, lease);
     return soap("AddPortMapping", args, out, sizeof out) == 200;
